@@ -186,6 +186,10 @@ impl BrPendingFs {
                     File(fs.meta.screenshot.clone()),
                 ),
                 (
+                    "Thumbnail.png".to_owned(),
+                    File(fs.meta.thumbnail.clone()),
+                ),
+                (
                     "World.json".to_owned(),
                     File(Some(
                         serde_json::to_vec(&fs.meta.world).about("World.json")?,

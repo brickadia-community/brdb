@@ -44,7 +44,7 @@ fn test_brick_write() -> Result<(), Box<dyn Error>> {
                 // Ensure all expected meta files exist
                 "Meta" => {
                     children.into_iter().for_each(|(n, _)| match n.as_str() {
-                        "World.json" | "Bundle.json" | "Screenshot.jpg" => {}
+                        "World.json" | "Bundle.json" | "Screenshot.jpg" | "Thumbnail.png" => {}
                         other => panic!("unknown Meta/{other}"),
                     });
                     continue;

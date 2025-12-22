@@ -55,6 +55,8 @@ pub struct WorldMeta {
     pub bundle: BundleJson,
     /// Meta/Screenshot.jpg
     pub screenshot: Option<Vec<u8>>,
+    /// Meta/Thumbnail.png
+    pub thumbnail: Option<Vec<u8>>,
     /// Meta/World.json
     pub world: WorldJson,
 }
