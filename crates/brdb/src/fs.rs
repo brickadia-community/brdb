@@ -16,7 +16,7 @@ pub enum BrFs {
 
 #[cfg(feature = "brdb")]
 pub(crate) fn now() -> i64 {
-    // Use a high-resolution timer to get the current time in milliseconds
+    // Get the current time in seconds since the Unix epoch
     let now = std::time::SystemTime::now();
     now.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64
 }

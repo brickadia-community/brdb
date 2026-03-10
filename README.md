@@ -13,15 +13,7 @@ The `.brz` format is described in [Zeblote's Brickadia brz Gist](https://gist.gi
 
 ## Format
 
-- TODO: describe file tree structure
-- TODO: describe differences between `.brdb` and `.brz`
-- TODO: describe revision mechanism and dates
-- TODO: describe blobs, compression, and hashing
-- TODO: describe msgpack-schema format
-- TODO: describe SoA (Structure of Arrays) format
-- TODO: describe flat arrays and limitations
-- TODO: describe shared schemas
-- TODO: describe entity/component `.mps` files and the data that comes after the SoAs
+See [docs/README.md](docs/README.md) for comprehensive format documentation.
 
 ## Liability
 
