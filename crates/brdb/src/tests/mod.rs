@@ -42,6 +42,21 @@ fn test_memory_db() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[cfg(feature = "wasm")]
+#[test]
+fn test_from_bytes_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
+    let db = Brdb::new_memory()?;
+    let blob_id = db.insert_blob(vec![1, 2, 3], BrBlob::hash(&[1, 2, 3]), None)?;
+    let folder_id = db.insert_folder("test_folder", None, 0)?;
+    db.insert_file("test", Some(folder_id), blob_id, 0)?;
+
+    let bytes = db.conn.serialize(rusqlite::MAIN_DB)?.to_vec();
+
+    let loaded = Brdb::from_bytes(&bytes)?;
+    assert_eq!(loaded.read_file("test_folder/test")?, vec![1, 2, 3]);
+    Ok(())
+}
+
 #[test]
 fn test_memory_save() -> Result<(), Box<dyn std::error::Error>> {
     // Ensures the memory db can be created without errors

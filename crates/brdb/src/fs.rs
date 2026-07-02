@@ -16,9 +16,14 @@ pub enum BrFs {
 
 #[cfg(feature = "brdb")]
 pub(crate) fn now() -> i64 {
-    // Get the current time in seconds since the Unix epoch
-    let now = std::time::SystemTime::now();
-    now.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64
+    // web-time works on wasm (std::time panics there); re-exports std off-wasm
+    #[cfg(feature = "wasm")]
+    use web_time::{SystemTime, UNIX_EPOCH};
+    #[cfg(not(feature = "wasm"))]
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let now = SystemTime::now();
+    now.duration_since(UNIX_EPOCH).unwrap().as_secs() as i64
 }
 
 impl BrFs {

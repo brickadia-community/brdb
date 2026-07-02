@@ -53,6 +53,19 @@ impl Brdb {
         Ok(db)
     }
 
+    /// Open a BRDB database from an in-memory byte buffer in read-only mode.
+    ///
+    /// Loads via `sqlite3_deserialize` instead of a file VFS, for targets
+    /// without a filesystem (e.g. wasm).
+    #[cfg(feature = "wasm")]
+    pub fn from_bytes(data: &[u8]) -> Result<Self, BrdbError> {
+        let mut conn = Connection::open_in_memory()?;
+        conn.deserialize_read_exact(rusqlite::MAIN_DB, std::io::Cursor::new(data), data.len(), true)?;
+        let db = Self { conn };
+        db.ensure_tables_exist()?;
+        Ok(db)
+    }
+
     /// Open an existing BRDB database at the specified path in read-only mode.
     pub fn open_readonly(path: impl AsRef<Path>) -> Result<Self, BrdbError> {
         let conn = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
@@ -208,7 +221,7 @@ impl Brdb {
                 "SELECT blob_id, compression, size_uncompressed, size_compressed, delta_base_id, hash, content
                 FROM blobs
                 WHERE hash = ?1 AND size_uncompressed = ?2;",
-                params![hash, size],
+                params![hash, size as i64],
                 |row| {
                     Ok(BrBlob {
                         blob_id: row.get(0)?,

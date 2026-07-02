@@ -14,6 +14,8 @@ rust-version = "1.88"
 default = ["brdb", "brz"]
 brdb = ["rusqlite"]
 brz = []
+# js-backed clock + `Brdb::from_bytes` for filesystem-less wasm use
+wasm = ["brdb", "rusqlite/serialize", "dep:web-time"]
 
 [build-dependencies]
 lalrpop = "0.22.2"
@@ -29,8 +31,10 @@ itertools = "0.14.0"
 lalrpop-util = { version = "0.21.0", features = ["lexer", "unicode"] }
 # msgpack-schema parsing
 rmp = "0.8.14"
-# read write of brdb files
-rusqlite = { optional = true, version = "0.36.0", features = [
+# read/write of sqlite-backed .brdb files.
+# on wasm, rusqlite's default `ffi-sqlite-wasm-rs` feature swaps libsqlite3-sys
+# for the pure-wasm `sqlite-wasm-rs` backend, so `bundled` is a no-op there.
+rusqlite = { optional = true, version = "0.40.0", features = [
   "blob",
   "bundled",
 ] }
@@ -42,3 +46,4 @@ thiserror = "2.0.12"
 # blob compression
 zstd = "0.13.3"
 uuid = { version = "1.17.0", default-features = false, features = [] }
+web-time = { optional = true, version = "1.1.0" }
