@@ -49,7 +49,14 @@ pub fn read_type(
             0 => WireVariant::Number(read_float64(buf)?),
             1 => WireVariant::Int(read_int(buf)?),
             2 => WireVariant::Bool(read_bool(buf)?),
-            3 => WireVariant::Object("unknown".to_string()),
+            // Tag 3 is a `weak_object` (object/asset reference), encoded as an
+            // i64 index; it must be consumed or the rest of the struct
+            // misaligns. The legacy union has no string member; `str` is only
+            // in the newer named `WireGraphVariant` table (handled below).
+            3 => {
+                let id = read_int(buf)?;
+                WireVariant::Object(if id < 0 { None } else { Some(id as usize) })
+            }
             4 => WireVariant::Exec,
             other => return Err(BrdbSchemaError::UnknownWireVariant(other as usize)),
         }),
@@ -58,7 +65,11 @@ pub fn read_type(
             1 => WireVariant::Int(read_int(buf)?),
             other => return Err(BrdbSchemaError::UnknownWireVariant(other as usize)),
         }),
-        "class" | "object" => {
+        "bundle_path_ref" => {
+            let s = read_str(buf)?;
+            BrdbValue::String(s)
+        }
+        "class" | "object" | "weak_object" => {
             // Assets are stored as u64 indices
             let id = read_int(buf)?;
             if id < 0 {
@@ -72,7 +83,20 @@ pub fn read_type(
             }
         }
         other => {
-            if let Some(ty) = schema.intern.get(&other) {
+            // Newer schemas encode wire graph values as tagged unions/variants:
+            // a uint tag (the member index) followed by the value of that member
+            // type. The variant's member types are defined in the schema's
+            // variant table.
+            if let Some(members) = schema.get_variant(other) {
+                let tag = read_uint(buf)? as usize;
+                let Some(member) = members.get(tag).copied() else {
+                    return Err(BrdbSchemaError::UnknownWireVariant(tag));
+                };
+                let member_ty = schema.intern.lookup_ref(member).ok_or(
+                    BrdbSchemaError::UnknownStructPropertyType(member.0.to_string()),
+                )?;
+                read_type(schema, member_ty, buf)?
+            } else if let Some(ty) = schema.intern.get(&other) {
                 read_named_type(&schema, buf, ty)?
             } else {
                 return Err(BrdbSchemaError::UnknownType(other.to_string()));

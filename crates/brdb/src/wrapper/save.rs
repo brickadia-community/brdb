@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use itertools::Itertools;
-
 use crate::{
     Wrap,
     errors::{BrError, BrdbWorldError},
@@ -9,9 +7,10 @@ use crate::{
     schema::{BrdbSchema, BrdbSchemaGlobalData},
     schemas::{BRICK_CHUNK_INDEX_SOA, BRICK_CHUNK_SOA, BRICK_WIRE_SOA},
     wrapper::{
-        Brick, BrickChunkIndexSoA, BrickChunkSoA, ChunkIndex, ComponentChunkSoA, Entity,
-        EntityChunkIndexSoA, EntityChunkSoA, LocalWirePortSource, OwnerTableSoA,
-        RemoteWirePortSource, WireChunkSoA, WireConnection, WirePortTarget, WorldMeta, schemas,
+        Brick, BrickChunkIndexSoA, BrickChunkSoA, CHUNK_HALF, CHUNK_SIZE, ChunkIndex,
+        ComponentChunkSoA, Entity, EntityChunkIndexSoA, EntityChunkSoA,
+        LocalWirePortSource, OwnerTableSoA, RemoteWirePortSource, WireChunkSoA, WireConnection,
+        WirePortTarget, WorldMeta, schemas,
     },
 };
 
@@ -77,66 +76,56 @@ impl Default for UnsavedWorld {
 }
 
 impl UnsavedWorld {
-    fn add_brick_meta(&mut self, brick: &Brick) {
-        // Adding the brick's data to the global data
+    pub(super) fn add_brick_meta(&mut self, brick: &Brick) {
         self.global_data.add_brick_meta(brick);
-
-        // Iterate the components of the brick and register
-        // their respective struct metadata with the component schema
-        for component in &brick.components {
-            // Skip components without a type
-            let Some((ty_name, _)) = component.get_schema_struct() else {
-                continue;
-            };
-
-            // If the component type is already registered, skip it
-            if self.global_data.has_component_type(ty_name.as_ref()) {
-                continue;
-            }
-            self.global_data.add_component_meta(component.as_ref());
-
-            let Some((enums, structs)) = component.get_schema() else {
-                continue;
-            };
-            self.component_schema.add_meta(enums, structs);
-        }
     }
 
     fn add_entity_meta(&mut self, entity: &Entity) {
-        let Some((ty_name, _)) = entity.data.get_schema_struct() else {
-            return;
-        };
-        self.global_data.add_entity_type(&ty_name);
-        let Some((enums, structs)) = entity.data.get_schema() else {
-            return;
-        };
-        self.entity_schema.add_meta(enums, structs);
+        let type_name: &str = entity.asset.as_ref();
+        if !self.global_data.entity_type_names.contains(type_name) {
+            let class_name = self
+                .global_data
+                .get_entity_class_name(type_name)
+                .unwrap_or(type_name)
+                .to_owned();
+            self.global_data
+                .add_entity_type_with_class(type_name, &class_name);
+        }
     }
 
-    pub(super) fn add_bricks_to_grid(&mut self, grid_id: usize, bricks: &[Brick]) {
+    pub(super) fn add_bricks_to_grid(
+        &mut self,
+        grid_id: usize,
+        bricks: &[Brick],
+    ) -> Result<(), BrdbWorldError> {
         let mut grid = UnsavedGrid::default();
 
-        // Bricks are sorted by brick type, size, and position
-        for b in bricks.iter().sorted_by(|a, b| a.cmp(b)) {
+        // Register all brick meta (materials + assets) before packing any
+        // brick: a procedural brick's on-disk type index embeds the
+        // basic-asset count at pack time, but the file's
+        // ProceduralBrickStartingIndex is stamped with the FINAL count —
+        // interleaving registration with packing corrupts the indices of
+        // procedural bricks that precede a first-seen basic asset.
+        for b in bricks.iter() {
             self.add_brick_meta(b);
+        }
 
-            // Update the owner table
+        for b in bricks.iter() {
             let owner_id = b.owner_index.unwrap_or(0);
             self.owners.inc_bricks(owner_id);
             self.owners
                 .inc_components(owner_id, b.components.len() as u32);
 
-            // Add the brick to the grid
-            let (chunk_index, brick_index) = grid.add_brick(&self.global_data, b);
-            // Track the brick for wire connections
+            let (chunk_index, brick_index) = grid.add_brick_inner(&self.global_data, b)?;
+
             if let Some(id) = b.id {
                 self.brick_id_map
                     .insert(id, (grid_id, chunk_index, brick_index));
             }
         }
 
-        // Add the grid to the world
         self.grids.insert(grid_id, grid);
+        Ok(())
     }
 
     pub(super) fn add_entity(&mut self, entity: &Entity) -> usize {
@@ -173,6 +162,44 @@ impl UnsavedWorld {
         }
 
         entity_index as usize
+    }
+
+    /// Record a brick ↔ microchip-grid-entity linkage for this world. Call
+    /// once per microchip-hosting brick, after both the brick and the inner
+    /// grid entity have been added (via `add_bricks_to_grid` and `add_entity`
+    /// respectively — typical for a `World` built through the public API, this
+    /// happens in `World::to_unsaved` for us).
+    ///
+    /// Appends to `ComponentChunkSoA.microchip_brick_indices` /
+    /// `microchip_brick_grid_references` on the chunk that holds the brick.
+    pub(super) fn add_microchip_link(
+        &mut self,
+        brick_id: usize,
+        entity_id: usize,
+    ) -> Result<(), BrError> {
+        let (grid_id, chunk_index, brick_index) = self
+            .brick_id_map
+            .get(&brick_id)
+            .copied()
+            .ok_or(BrdbWorldError::UnknownBrickId(brick_id))?;
+        let entity_persistent = self
+            .entity_index_map
+            .get(&entity_id)
+            .copied()
+            .ok_or(BrdbWorldError::UnknownEntityId(entity_id))?;
+        let grid = self
+            .grids
+            .get_mut(&grid_id)
+            .ok_or(BrdbWorldError::UnknownGridId(grid_id))?;
+        let chunk = grid
+            .components
+            .entry(chunk_index)
+            .or_insert_with(ComponentChunkSoA::default);
+        chunk.microchip_brick_indices.push(brick_index as u32);
+        chunk
+            .microchip_brick_grid_references
+            .push(entity_persistent);
+        Ok(())
     }
 
     pub(super) fn add_wire(&mut self, wire: &WireConnection) -> Result<(), BrError> {
@@ -235,7 +262,6 @@ impl UnsavedWorld {
             };
             grid.add_local_wire(*t_chunk, source, target);
         } else {
-            // Otherwise, we need to use a remote wire source.
             let source = RemoteWirePortSource {
                 grid_persistent_index: *s_grid as u32,
                 chunk_index: *s_chunk,
@@ -274,6 +300,20 @@ impl UnsavedGrid {
             *index
         } else {
             self.chunk_index.chunk_3d_indices.push(chunk_index);
+            // ChunkOffsets and ChunkSizes must always be kept in sync with
+            // chunk_3d_indices. Chunk (0,0,0) uses offset (0,0,0);
+            // non-zero chunks use (CHUNK_HALF, CHUNK_HALF, CHUNK_HALF).
+            let off = if chunk_index == ChunkIndex::ZERO {
+                0
+            } else {
+                CHUNK_HALF
+            };
+            self.chunk_index.chunk_offsets.push(crate::IntVector {
+                x: off,
+                y: off,
+                z: off,
+            });
+            self.chunk_index.chunk_sizes.push(CHUNK_SIZE);
             self.chunk_index.num_bricks.push(0);
             self.chunk_index.num_components.push(0);
             self.chunk_index.num_wires.push(0);
@@ -283,38 +323,41 @@ impl UnsavedGrid {
         }
     }
 
-    /// Add a brick to the grid, returning the chunk index and the brick index
+    /// Add a brick to the grid, returning the chunk index and the brick index.
     pub fn add_brick(
         &mut self,
         global_data: &BrdbSchemaGlobalData,
         brick: &Brick,
-    ) -> (ChunkIndex, usize) {
+    ) -> Result<(ChunkIndex, usize), BrdbWorldError> {
+        self.add_brick_inner(global_data, brick)
+    }
+
+    pub(crate) fn add_brick_inner(
+        &mut self,
+        global_data: &BrdbSchemaGlobalData,
+        brick: &Brick,
+    ) -> Result<(ChunkIndex, usize), BrdbWorldError> {
         let chunk_index = brick.position.to_relative().0;
-        // Lookup chunk by chunk index (or create a default one if it doesn't exist)
         self.bricks
             .entry(chunk_index)
             .or_insert_with(BrickChunkSoA::default)
-            .add_brick(global_data, brick); // Add the brick to the chunk
-        // Get the chunk_index SoA index for that chunk
+            .add_brick(global_data, brick);
         let i = self.get_chunk_index(chunk_index);
-        // Get the brick index
         let brick_index = self.chunk_index.num_bricks[i];
-        // Increment the counts for the chunk index
         self.chunk_index.num_bricks[i] += 1;
         self.chunk_index.num_components[i] += brick.components.len() as u32;
 
-        // Write the components to the respective component chunk
         if !brick.components.is_empty() {
             let chunk = self
                 .components
                 .entry(chunk_index)
                 .or_insert_with(ComponentChunkSoA::default);
             for c in &brick.components {
-                chunk.add_component(global_data, brick_index, c.as_ref());
+                chunk.add_component(global_data, brick_index, c.as_ref())?;
             }
         }
 
-        (chunk_index, brick_index as usize)
+        Ok((chunk_index, brick_index as usize))
     }
 
     pub fn add_local_wire(

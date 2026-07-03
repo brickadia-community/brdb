@@ -1,7 +1,8 @@
 use crate::{
     BrdbSchemaError,
+    errors::BrdbWorldError,
     schema::{
-        BrdbInterned, BrdbSchema, BrdbSchemaGlobalData, BrdbSchemaMeta, BrdbStruct, BrdbValue,
+        BrdbInterned, BrdbSchema, BrdbSchemaGlobalData, BrdbStruct, BrdbValue,
         as_brdb::{AsBrdbIter, AsBrdbValue},
         write::write_brdb,
     },
@@ -49,9 +50,14 @@ pub struct ComponentChunkSoA {
     pub joint_entity_references: Vec<u32>,
     pub joint_initial_relative_offsets: Vec<Vector3f>,
     pub joint_initial_relative_rotations: Vec<Quat4f>,
+    /// Bricks in this chunk that host a microchip (Internal_Microchip) component.
+    /// Each entry is the brick's local index in this chunk; the inner grid is found
+    /// via the matching entry in `microchip_brick_grid_references`.
+    pub microchip_brick_indices: Vec<u32>,
+    /// Entity references for the inner brick grid of each microchip, parallel
+    /// to `microchip_brick_indices`.
+    pub microchip_brick_grid_references: Vec<u32>,
 
-    // A copy of all components that need to be written.
-    // The `BrdbComponent` trait is writable
     pub unwritten_struct_data: Vec<Box<dyn BrdbComponent>>,
 }
 
@@ -61,59 +67,50 @@ impl ComponentChunkSoA {
         global_data: &BrdbSchemaGlobalData,
         brick_index: u32,
         component: &dyn BrdbComponent,
-    ) {
-        let Some((component_ty_name, struct_ty)) = component.get_schema_struct() else {
-            // Cannot add component without a type
-            return;
+    ) -> Result<(), BrdbWorldError> {
+        let Some(component_ty_name) = component.component_type() else {
+            return Ok(());
         };
-        // Unwrap safety: The component type was already added to the global data before
-        // this function was called.
-        let type_index = global_data
+        // The type must be registered in global_data (e.g. via
+        // World::register_all_components) so it resolves to a counter index.
+        let Some(type_index) = global_data
             .component_type_names
             .get_index_of(component_ty_name.as_ref())
-            .unwrap() as u32;
+        else {
+            return Err(BrdbWorldError::UnregisteredComponentType(
+                component_ty_name.to_string(),
+            ));
+        };
+        let type_index = type_index as u32;
 
-        // Check if the last counter matches the type index
         if let Some(counter) = self.component_type_counters.last_mut()
             && counter.type_index == type_index
         {
             counter.num_instances += 1;
         } else {
-            // No counters yet, add the first one
             self.component_type_counters.push(ComponentTypeCounter {
                 type_index,
                 num_instances: 1,
             });
         }
-        // Track the brick index for this component
         self.component_brick_indices.push(brick_index);
 
-        // Clone the component data into unwritten_struct_data to be written later
-        // Only if the component has a struct type
-        if struct_ty.is_some() {
+        if global_data.get_struct_name(component_ty_name.as_ref()).is_some() {
             self.unwritten_struct_data.push(component.boxed_component());
         }
+        Ok(())
     }
 
     pub fn to_bytes(self, schema: &BrdbSchema) -> Result<Vec<u8>, BrdbSchemaError> {
         let mut buf = schema.write_brdb(BRICK_COMPONENT_SOA, &self)?;
 
         for (i, component_data) in self.unwritten_struct_data.into_iter().enumerate() {
-            // Unwrap safety: The component can only be added to unwritten_struct_data if
-            // get_schema_struct() returns Some(_, Some(_))
-            let Some((_, Some(struct_ty))) = component_data.get_schema_struct() else {
-                // Cannot write entity data without a type
-                continue;
-            };
-
-            // Append to the buffer and serialize the component's data
-            write_brdb(
-                &schema,
-                &mut buf,
-                struct_ty.as_ref(),
-                component_data.as_ref(),
-            )
-            .map_err(|e| e.wrap(format!("component data {i}: {struct_ty}")))?;
+            let struct_ty = component_data
+                .component_type()
+                .and_then(|ty| schema.global_data.get_struct_name(ty.as_ref()));
+            let Some(struct_ty) = struct_ty else { continue };
+            write_brdb(&schema, &mut buf, struct_ty, component_data.as_ref())
+                .map_err(|e| e.wrap(format!("component data {i}: {struct_ty}")))?;
         }
         Ok(buf)
     }
@@ -125,7 +122,7 @@ impl AsBrdbValue for ComponentChunkSoA {
         schema: &BrdbSchema,
         _struct_name: BrdbInterned,
         prop_name: BrdbInterned,
-    ) -> Result<crate::schema::as_brdb::BrdbArrayIter, crate::errors::BrdbSchemaError> {
+    ) -> Result<crate::schema::as_brdb::BrdbArrayIter<'_>, crate::errors::BrdbSchemaError> {
         Ok(match prop_name.get(schema).unwrap() {
             "ComponentTypeCounters" => self.component_type_counters.as_brdb_iter(),
             "ComponentBrickIndices" => self.component_brick_indices.as_brdb_iter(),
@@ -133,6 +130,8 @@ impl AsBrdbValue for ComponentChunkSoA {
             "JointEntityReferences" => self.joint_entity_references.as_brdb_iter(),
             "JointInitialRelativeOffsets" => self.joint_initial_relative_offsets.as_brdb_iter(),
             "JointInitialRelativeRotations" => self.joint_initial_relative_rotations.as_brdb_iter(),
+            "MicrochipBrickIndices" => self.microchip_brick_indices.as_brdb_iter(),
+            "MicrochipBrickGridReferences" => self.microchip_brick_grid_references.as_brdb_iter(),
             n => unimplemented!("unimplemented struct field {n}"),
         })
     }
@@ -153,6 +152,18 @@ impl TryFrom<&BrdbValue> for ComponentChunkSoA {
             joint_initial_relative_rotations: value
                 .prop("JointInitialRelativeRotations")?
                 .try_into()?,
+            // Added alongside the microchip schema update. Older saves won't
+            // have these; default to empty vectors.
+            microchip_brick_indices: if value.contains_key("MicrochipBrickIndices") {
+                value.prop("MicrochipBrickIndices")?.try_into()?
+            } else {
+                Vec::new()
+            },
+            microchip_brick_grid_references: if value.contains_key("MicrochipBrickGridReferences") {
+                value.prop("MicrochipBrickGridReferences")?.try_into()?
+            } else {
+                Vec::new()
+            },
             unwritten_struct_data: Vec::new(),
         })
     }
@@ -160,30 +171,16 @@ impl TryFrom<&BrdbValue> for ComponentChunkSoA {
 
 /// This trait allows BrdbComponents to be cloned
 /// despite being a dyn trait
-pub trait BoxedComponent {
+pub trait BoxedComponent: Send + Sync {
     fn boxed_component(&self) -> Box<dyn BrdbComponent>;
 }
 
-pub trait BrdbComponent: AsBrdbValue + BoxedComponent {
-    /// Emit the structs needed to use this component in a world
-    fn get_schema(&self) -> Option<BrdbSchemaMeta> {
+pub trait BrdbComponent: AsBrdbValue + BoxedComponent + Send + Sync {
+    /// The component type name (e.g. `"BrickComponentType_WireGraph_Expr_Add"`).
+    /// All other metadata (struct name, schema, wire ports, external assets) is
+    /// resolved from the `ComponentLibrary` on `World`.
+    fn component_type(&self) -> Option<BString> {
         None
-    }
-
-    /// Emit asset references this component uses
-    fn get_external_asset_references(&self) -> Vec<(BString, BString)> {
-        Default::default()
-    }
-
-    /// Emit the "ComponentTypeName" and "ComponentDataStructName" pair for this
-    /// component
-    fn get_schema_struct(&self) -> Option<(BString, Option<BString>)> {
-        None
-    }
-
-    /// Emit a list of wire ports this component uses
-    fn get_wire_ports(&self) -> Vec<BString> {
-        Default::default()
     }
 }
 
@@ -198,21 +195,4 @@ impl<T: Clone + BrdbComponent + 'static> BoxedComponent for T {
 // Empty component... may have its usecases
 impl BrdbComponent for () {}
 
-// This may be a footgun when crafting brdbs from nothing but it's helpful for editing brdb files in place
-impl BrdbComponent for BrdbStruct {
-    fn get_schema(&self) -> Option<BrdbSchemaMeta> {
-        None
-    }
-
-    fn get_external_asset_references(&self) -> Vec<(BString, BString)> {
-        Vec::new()
-    }
-
-    fn get_schema_struct(&self) -> Option<(BString, Option<BString>)> {
-        Some((BString::Static(""), Some(self.get_name().to_owned().into())))
-    }
-
-    fn get_wire_ports(&self) -> Vec<BString> {
-        Vec::new()
-    }
-}
+impl BrdbComponent for BrdbStruct {}

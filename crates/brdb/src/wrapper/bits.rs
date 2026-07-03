@@ -78,7 +78,7 @@ impl AsBrdbValue for BitFlags {
         _schema: &crate::schema::BrdbSchema,
         _struct_name: crate::schema::BrdbInterned,
         _prop_name: crate::schema::BrdbInterned,
-    ) -> Result<BrdbArrayIter, crate::errors::BrdbSchemaError> {
+    ) -> Result<BrdbArrayIter<'_>, crate::errors::BrdbSchemaError> {
         Ok(self.vec.as_brdb_iter())
     }
 }

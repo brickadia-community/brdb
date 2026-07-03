@@ -1,5 +1,8 @@
 use crate::{
-    schema::{BrdbStructPropRaw, PlaintextEnumBody as EnumBody, PlaintextStructBody as StructBody},
+    schema::{
+        BrdbStructPropRaw, PlaintextEnumBody as EnumBody, PlaintextStructBody as StructBody,
+        PlaintextVariantBody as VariantBody,
+    },
     helpers::*
 };
 
@@ -16,6 +19,11 @@ struct MyStruct {
     field3: OtherStruct[],
     field4: u8[flat],
 }
+variant MyVariant {
+    f64,
+    i64,
+    SomeStruct,
+}
 */
 
 match {
@@ -29,28 +37,35 @@ match {
 
 pub Meta: (
     Vec<(String, EnumBody)>,
+    Vec<(String, VariantBody)>,
     Vec<(String, StructBody)>
 )
- = StructOrEnum+ => {
+ = Decl+ => {
     let mut enums = Vec::new();
+    let mut variants = Vec::new();
     let mut structs = Vec::new();
-    for (e, s) in <> {
+    for (e, v, s) in <> {
         if let Some(e) = e {
             enums.push(e);
+        }
+        if let Some(v) = v {
+            variants.push(v);
         }
         if let Some(s) = s {
             structs.push(s);
         }
     }
-    (enums, structs)
+    (enums, variants, structs)
 };
 
-StructOrEnum: (
+Decl: (
     Option<(String, EnumBody)>,
+    Option<(String, VariantBody)>,
     Option<(String, StructBody)>
 ) = {
-    Enum => (Some(<>), None),
-    Struct => (None, Some(<>)),
+    Enum => (Some(<>), None, None),
+    Variant => (None, Some(<>), None),
+    Struct => (None, None, Some(<>)),
 };
 
 Enum: (String, EnumBody) = "enum" <name:Ident> "{" <variants:Comma<EnumVariant>> "}" => {
@@ -58,6 +73,12 @@ Enum: (String, EnumBody) = "enum" <name:Ident> "{" <variants:Comma<EnumVariant>>
 };
 EnumVariant: (String, i32) = <name:Ident> "=" <value:Integer> => {
     (name, value)
+};
+
+// A tagged union: an ordered list of member type names. The encoded value is a
+// uint tag (the member index) followed by the value of that member type.
+Variant: (String, VariantBody) = "variant" <name:Ident> "{" <members:Comma<Ident>> "}" => {
+    (name, members)
 };
 
 Integer: i32 = { I32, Binary, Hex };

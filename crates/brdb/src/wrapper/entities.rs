@@ -19,6 +19,10 @@ pub struct Entity {
     /// An internal ID for linking entities to joints, etc
     pub id: Option<usize>,
     pub owner_index: Option<u32>,
+    /// Saved-world field added alongside the schema update. If `None` at serialization,
+    /// mirrors `owner_index` for back-compat with Entities constructed without
+    /// explicitly setting an original owner.
+    pub original_owner_index: Option<u32>,
     pub location: Vector3f,
     pub rotation: Quat4f,
     pub frozen: bool,
@@ -30,8 +34,21 @@ pub struct Entity {
 }
 
 impl Entity {
+    /// True if this entity is any kind of brick grid: the global (static) world
+    /// grid, a dynamic slider/servo grid, or a microchip's inner grid.
     pub fn is_brick_grid(&self) -> bool {
+        self.is_dynamic_grid() || self.is_microchip_grid()
+    }
+
+    /// A dynamic brick grid — the rigid grid driven by slider/servo joints.
+    pub fn is_dynamic_grid(&self) -> bool {
         self.asset == DYNAMIC_GRID
+    }
+    /// True if this entity is the inner grid of a microchip brick.
+    /// Use `ComponentChunkSoA`'s `microchip_brick_grid_references` to find
+    /// which microchip brick owns this grid.
+    pub fn is_microchip_grid(&self) -> bool {
+        self.asset == crate::assets::entities::MICROCHIP_GRID
     }
 }
 
@@ -41,6 +58,7 @@ impl Default for Entity {
             asset: DYNAMIC_GRID,
             id: None,
             owner_index: None,
+            original_owner_index: None,
             location: Vector3f::default(),
             rotation: Quat4f::default(),
             frozen: false,
@@ -109,6 +127,22 @@ impl Default for EntityColors {
         )
     }
 }
+impl EntityColors {
+    /// Convert all eight colors' RGB from linear to sRGB (see
+    /// `SavedBrickColor::rgb_to_srgb`).
+    pub fn rgb_to_srgb(&self) -> Self {
+        Self(
+            self.0.rgb_to_srgb(),
+            self.1.rgb_to_srgb(),
+            self.2.rgb_to_srgb(),
+            self.3.rgb_to_srgb(),
+            self.4.rgb_to_srgb(),
+            self.5.rgb_to_srgb(),
+            self.6.rgb_to_srgb(),
+            self.7.rgb_to_srgb(),
+        )
+    }
+}
 
 impl TryFrom<&BrdbValue> for EntityColors {
     type Error = BrdbSchemaError;
@@ -152,6 +186,7 @@ pub struct EntityChunkSoA {
     pub type_counters: Vec<EntityTypeCounter>,
     pub persistent_indices: Vec<u32>,
     pub owner_indices: Vec<u32>,
+    pub original_owner_indices: Vec<u32>,
     pub locations: Vec<Vector3f>,
     pub rotations: Vec<Quat4f>,
     pub weld_parent_flags: BitFlags,
@@ -161,25 +196,21 @@ pub struct EntityChunkSoA {
     pub linear_velocities: Vec<Vector3f>,
     pub angular_velocities: Vec<Vector3f>,
     pub colors_and_alphas: Vec<EntityColors>,
+    /// Per-entity remaining lifespan in seconds (0 = no auto-despawn). Added in
+    /// a newer schema; older saves omit it.
+    pub remaining_life_spans: Vec<f32>,
 
-    /// A copy of data that will be written after the SoA
+    /// Entity data paired with struct name, resolved at add time from the library.
     pub unwritten_struct_data: Vec<Arc<Box<dyn BrdbComponent>>>,
 }
 
 impl EntityChunkSoA {
     pub fn add_entity(&mut self, global_data: &BrdbSchemaGlobalData, entity: &Entity, index: u32) {
-        let Some((type_name, _)) = entity.data.get_schema_struct() else {
-            return;
-        };
-
-        // Unwrap safety: The entity type was already added to the global data before
-        // this function was called.
         let type_index = global_data
             .entity_type_names
-            .get_index_of(type_name.as_ref())
+            .get_index_of(entity.asset.as_ref())
             .unwrap() as u32;
 
-        // Add the entity to the entity chunk indices
         self.unwritten_struct_data.push(entity.data.clone());
 
         // Check if the last counter matches the type index
@@ -203,6 +234,13 @@ impl EntityChunkSoA {
 
         self.persistent_indices.push(index);
         self.owner_indices.push(entity.owner_index.unwrap_or(0));
+        // Mirror current-owner if original is unset (legacy behavior).
+        self.original_owner_indices.push(
+            entity
+                .original_owner_index
+                .or(entity.owner_index)
+                .unwrap_or(0),
+        );
         self.locations.push(entity.location);
         self.rotations.push(entity.rotation);
         self.physics_locked_flags.push(entity.frozen);
@@ -210,21 +248,19 @@ impl EntityChunkSoA {
         self.linear_velocities.push(entity.velocity);
         self.angular_velocities.push(entity.angular_velocity);
         self.colors_and_alphas.push(entity.color_and_alpha.clone());
+        // No auto-despawn for authored entities.
+        self.remaining_life_spans.push(0.0);
     }
 
     pub fn to_bytes(self, schema: &BrdbSchema) -> Result<Vec<u8>, BrdbSchemaError> {
         let mut buf = schema.write_brdb(ENTITY_CHUNK_SOA, &self)?;
 
         for (i, entity_data) in self.unwritten_struct_data.into_iter().enumerate() {
-            // Unwrap safety: The component can only be added to unwritten_struct_data if
-            // get_schema_struct() returns Some(_, Some(_))
-            let Some((_, Some(struct_ty))) = entity_data.get_schema_struct() else {
-                // Cannot write entity data without a type
-                continue;
-            };
-
-            // Append to the buffer and serialize the component's data
-            write_brdb(&schema, &mut buf, struct_ty.as_ref(), &**entity_data)
+            let struct_ty = entity_data
+                .component_type()
+                .and_then(|ty| schema.global_data.get_entity_class_name(ty.as_ref()));
+            let Some(struct_ty) = struct_ty else { continue };
+            write_brdb(&schema, &mut buf, struct_ty, &**entity_data)
                 .map_err(|e| e.wrap(format!("entity data {i}: {struct_ty}")))?;
         }
         Ok(buf)
@@ -242,6 +278,8 @@ impl AsBrdbValue for EntityChunkSoA {
             "WeldParentFlags" => Ok(&self.weld_parent_flags),
             "PhysicsLockedFlags" => Ok(&self.physics_locked_flags),
             "PhysicsSleepingFlags" => Ok(&self.physics_sleeping_flags),
+            // New saves always store sRGB colors, so this is always false.
+            "bColorsAreLinear" => Ok(&false),
             n => unimplemented!("unimplemented struct field {n}"),
         }
     }
@@ -251,17 +289,19 @@ impl AsBrdbValue for EntityChunkSoA {
         schema: &crate::schema::BrdbSchema,
         _struct_name: crate::schema::BrdbInterned,
         prop_name: crate::schema::BrdbInterned,
-    ) -> Result<crate::schema::as_brdb::BrdbArrayIter, BrdbSchemaError> {
+    ) -> Result<crate::schema::as_brdb::BrdbArrayIter<'_>, BrdbSchemaError> {
         match prop_name.get(schema).unwrap() {
             "TypeCounters" => Ok(self.type_counters.as_brdb_iter()),
             "PersistentIndices" => Ok(self.persistent_indices.as_brdb_iter()),
             "OwnerIndices" => Ok(self.owner_indices.as_brdb_iter()),
+            "OriginalOwnerIndices" => Ok(self.original_owner_indices.as_brdb_iter()),
             "Locations" => Ok(self.locations.as_brdb_iter()),
             "Rotations" => Ok(self.rotations.as_brdb_iter()),
             "WeldParentIndices" => Ok(self.weld_parent_indices.as_brdb_iter()),
             "LinearVelocities" => Ok(self.linear_velocities.as_brdb_iter()),
             "AngularVelocities" => Ok(self.angular_velocities.as_brdb_iter()),
             "ColorsAndAlphas" => Ok(self.colors_and_alphas.as_brdb_iter()),
+            "RemainingLifeSpans" => Ok(self.remaining_life_spans.as_brdb_iter()),
             n => unimplemented!("unimplemented struct field {n}"),
         }
     }
@@ -274,6 +314,13 @@ impl TryFrom<&BrdbValue> for EntityChunkSoA {
             type_counters: value.prop("TypeCounters")?.try_into()?,
             persistent_indices: value.prop("PersistentIndices")?.try_into()?,
             owner_indices: value.prop("OwnerIndices")?.try_into()?,
+            // Added alongside the per-entity original-owner schema update.
+            // Older saves won't have this field; mirror OwnerIndices.
+            original_owner_indices: if value.contains_key("OriginalOwnerIndices") {
+                value.prop("OriginalOwnerIndices")?.try_into()?
+            } else {
+                value.prop("OwnerIndices")?.try_into()?
+            },
             locations: value.prop("Locations")?.try_into()?,
             rotations: value.prop("Rotations")?.try_into()?,
             weld_parent_flags: value.prop("WeldParentFlags")?.try_into()?,
@@ -282,7 +329,29 @@ impl TryFrom<&BrdbValue> for EntityChunkSoA {
             weld_parent_indices: value.prop("WeldParentIndices")?.try_into()?,
             linear_velocities: value.prop("LinearVelocities")?.try_into()?,
             angular_velocities: value.prop("AngularVelocities")?.try_into()?,
-            colors_and_alphas: value.prop("ColorsAndAlphas")?.try_into()?,
+            colors_and_alphas: {
+                let mut colors: Vec<EntityColors> = value.prop("ColorsAndAlphas")?.try_into()?;
+                // Older saves (and any missing the field) store linear colors;
+                // default true and convert to sRGB so in-memory colors are
+                // always sRGB. New saves store sRGB (bColorsAreLinear = false).
+                let linear = if value.contains_key("bColorsAreLinear") {
+                    value.prop("bColorsAreLinear")?.as_brdb_bool()?
+                } else {
+                    true
+                };
+                if linear {
+                    for ec in &mut colors {
+                        *ec = ec.rgb_to_srgb();
+                    }
+                }
+                colors
+            },
+            // Added in a newer schema; older saves omit it.
+            remaining_life_spans: if value.contains_key("RemainingLifeSpans") {
+                value.prop("RemainingLifeSpans")?.try_into()?
+            } else {
+                Vec::new()
+            },
             unwritten_struct_data: Vec::new(),
         })
     }
@@ -322,7 +391,7 @@ impl AsBrdbValue for EntityChunkIndexSoA {
         schema: &crate::schema::BrdbSchema,
         _struct_name: crate::schema::BrdbInterned,
         prop_name: crate::schema::BrdbInterned,
-    ) -> Result<BrdbArrayIter, BrdbSchemaError> {
+    ) -> Result<BrdbArrayIter<'_>, BrdbSchemaError> {
         match prop_name.get(schema).unwrap() {
             "Chunk3DIndices" => Ok(self.chunk_3d_indices.as_brdb_iter()),
             "NumEntities" => Ok(self.num_entities.as_brdb_iter()),

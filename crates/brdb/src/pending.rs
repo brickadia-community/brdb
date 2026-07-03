@@ -39,7 +39,10 @@ impl BrPendingFs {
         let wires_schema = schemas::bricks_wires_schema();
         let entity_chunk_index_schema = schemas::entities_chunk_index_schema();
 
-        for (world_id, world) in fs.worlds {
+        for (world_id, mut world) in fs.worlds {
+            let global_data = std::sync::Arc::new(world.global_data.clone());
+            world.component_schema.set_global_data(global_data.clone());
+            world.entity_schema.set_global_data(global_data);
             let proc_brick_starting_index = world.global_data.proc_brick_starting_index();
 
             let mut world_dir = vec![
@@ -172,31 +175,31 @@ impl BrPendingFs {
             worlds.push((world_id.to_string(), Folder(Some(world_dir))));
         }
 
-        let meta_dir = (
-            "Meta".to_owned(),
-            Folder(Some(vec![
-                (
-                    "Bundle.json".to_owned(),
-                    File(Some(
-                        serde_json::to_vec(&fs.meta.bundle).about("Bundle.json")?,
-                    )),
-                ),
-                (
-                    "Screenshot.jpg".to_owned(),
-                    File(fs.meta.screenshot.clone()),
-                ),
-                (
-                    "Thumbnail.png".to_owned(),
-                    File(fs.meta.thumbnail.clone()),
-                ),
-                (
-                    "World.json".to_owned(),
-                    File(Some(
-                        serde_json::to_vec(&fs.meta.world).about("World.json")?,
-                    )),
-                ),
-            ])),
-        );
+        // Bundle.json is always present. Prefabs additionally write
+        // Prefab.json and omit World.json/Screenshot/Thumbnail; worlds write
+        // World.json plus the (optional) Screenshot/Thumbnail.
+        let mut meta_files = vec![(
+            "Bundle.json".to_owned(),
+            File(Some(serde_json::to_vec(&fs.meta.bundle).about("Bundle.json")?)),
+        )];
+        if let Some(prefab) = &fs.meta.prefab {
+            meta_files.push((
+                "Prefab.json".to_owned(),
+                File(Some(serde_json::to_vec(prefab).about("Prefab.json")?)),
+            ));
+        } else {
+            meta_files.push((
+                "Screenshot.jpg".to_owned(),
+                File(fs.meta.screenshot.clone()),
+            ));
+            meta_files.push(("Thumbnail.png".to_owned(), File(fs.meta.thumbnail.clone())));
+            meta_files.push((
+                "World.json".to_owned(),
+                File(Some(serde_json::to_vec(&fs.meta.world).about("World.json")?)),
+            ));
+        }
+
+        let meta_dir = ("Meta".to_owned(), Folder(Some(meta_files)));
 
         let world_dir = ("World".to_owned(), Folder(Some(worlds)));
 

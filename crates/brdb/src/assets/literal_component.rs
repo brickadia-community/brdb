@@ -2,64 +2,39 @@ use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use crate::{
     errors::BrdbSchemaError,
-    schema::{BrdbSchema, BrdbSchemaMeta, as_brdb::AsBrdbValue},
+    schema::as_brdb::AsBrdbValue,
     wrapper::{BString, BrdbComponent},
 };
 
 #[derive(Clone)]
 pub struct LiteralComponent {
     pub component_name: BString,
-    pub struct_name: Option<BString>,
-    pub schema: Option<BrdbSchemaMeta>,
-    pub data: Arc<HashMap<String, Box<dyn AsBrdbValue>>>,
-    pub wire_ports: Vec<BString>,
+    pub data: Arc<HashMap<BString, Box<dyn AsBrdbValue>>>,
 }
 
 impl LiteralComponent {
-    pub fn new_dataless(
-        component_name: impl Into<BString>,
-        struct_name: Option<impl Into<BString>>,
-    ) -> Self {
+    pub fn new(component_name: impl Into<BString>) -> Self {
         Self {
             component_name: component_name.into(),
-            struct_name: struct_name.map(Into::into),
-            schema: None,
             data: Default::default(),
-            wire_ports: Default::default(),
         }
     }
 
-    pub fn new(
-        component_name: impl Into<BString>,
-        struct_name: impl Into<BString>,
-        schema: &str,
-        data: impl IntoIterator<Item = (BString, Box<dyn AsBrdbValue>)>,
-        ports: impl IntoIterator<Item = BString>,
-    ) -> Result<Self, BrdbSchemaError> {
-        let schema =
-            BrdbSchema::parse_to_meta(schema).map_err(|e| BrdbSchemaError::ParseError(e))?;
-
-        Ok(Self {
-            component_name: component_name.into(),
-            struct_name: Some(struct_name.into()),
-            schema: Some(schema),
-            data: Arc::new(data.into_iter().map(|(k, v)| (k.to_string(), v)).collect()),
-            wire_ports: ports.into_iter().collect(),
-        })
+    pub fn with_data(
+        mut self,
+        data: impl IntoIterator<Item = (impl Into<BString>, Box<dyn AsBrdbValue>)>,
+    ) -> Self {
+        self.data = Arc::new(data.into_iter().map(|(k, v)| (k.into(), v)).collect());
+        self
     }
+
     pub fn new_from_data(
         component_name: impl Into<BString>,
-        struct_name: impl Into<BString>,
-        schema: Option<BrdbSchemaMeta>,
-        data: Arc<HashMap<String, Box<dyn AsBrdbValue>>>,
-        ports: impl IntoIterator<Item = BString>,
+        data: Arc<HashMap<BString, Box<dyn AsBrdbValue>>>,
     ) -> Self {
         Self {
             component_name: component_name.into(),
-            struct_name: Some(struct_name.into()),
-            schema,
             data,
-            wire_ports: ports.into_iter().collect(),
         }
     }
 }
@@ -83,20 +58,8 @@ impl AsBrdbValue for LiteralComponent {
 }
 
 impl BrdbComponent for LiteralComponent {
-    fn get_schema(&self) -> Option<BrdbSchemaMeta> {
-        self.schema.clone()
-    }
-
-    fn get_external_asset_references(&self) -> Vec<(BString, BString)> {
-        Vec::new()
-    }
-
-    fn get_schema_struct(&self) -> Option<(BString, Option<BString>)> {
-        Some((self.component_name.clone(), self.struct_name.clone()))
-    }
-
-    fn get_wire_ports(&self) -> Vec<BString> {
-        self.wire_ports.clone()
+    fn component_type(&self) -> Option<BString> {
+        Some(self.component_name.clone())
     }
 }
 
@@ -106,28 +69,11 @@ pub fn seat_component(
     hidden_interaction: bool,
     prompt_label: impl Display,
 ) -> LiteralComponent {
-    LiteralComponent::new(
-        "Component_Internal_Seat",
-        "BrickComponentData_Seat",
-        "struct BrickComponentWirePlayerInput {}
-        struct BrickComponentData_Seat {
-            PlayerInput: BrickComponentWirePlayerInput,
-            bIsOccupied: bool,
-            bAllowNearbyInteraction: bool,
-            bHiddenInteraction: bool,
-            PromptCustomLabel: str,
-        }",
-        [
-            ("PlayerInput".into(), Box::new(())),
-            ("bIsOccupied".into(), Box::new(false)),
-            ("bAllowNearbyInteraction".into(), Box::new(allow_nearby)),
-            ("bHiddenInteraction".into(), Box::new(hidden_interaction)),
-            (
-                "PromptCustomLabel".into(),
-                Box::new(prompt_label.to_string()),
-            ),
-        ] as [(BString, Box<dyn AsBrdbValue>); 5],
-        [],
-    )
-    .unwrap()
+    LiteralComponent::new("Component_Internal_Seat").with_data([
+        ("PlayerInput", Box::new(()) as Box<dyn AsBrdbValue>),
+        ("bIsOccupied", Box::new(false)),
+        ("bAllowNearbyInteraction", Box::new(allow_nearby)),
+        ("bHiddenInteraction", Box::new(hidden_interaction)),
+        ("PromptCustomLabel", Box::new(prompt_label.to_string())),
+    ])
 }

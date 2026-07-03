@@ -104,6 +104,7 @@ fn test_write_wire_save() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut world = World::new();
+    world.register_all_components();
     world.meta.bundle.description = "Test World".to_string();
 
     let (a, a_id) = Brick {
@@ -148,6 +149,7 @@ fn test_write_entity_save() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut world = World::new();
+    world.register_all_components();
     world.meta.bundle.description = "Test World".to_string();
     world.add_brick_grid(
         Entity {
@@ -288,4 +290,31 @@ fn test_debugging() -> Result<(), BrError> {
     }
 
     Ok(())
+}
+
+#[test]
+fn unregistered_component_type_errors_cleanly() {
+    // Building a world with a gate component but WITHOUT calling
+    // register_all_components() must return a clear, actionable error
+    // instead of panicking deep in the SoA builder.
+    let mut world = World::new();
+    let (brick, _) = Brick {
+        position: (0, 0, 1).into(),
+        asset: assets::components::LogicGate::BoolNot.brick(),
+        ..Default::default()
+    }
+    .with_component(assets::components::LogicGate::BoolNot.component())
+    .with_id_split();
+    world.add_bricks([brick]);
+
+    let result = world.to_unsaved();
+    assert!(
+        matches!(
+            result,
+            Err(BrError::World(
+                crate::errors::BrdbWorldError::UnregisteredComponentType(_)
+            ))
+        ),
+        "expected UnregisteredComponentType error"
+    );
 }

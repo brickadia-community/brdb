@@ -15,6 +15,7 @@ use crate::{
 #[test]
 fn test_brick_write() -> Result<(), Box<dyn Error>> {
     let mut world = World::new();
+    world.register_all_components();
     world.add_brick(Brick {
         position: (0, 0, 3).into(),
         color: (255, 0, 0).into(),

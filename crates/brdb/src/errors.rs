@@ -172,8 +172,15 @@ pub enum BrdbWorldError {
     UnknownGridId(usize),
     #[error("component name not in schema: {0}")]
     UnknownComponent(String),
+    #[error(
+        "component type {0} is not registered; call World::register_all_components() \
+         (or register_component) before writing"
+    )]
+    UnregisteredComponentType(String),
     #[error("port name not in schema: {0}")]
     UnknownPort(String),
+    #[error("unknown entity id: {0}")]
+    UnknownEntityId(usize),
 }
 
 impl BrdbWorldError {

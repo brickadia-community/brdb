@@ -70,6 +70,51 @@ pub trait BrFsReader {
         Ok(None)
     }
 
+    /// Find a file by its path at a specific revision (timestamp), returning the
+    /// `FoundFile` whose `[created_at, deleted_at)` range contains `date`.
+    ///
+    /// Parent folders are resolved against the current tree (folders are stable
+    /// across revisions); only the leaf file is resolved at the revision.
+    fn find_file_by_path_at_revision(
+        &self,
+        path: impl Display,
+        date: i64,
+    ) -> Result<Option<FoundFile>, BrFsError> {
+        let path = path.to_string();
+
+        if path.starts_with("/") {
+            return Err(BrFsError::AbsolutePathNotAllowed);
+        }
+
+        let mut components = path.split("/").peekable();
+        let mut entire_path = String::from("");
+        let mut parent_id = None;
+
+        while let Some(name) = components.next() {
+            entire_path.push('/');
+            entire_path.push_str(name);
+
+            // If there is more in the path, the current component must be a folder
+            if components.peek().is_some() {
+                let Some(next) = self
+                    .find_folder(parent_id, name)
+                    .map_err(|e| e.wrap(format!("find folder {entire_path}")))?
+                else {
+                    return Ok(None);
+                };
+                parent_id = Some(next);
+                continue;
+            }
+
+            // Find the file revision that was live at the requested date
+            return self
+                .find_file_at_revision(parent_id, name, date)
+                .map_err(|e| e.wrap(format!("find file {entire_path}")));
+        }
+
+        Ok(None)
+    }
+
     /// Find and read a file from the brdb filesystem, returning its decompressed content as a byte vector.
     fn read_file(&self, path: impl Display) -> Result<Vec<u8>, BrFsError> {
         let path_str = path.to_string();

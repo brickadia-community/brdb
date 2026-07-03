@@ -15,10 +15,10 @@ pub fn global_data_schema() -> &'static BrdbSchema {
     static SCHEMA: OnceLock<BrdbSchema> = OnceLock::new();
 
     &SCHEMA.get_or_init(|| {
-        let (enums, structs) =
+        let (enums, variants, structs) =
             BrdbSchema::parse_to_meta(include_str!("../../schemas/BRSavedGlobalDataSoA.schema"))
                 .unwrap();
-        BrdbSchema::from_meta(enums, structs)
+        BrdbSchema::from_meta(enums, variants, structs)
     })
 }
 /// World/0/Bricks/ChunksShared.schema
@@ -26,10 +26,10 @@ pub fn bricks_chunks_schema() -> &'static BrdbSchema {
     static SCHEMA: OnceLock<BrdbSchema> = OnceLock::new();
 
     &SCHEMA.get_or_init(|| {
-        let (enums, structs) =
+        let (enums, variants, structs) =
             BrdbSchema::parse_to_meta(include_str!("../../schemas/BRSavedBrickChunkSoA.schema"))
                 .unwrap();
-        BrdbSchema::from_meta(enums, structs)
+        BrdbSchema::from_meta(enums, variants, structs)
     })
 }
 
@@ -38,11 +38,11 @@ pub fn bricks_chunk_index_schema() -> &'static BrdbSchema {
     static SCHEMA: OnceLock<BrdbSchema> = OnceLock::new();
 
     &SCHEMA.get_or_init(|| {
-        let (enums, structs) = BrdbSchema::parse_to_meta(include_str!(
+        let (enums, variants, structs) = BrdbSchema::parse_to_meta(include_str!(
             "../../schemas/BRSavedBrickChunkIndexSoA.schema"
         ))
         .unwrap();
-        BrdbSchema::from_meta(enums, structs)
+        BrdbSchema::from_meta(enums, variants, structs)
     })
 }
 
@@ -51,11 +51,11 @@ pub fn bricks_components_schema_min() -> &'static BrdbSchema {
     static SCHEMA: OnceLock<BrdbSchema> = OnceLock::new();
 
     &SCHEMA.get_or_init(|| {
-        let (enums, structs) = BrdbSchema::parse_to_meta(include_str!(
+        let (enums, variants, structs) = BrdbSchema::parse_to_meta(include_str!(
             "../../schemas/BRSavedComponentChunkSoA.schema"
         ))
         .unwrap();
-        BrdbSchema::from_meta(enums, structs)
+        BrdbSchema::from_meta(enums, variants, structs)
     })
 }
 
@@ -64,11 +64,11 @@ pub fn bricks_components_schema_max() -> &'static BrdbSchema {
     static SCHEMA: OnceLock<BrdbSchema> = OnceLock::new();
 
     &SCHEMA.get_or_init(|| {
-        let (enums, structs) = BrdbSchema::parse_to_meta(include_str!(
+        let (enums, variants, structs) = BrdbSchema::parse_to_meta(include_str!(
             "../../schemas/BRSavedComponentChunkSoA_max.schema"
         ))
         .unwrap();
-        BrdbSchema::from_meta(enums, structs)
+        BrdbSchema::from_meta(enums, variants, structs)
     })
 }
 
@@ -77,10 +77,10 @@ pub fn bricks_wires_schema() -> &'static BrdbSchema {
     static SCHEMA: OnceLock<BrdbSchema> = OnceLock::new();
 
     &SCHEMA.get_or_init(|| {
-        let (enums, structs) =
+        let (enums, variants, structs) =
             BrdbSchema::parse_to_meta(include_str!("../../schemas/BRSavedWireChunkSoA.schema"))
                 .unwrap();
-        BrdbSchema::from_meta(enums, structs)
+        BrdbSchema::from_meta(enums, variants, structs)
     })
 }
 
@@ -89,10 +89,10 @@ pub fn owners_schema() -> &'static BrdbSchema {
     static SCHEMA: OnceLock<BrdbSchema> = OnceLock::new();
 
     &SCHEMA.get_or_init(|| {
-        let (enums, structs) =
+        let (enums, variants, structs) =
             BrdbSchema::parse_to_meta(include_str!("../../schemas/BRSavedOwnerTableSoA.schema"))
                 .unwrap();
-        BrdbSchema::from_meta(enums, structs)
+        BrdbSchema::from_meta(enums, variants, structs)
     })
 }
 
@@ -101,11 +101,11 @@ pub fn entities_chunk_index_schema() -> &'static BrdbSchema {
     static SCHEMA: OnceLock<BrdbSchema> = OnceLock::new();
 
     &SCHEMA.get_or_init(|| {
-        let (enums, structs) = BrdbSchema::parse_to_meta(include_str!(
+        let (enums, variants, structs) = BrdbSchema::parse_to_meta(include_str!(
             "../../schemas/BRSavedEntityChunkIndexSoA.schema"
         ))
         .unwrap();
-        BrdbSchema::from_meta(enums, structs)
+        BrdbSchema::from_meta(enums, variants, structs)
     })
 }
 
@@ -114,10 +114,10 @@ pub fn entities_chunks_schema() -> &'static BrdbSchema {
     static SCHEMA: OnceLock<BrdbSchema> = OnceLock::new();
 
     &SCHEMA.get_or_init(|| {
-        let (enums, structs) =
+        let (enums, variants, structs) =
             BrdbSchema::parse_to_meta(include_str!("../../schemas/BRSavedEntityChunkSoA.schema"))
                 .unwrap();
-        BrdbSchema::from_meta(enums, structs)
+        BrdbSchema::from_meta(enums, variants, structs)
     })
 }
 

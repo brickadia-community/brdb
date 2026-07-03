@@ -1,3 +1,11 @@
+struct BrickGridDynamicActor {
+    BouyancyScale: f32,
+    MassScale: f32,
+    bEnableGravity: bool,
+    bUseNewMassCalculation: bool,
+    bReceivesDecals: bool,
+    EntityTag: str,
+}
 struct BRSavedBitFlags {
     Flags: u8[flat],
 }
@@ -11,6 +19,11 @@ struct BRSavedEntityTypeCounter {
     TypeIndex: u32,
     NumEntities: u32,
 }
+struct IntVector {
+    X: i32,
+    Y: i32,
+    Z: i32,
+}
 struct Quat4f {
     X: f32,
     Y: f32,
@@ -21,6 +34,11 @@ struct Vector3f {
     X: f32,
     Y: f32,
     Z: f32,
+}
+struct BP_MicrochipBrickGridDynamicActor_C {
+    bCollapsed: bool,
+    PlaneCenter: IntVector,
+    PlaneExtent: IntVector,
 }
 struct BRSavedEntityColors {
     Color0: BRSavedBrickColor,
@@ -36,6 +54,7 @@ struct BRSavedEntityChunkSoA {
     TypeCounters: BRSavedEntityTypeCounter[],
     PersistentIndices: u32[],
     OwnerIndices: u32[],
+    OriginalOwnerIndices: u32[],
     Locations: Vector3f[flat],
     Rotations: Quat4f[flat],
     WeldParentFlags: BRSavedBitFlags,
@@ -45,4 +64,6 @@ struct BRSavedEntityChunkSoA {
     LinearVelocities: Vector3f[flat],
     AngularVelocities: Vector3f[flat],
     ColorsAndAlphas: BRSavedEntityColors[flat],
+    RemainingLifeSpans: f32[flat],
+    bColorsAreLinear: bool,
 }

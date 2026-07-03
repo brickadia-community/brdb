@@ -20,4 +20,6 @@ struct BRSavedComponentChunkSoA {
     JointEntityReferences: u32[],
     JointInitialRelativeOffsets: Vector3f[flat],
     JointInitialRelativeRotations: Quat4f[flat],
+    MicrochipBrickIndices: u32[],
+    MicrochipBrickGridReferences: u32[],
 }

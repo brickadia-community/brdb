@@ -159,6 +159,9 @@ impl Brdb {
         hash: [u8; 32],
         zstd_level: Option<i32>,
     ) -> Result<i64, BrdbError> {
+        if let Some(existing) = self.find_blob_by_hash(content.len(), &hash)? {
+            return Ok(existing.blob_id);
+        }
         let size_uncompressed = content.len() as i64;
         let mut size_compressed = size_uncompressed;
         let mut compression = 0;
@@ -207,7 +210,8 @@ impl Brdb {
             .query_one(
                 "SELECT blob_id, compression, size_uncompressed, size_compressed, delta_base_id, hash, content
                 FROM blobs
-                WHERE hash = ?1 AND size_uncompressed = ?2;",
+                WHERE hash = ?1 AND size_uncompressed = ?2
+                LIMIT 1;",
                 params![hash, size],
                 |row| {
                     Ok(BrBlob {

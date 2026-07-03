@@ -129,9 +129,12 @@ impl<T> BrReader<T> {
             return Ok(schema.clone());
         }
 
-        // Load the schema file
+        // Load the schema file revision that was live when this data was
+        // written. Schemas evolve over a world's history (fields are added to
+        // component structs, etc.), so decoding a chunk requires the schema as
+        // it existed at the chunk's revision, not the latest one.
         let schema_file = self
-            .find_file_by_path(path)?
+            .find_file_by_path_at_revision(path, revision)?
             .ok_or(BrError::Fs(BrFsError::NotFound(path.to_string())))?;
 
         let schema_data = self.find_blob(schema_file.blob_id)?.read()?;
@@ -277,6 +280,13 @@ impl<T> BrReader<T> {
             component_type_names: str_set("ComponentTypeNames")?,
             component_data_struct_names: str_vec("ComponentDataStructNames")?,
             component_wire_port_names: str_set("ComponentWirePortNames")?,
+            // Added alongside the microchip schema work. Older saves won't
+            // have this field; default to -1 (no global grid registered).
+            global_grid_entity_type_index: if mps_struct.contains_key("GlobalGridEntityTypeIndex") {
+                mps_struct.prop("GlobalGridEntityTypeIndex")?.as_brdb_i32()?
+            } else {
+                -1
+            },
         }))
     }
 
@@ -690,13 +700,13 @@ impl<T> BrReader<T> {
                     let value = buf.read_brdb(&schema, struct_name).map_err(|e| {
                         e.wrap(format!("Read entity {i} {type_name}/{struct_name}"))
                     })?;
-                    let component = LiteralComponent::new_from_data(
-                        type_name,
-                        struct_name,
-                        None,
-                        Arc::new(value.as_struct()?.as_hashmap()?),
-                        [],
-                    );
+                    let hm: std::collections::HashMap<crate::BString, Box<dyn crate::AsBrdbValue>> = value
+                        .as_struct()?
+                        .as_hashmap()?
+                        .into_iter()
+                        .map(|(k, v)| (crate::BString::from(k), v))
+                        .collect();
+                    let component = LiteralComponent::new_from_data(type_name, Arc::new(hm));
                     Arc::new(Box::new(component))
                 } else {
                     Arc::new(Box::new(()))
@@ -706,6 +716,7 @@ impl<T> BrReader<T> {
                     asset: BString::from(type_name),
                     id: Some(soa.persistent_indices[index] as usize),
                     owner_index: Some(soa.owner_indices[index]),
+                    original_owner_index: soa.original_owner_indices.get(index).copied(),
                     location: soa.locations[index],
                     rotation: soa.rotations[index],
                     velocity: soa.linear_velocities[index],

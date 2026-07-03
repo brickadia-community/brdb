@@ -20,6 +20,7 @@ pub mod as_brdb;
 
 pub(crate) type PlaintextEnumBody = Vec<(String, i32)>;
 pub(crate) type PlaintextStructBody = Vec<(String, BrdbStructPropRaw)>;
+pub(crate) type PlaintextVariantBody = Vec<String>;
 
 lalrpop_mod!(plaintext);
 
@@ -43,7 +44,16 @@ pub type BrdbSchemaEnum = IndexMap<BrdbInterned, i32>;
 
 pub type BrdbSchemaMetaEnum = (String, Vec<(String, i32)>);
 pub type BrdbSchemaMetaStruct = (String, Vec<(String, BrdbStructPropRaw)>);
-pub type BrdbSchemaMeta = (Vec<BrdbSchemaMetaEnum>, Vec<BrdbSchemaMetaStruct>);
+pub type BrdbSchemaMeta = (
+    Vec<BrdbSchemaMetaEnum>,
+    Vec<BrdbSchemaMetaVariant>,
+    Vec<BrdbSchemaMetaStruct>,
+);
+/// A tagged-union/variant: a name and the ordered list of member type names it
+/// can hold. The encoded value is a uint tag (the member index) followed by the
+/// value of that member type. Newer schemas use these for wire graph variants
+/// (e.g. `WireGraphVariant`, `WireGraphPrimMathVariant`, `WireGraphArrayVariant`).
+pub type BrdbSchemaMetaVariant = (String, Vec<String>);
 
 impl BrdbSchemaStructProperty {
     pub fn as_string(&self, schema: &BrdbSchema) -> String {
@@ -88,6 +98,9 @@ pub struct BrdbSchema {
     pub(crate) global_data: Arc<BrdbSchemaGlobalData>,
     pub enums: IndexMap<BrdbInterned, BrdbSchemaEnum>,
     pub structs: IndexMap<BrdbInterned, BrdbSchemaStruct>,
+    /// Tagged-union/variant definitions: name -> ordered member types. Only
+    /// populated by newer (3-element) binary schemas; empty otherwise.
+    pub variants: IndexMap<BrdbInterned, Vec<BrdbInterned>>,
 }
 
 impl Display for BrdbSchema {
@@ -101,6 +114,21 @@ impl Display for BrdbSchema {
             for (key, value) in values {
                 let key = self.intern.lookup(*key).unwrap_or("UnknownKey".to_owned());
                 writeln!(f, "    {key} = {value},")?;
+            }
+            writeln!(f, "}}")?;
+        }
+        for (name, members) in &self.variants {
+            let name = self
+                .intern
+                .lookup(*name)
+                .unwrap_or("UnknownVariant".to_owned());
+            writeln!(f, "variant {name} {{")?;
+            for member in members {
+                let member = self
+                    .intern
+                    .lookup(*member)
+                    .unwrap_or("UnknownMember".to_owned());
+                writeln!(f, "    {member},")?;
             }
             writeln!(f, "}}")?;
         }
@@ -148,6 +176,14 @@ impl BrdbSchema {
         self.enums.get(&id)
     }
 
+    pub fn get_variant(&self, name: &str) -> Option<&Vec<BrdbInterned>> {
+        self.variants.get(&self.intern.get(name)?)
+    }
+
+    pub fn get_variant_interned(&self, id: BrdbInterned) -> Option<&Vec<BrdbInterned>> {
+        self.variants.get(&id)
+    }
+
     pub fn parse_to_meta(input: &str) -> Result<BrdbSchemaMeta, String> {
         plaintext::MetaParser::new()
             .parse(input)
@@ -156,18 +192,33 @@ impl BrdbSchema {
 
     /// Parse a schema from a plaintext input string into a `BrdbSchema`
     pub fn new_parsed(input: &str) -> Result<BrdbSchema, BrdbSchemaError> {
-        let (enums, structs) = Self::parse_to_meta(input).map_err(BrdbSchemaError::ParseError)?;
+        let (enums, variants, structs) =
+            Self::parse_to_meta(input).map_err(BrdbSchemaError::ParseError)?;
         let mut schema = BrdbSchema::default();
         schema.add_meta(enums, structs);
+        schema.add_variants(variants);
         Ok(schema)
     }
 
     /// Read a schema from a msgpack .schema file into a human readable format
-    pub fn read_to_meta(mut buf: impl Read) -> Result<BrdbSchemaMeta, BrdbSchemaError> {
+    pub fn read_to_meta(
+        mut buf: impl Read,
+    ) -> Result<
+        (
+            Vec<BrdbSchemaMetaEnum>,
+            Vec<BrdbSchemaMetaVariant>,
+            Vec<BrdbSchemaMetaStruct>,
+        ),
+        BrdbSchemaError,
+    > {
+        // Older saves use a 2-element schema: [enums, structs].
+        // Newer saves use a 3-element schema: [enums, variants, structs], where
+        // the middle element is a tagged-union/variant table.
         let header = rmp::decode::read_array_len(&mut buf)?;
-        if header != 2 {
+        if header != 2 && header != 3 {
             return Err(BrdbSchemaError::InvalidHeader(header));
         }
+        let has_variants = header == 3;
 
         // Read enums
         let mut enums = vec![];
@@ -182,6 +233,22 @@ impl BrdbSchema {
                 values.push((key, value));
             }
             enums.push((enum_name, values));
+        }
+
+        // Read the variant table (newer schemas only). Each entry is a variant
+        // name mapped to the ordered list of member type names it can hold.
+        let mut variants = vec![];
+        if has_variants {
+            let num_variants = rmp::decode::read_map_len(&mut buf)? as usize;
+            for _ in 0..num_variants {
+                let variant_name = read_owned_str(&mut buf)?;
+                let member_count = rmp::decode::read_array_len(&mut buf)? as usize;
+                let mut members = Vec::with_capacity(member_count);
+                for _ in 0..member_count {
+                    members.push(read_owned_str(&mut buf)?);
+                }
+                variants.push((variant_name, members));
+            }
         }
 
         // Read structs
@@ -251,15 +318,17 @@ impl BrdbSchema {
             structs.push((struct_name, properties));
         }
 
-        Ok((enums, structs))
+        Ok((enums, variants, structs))
     }
 
     pub fn from_meta(
         enums: impl IntoIterator<Item = (String, Vec<(String, i32)>)>,
+        variants: impl IntoIterator<Item = (String, Vec<String>)>,
         structs: impl IntoIterator<Item = (String, Vec<(String, BrdbStructPropRaw)>)>,
     ) -> Self {
         let mut schema = BrdbSchema::default();
         schema.add_meta(enums, structs);
+        schema.add_variants(variants);
         schema
     }
 
@@ -279,9 +348,10 @@ impl BrdbSchema {
 
     /// Read from a msgpack .schema buffer into a populated `BrdbSchema` struct
     pub fn read(buf: impl Read) -> Result<BrdbSchema, BrdbSchemaError> {
-        let (enums, structs) = Self::read_to_meta(buf)?;
+        let (enums, variants, structs) = Self::read_to_meta(buf)?;
         let mut schema = BrdbSchema::default();
         schema.add_meta(enums, structs);
+        schema.add_variants(variants);
         Ok(schema)
     }
 
@@ -324,6 +394,201 @@ impl BrdbSchema {
         self.structs.insert(name, props);
     }
 
+    /// Add tagged-union/variant definitions to the schema. Each entry maps a
+    /// variant name to the ordered list of member type names it can hold.
+    pub fn add_variants(&mut self, variants: impl IntoIterator<Item = (String, Vec<String>)>) {
+        for (name, members) in variants {
+            let name = self.intern.get_or_insert(name);
+            let members = members
+                .into_iter()
+                .map(|m| self.intern.get_or_insert(m))
+                .collect::<Vec<_>>();
+            self.variants.insert(name, members);
+        }
+    }
+
+    /// Iterate all struct names in this schema.
+    pub fn struct_names(&self) -> Vec<String> {
+        self.structs
+            .keys()
+            .filter_map(|k| self.intern.lookup(*k))
+            .collect()
+    }
+
+    /// Extract a single struct's metadata (and any variant types it references)
+    /// back into `BrdbSchemaMeta` form so it can be inserted into another
+    /// schema via `add_meta`/`add_variants`.
+    pub fn extract_struct_meta(&self, struct_name: &str) -> Option<BrdbSchemaMeta> {
+        let id = self.intern.get(struct_name)?;
+        let props = self.structs.get(&id)?;
+        let enums = Vec::new();
+        let mut variants: Vec<BrdbSchemaMetaVariant> = Vec::new();
+        let mut structs = Vec::new();
+
+        // Pull in any variant definitions referenced by this struct's
+        // properties so the extracted meta is self-contained.
+        for prop in props.values() {
+            let referenced = match prop {
+                BrdbSchemaStructProperty::Type(t)
+                | BrdbSchemaStructProperty::Array(t)
+                | BrdbSchemaStructProperty::FlatArray(t) => *t,
+                BrdbSchemaStructProperty::Map(_, v) => *v,
+            };
+            if let Some(members) = self.get_variant_interned(referenced) {
+                let name = self.intern.lookup(referenced).unwrap();
+                if !variants.iter().any(|(n, _)| n == &name) {
+                    let member_names = members
+                        .iter()
+                        .map(|m| self.intern.lookup(*m).unwrap())
+                        .collect();
+                    variants.push((name, member_names));
+                }
+            }
+        }
+
+        let raw_props: Vec<(String, BrdbStructPropRaw)> = props
+            .iter()
+            .map(|(k, v)| {
+                let key = self.intern.lookup(*k).unwrap();
+                let raw = match v {
+                    BrdbSchemaStructProperty::Type(t) => {
+                        BrdbStructPropRaw::Type(self.intern.lookup(*t).unwrap())
+                    }
+                    BrdbSchemaStructProperty::Array(t) => {
+                        BrdbStructPropRaw::Array(self.intern.lookup(*t).unwrap())
+                    }
+                    BrdbSchemaStructProperty::FlatArray(t) => {
+                        BrdbStructPropRaw::FlatArray(self.intern.lookup(*t).unwrap())
+                    }
+                    BrdbSchemaStructProperty::Map(k, v) => BrdbStructPropRaw::Map(
+                        self.intern.lookup(*k).unwrap(),
+                        self.intern.lookup(*v).unwrap(),
+                    ),
+                };
+                (key, raw)
+            })
+            .collect();
+        structs.push((struct_name.to_owned(), raw_props));
+        Some((enums, variants, structs))
+    }
+
+    /// Extract the named structs plus every type they transitively reference
+    /// (sub-structs, enums, variants, and variant member types) into
+    /// self-contained meta. Primitive/unknown type names are skipped.
+    ///
+    /// Used to build a minimal component schema that embeds only what a world
+    /// actually uses, mirroring how the game writes `ComponentsShared.schema`
+    /// (only the data structs that appear, not the full catalog).
+    pub fn extract_structs_transitive<'a>(
+        &self,
+        seeds: impl IntoIterator<Item = &'a str>,
+    ) -> BrdbSchemaMeta {
+        let mut enums: Vec<BrdbSchemaMetaEnum> = Vec::new();
+        let mut variants: Vec<BrdbSchemaMetaVariant> = Vec::new();
+        let mut structs: Vec<BrdbSchemaMetaStruct> = Vec::new();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut work: Vec<String> = seeds.into_iter().map(str::to_owned).collect();
+
+        while let Some(name) = work.pop() {
+            if !seen.insert(name.clone()) {
+                continue;
+            }
+            if let Some(members) = self.get_variant(&name) {
+                let member_names: Vec<String> =
+                    members.iter().filter_map(|m| self.intern.lookup(*m)).collect();
+                work.extend(member_names.iter().cloned());
+                variants.push((name, member_names));
+            } else if let Some(values) = self.get_enum(&name) {
+                let vals = values
+                    .iter()
+                    .filter_map(|(k, v)| self.intern.lookup(*k).map(|k| (k, *v)))
+                    .collect();
+                enums.push((name, vals));
+            } else if let Some(props) = self.get_struct(&name) {
+                let mut raw_props = Vec::with_capacity(props.len());
+                for (k, v) in props {
+                    let key = self.intern.lookup(*k).unwrap();
+                    let raw = match v {
+                        BrdbSchemaStructProperty::Type(t) => {
+                            let n = self.intern.lookup(*t).unwrap();
+                            work.push(n.clone());
+                            BrdbStructPropRaw::Type(n)
+                        }
+                        BrdbSchemaStructProperty::Array(t) => {
+                            let n = self.intern.lookup(*t).unwrap();
+                            work.push(n.clone());
+                            BrdbStructPropRaw::Array(n)
+                        }
+                        BrdbSchemaStructProperty::FlatArray(t) => {
+                            let n = self.intern.lookup(*t).unwrap();
+                            work.push(n.clone());
+                            BrdbStructPropRaw::FlatArray(n)
+                        }
+                        BrdbSchemaStructProperty::Map(k2, v2) => {
+                            let kn = self.intern.lookup(*k2).unwrap();
+                            let vn = self.intern.lookup(*v2).unwrap();
+                            work.push(kn.clone());
+                            work.push(vn.clone());
+                            BrdbStructPropRaw::Map(kn, vn)
+                        }
+                    };
+                    raw_props.push((key, raw));
+                }
+                structs.push((name, raw_props));
+            }
+            // else: primitive/unknown type — nothing to extract
+        }
+        (enums, variants, structs)
+    }
+
+    /// Struct keys in dependency-first order: a struct is emitted only after
+    /// every struct it references through its fields. The game's schema
+    /// deserializer builds serializers top-to-bottom and requires a referenced
+    /// struct to be defined "higher up" than the struct using it, so the
+    /// written struct order must be topological. Stable where unconstrained
+    /// (preserves insertion order); cycles (shouldn't occur) break arbitrarily.
+    ///
+    /// `O(structs + references)`. Runs once per schema serialization on a small
+    /// struct set, so it's not a hot path. Recursion depth is the longest
+    /// dependency chain (a few levels in practice).
+    pub(crate) fn topo_struct_order(&self) -> Vec<BrdbInterned> {
+        let mut visited = std::collections::HashSet::with_capacity(self.structs.len());
+        let mut order = Vec::with_capacity(self.structs.len());
+        for &root in self.structs.keys() {
+            self.visit_struct_deps(root, &mut visited, &mut order);
+        }
+        order
+    }
+
+    /// Depth-first post-order: append `id`'s struct deps before `id` itself.
+    /// The `visited` set makes each struct land once and breaks any cycle.
+    fn visit_struct_deps(
+        &self,
+        id: BrdbInterned,
+        visited: &mut std::collections::HashSet<BrdbInterned>,
+        order: &mut Vec<BrdbInterned>,
+    ) {
+        if !visited.insert(id) {
+            return;
+        }
+        if let Some(props) = self.structs.get(&id) {
+            for prop in props.values() {
+                let deps: [Option<BrdbInterned>; 2] = match prop {
+                    BrdbSchemaStructProperty::Type(t)
+                    | BrdbSchemaStructProperty::Array(t)
+                    | BrdbSchemaStructProperty::FlatArray(t) => [Some(*t), None],
+                    BrdbSchemaStructProperty::Map(k, v) => [Some(*k), Some(*v)],
+                };
+                for dep in deps.into_iter().flatten() {
+                    if self.structs.contains_key(&dep) {
+                        self.visit_struct_deps(dep, visited, order);
+                    }
+                }
+            }
+        }
+        order.push(id);
+    }
+
     /// Attach global data to the schema
     pub fn with_global_data(mut self, global_data: Arc<BrdbSchemaGlobalData>) -> Self {
         self.global_data = global_data;
@@ -337,7 +602,10 @@ impl BrdbSchema {
 
     /// Serialize the schema as msgpack
     pub fn write(&self, mut buf: impl Write) -> Result<(), BrdbSchemaError> {
-        rmp::encode::write_array_len(&mut buf, 2)?;
+        // Always emit the 3-element form ([enums, variants, structs]). Current
+        // game builds expect it, and an empty variants map is valid; the reader
+        // still accepts the legacy 2-element form for old saves.
+        rmp::encode::write_array_len(&mut buf, 3)?;
 
         let lookup = |interned: BrdbInterned| {
             interned
@@ -355,9 +623,25 @@ impl BrdbSchema {
             }
         }
 
-        rmp::encode::write_map_len(&mut buf, self.structs.len() as u32)?;
-        for (struct_name, properties) in &self.structs {
-            rmp::encode::write_str(&mut buf, lookup(*struct_name)?)?;
+        rmp::encode::write_map_len(&mut buf, self.variants.len() as u32)?;
+        for (variant_name, members) in &self.variants {
+            rmp::encode::write_str(&mut buf, lookup(*variant_name)?)?;
+            rmp::encode::write_array_len(&mut buf, members.len() as u32)?;
+            for member in members {
+                rmp::encode::write_str(&mut buf, lookup(*member)?)?;
+            }
+        }
+
+        // Structs must be written in dependency-first order (the game requires
+        // a referenced struct to appear before the struct that uses it).
+        let struct_order = self.topo_struct_order();
+        rmp::encode::write_map_len(&mut buf, struct_order.len() as u32)?;
+        for struct_name in struct_order {
+            let properties = self
+                .structs
+                .get(&struct_name)
+                .expect("topo order only yields known struct keys");
+            rmp::encode::write_str(&mut buf, lookup(struct_name)?)?;
             rmp::encode::write_map_len(&mut buf, properties.len() as u32)?;
             for (prop_name, prop_type) in properties {
                 rmp::encode::write_str(&mut buf, lookup(*prop_name)?)?;
@@ -451,12 +735,38 @@ struct Bar {
     map: {str: i32},
 }
 ";
-        let (enums, structs) = super::BrdbSchema::parse_to_meta(input).unwrap();
+        let (enums, _variants, structs) = super::BrdbSchema::parse_to_meta(input).unwrap();
 
         // When inserting all the enums and structs into a schema it should
         // produce the same displayed output as the input
         let mut schema = super::BrdbSchema::default();
         schema.add_meta(enums.clone(), structs.clone());
         assert_eq!(schema.to_string(), input,);
+    }
+
+    #[test]
+    fn test_plaintext_variants() {
+        // Display order is enums, then variants, then structs.
+        let input = "enum Foo {
+    A = 0,
+}
+variant WireGraphVariant {
+    f64,
+    i64,
+    bool,
+    Vector,
+}
+struct Bar {
+    value: WireGraphVariant,
+}
+";
+        let schema = super::BrdbSchema::new_parsed(input).unwrap();
+
+        // The variant table should be populated and resolvable by name.
+        let members = schema.get_variant("WireGraphVariant").unwrap();
+        assert_eq!(members.len(), 4);
+
+        // Parsing then displaying should round-trip exactly.
+        assert_eq!(schema.to_string(), input);
     }
 }
