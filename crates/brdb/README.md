@@ -8,9 +8,53 @@ The `.brz` format is described in [Zeblote's Brickadia brz Gist](https://gist.gi
 
 ## API
 
-See [Examples](./examples/) to see how to read/write worlds.
+See [Examples](./examples/) for complete read/write walkthroughs. The two entry points are
+the high-level `World` (build a world in memory, then serialize) and the container readers
+(`Brdb` / `Brz`, unified behind `BrFsReader` + `BrReader`).
 
-TODO...
+### Writing
+
+```rust
+use brdb::{Brick, World};
+
+let mut world = World::new();
+world.meta.bundle.description = "Example World".to_string();
+world.bricks.push(Brick {
+    position: (0, 0, 6).into(),
+    color: (255, 0, 0).into(),
+    ..Default::default()
+});
+
+world.write_brdb("example.brdb")?; // SQLite container (mutable, revisioned)
+world.write_brz("example.brz")?;   // binary archive (read-only snapshot)
+```
+
+`World` holds `bricks`, `owners`, `meta`, and (additively) `grids`, `entities`, `wires`, and
+component registries. Serialization runs `World::to_unsaved()` (chunk bricks into columnar
+Structure-of-Arrays data + build registries) → `UnsavedFs::to_pending()` (a `BrPendingFs`
+tree of `.json` / `.schema` / `.mps` files) → the container writer. Bricks carrying
+components require `world.register_used_components()` (or `register_all_components()`) first.
+
+### Reading
+
+```rust
+use brdb::{Brdb, IntoReader, BrFsReader};
+
+let db = Brdb::new("example.brdb")?.into_reader(); // or Brz::open("example.brz")?.into_reader()
+
+println!("{}", db.get_fs()?.render());              // virtual filesystem tree
+let soa = db.brick_chunk_soa(1, (0, 0, 0).into())?; // decoded brick chunk (grid 1, chunk 0,0,0)
+let bytes = db.read_file("Meta/World.json")?;       // raw file by path
+```
+
+Both containers implement `BrFsReader` (`find_file`, `find_blob`, `get_fs`, path helpers), and
+`BrReader<T>` adds cached, schema-aware world reads. `.brdb` selects each chunk's schema by its
+revision timestamp (see [Schema Selection by Revision](../../docs/format/msgpack-schema/schema-revisions.md));
+`.brz` uses a single embedded schema.
+
+### Format documentation
+
+See [docs/README.md](../../docs/README.md) for the complete on-disk format reference.
 
 ## Notes
 

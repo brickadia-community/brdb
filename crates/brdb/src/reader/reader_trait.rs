@@ -76,6 +76,9 @@ pub trait BrFsReader {
     /// for schema files, which are re-written when the save format changes: an old chunk must be
     /// decoded with the schema that was live when the chunk was written, not the latest schema.
     ///
+    /// Parent folders are resolved against the current tree (folders are stable
+    /// across revisions); only the leaf file is resolved at the revision.
+    ///
     /// [`find_file_by_path`]: BrFsReader::find_file_by_path
     fn find_file_by_path_at_revision(
         &self,

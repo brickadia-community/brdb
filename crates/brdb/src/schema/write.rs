@@ -4,8 +4,8 @@ use crate::{
     errors::BrdbSchemaError,
     schema::{
         BrdbEnum, BrdbInterned, BrdbSchema, BrdbSchemaEnum, BrdbSchemaStruct,
-        BrdbSchemaStructProperty, BrdbStruct, BrdbValue, WireVariant, as_brdb::AsBrdbValue,
-        read::flat_type_size,
+        BrdbSchemaStructProperty, BrdbStruct, BrdbValue, WireArrayVariant, WireVariant,
+        as_brdb::AsBrdbValue, read::flat_type_size,
     },
 };
 
@@ -56,6 +56,12 @@ pub fn write_type(
             }
         },
 
+        // Named variant types (e.g. WireGraphVariant) encode as uint(tag) +
+        // member value. Must come before the asset/struct arms below, whose
+        // `_` patterns would otherwise swallow it.
+        (variant_ty, _) if schema.get_variant(variant_ty).is_some() => {
+            write_variant_value(schema, buf, variant_ty, value)?
+        }
         ("class" | "object" | _, BrdbValue::Asset(None)) => {
             // None is -1
             write_int(buf, -1)?;
@@ -98,15 +104,169 @@ fn write_wire_var(buf: &mut impl Write, v: &WireVariant) -> Result<(), BrdbSchem
             write_uint(buf, 2)?;
             write_bool(buf, *v)?;
         }
-        WireVariant::Object(_) => {
+        // Tag 3 is a `weak_object` (object/asset reference): an i64 index.
+        WireVariant::Object(opt) => {
             write_uint(buf, 3)?;
-            // nothing to write atm?
+            write_int(buf, opt.map(|i| i as i64).unwrap_or(-1))?;
         }
         WireVariant::Exec => {
             write_uint(buf, 4)?;
         }
+        // The legacy union has no string or vector members (those are only in
+        // the newer named `WireGraphVariant` table).
+        WireVariant::Str(_) | WireVariant::Vector(_) => {
+            return Err(BrdbSchemaError::ExpectedType(
+                "wire_graph_variant".to_owned(),
+                v.to_string(),
+            ));
+        }
     }
     Ok(())
+}
+
+/// Find the tag (member index) of `member_name` within a named variant.
+fn variant_member_tag(
+    schema: &BrdbSchema,
+    variant_ty: &str,
+    member_name: &str,
+) -> Result<usize, BrdbSchemaError> {
+    let members = schema
+        .get_variant(variant_ty)
+        .ok_or_else(|| BrdbSchemaError::UnknownType(variant_ty.to_owned()))?;
+    members
+        .iter()
+        .position(|m| schema.intern.lookup_ref(*m) == Some(member_name))
+        .ok_or_else(|| {
+            BrdbSchemaError::ExpectedType(format!("{variant_ty} member"), member_name.to_owned())
+        })
+}
+
+/// Write a `WireVariant` into a named variant type (e.g. `WireGraphVariant`,
+/// `WireGraphPrimMathVariant`) as `uint(tag) + member value`, where the tag is
+/// the member index resolved from the schema's variant table.
+fn write_named_wire_variant(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    variant_ty: &str,
+    v: &WireVariant,
+) -> Result<(), BrdbSchemaError> {
+    let member_name = match v {
+        WireVariant::Number(_) => "f64",
+        WireVariant::Int(_) => "i64",
+        WireVariant::Bool(_) => "bool",
+        WireVariant::Object(_) => "weak_object",
+        WireVariant::Exec => "WireGraphExec",
+        WireVariant::Vector(..) => "Vector",
+        WireVariant::Str(_) => "str",
+    };
+    let tag = variant_member_tag(schema, variant_ty, member_name)?;
+    write_uint(buf, tag as u64)?;
+    match v {
+        WireVariant::Number(n) => write_float64(buf, *n)?,
+        WireVariant::Int(i) => write_int(buf, *i)?,
+        WireVariant::Bool(b) => write_bool(buf, *b)?,
+        // weak_object: an asset-reference index (-1 is null).
+        WireVariant::Object(opt) => write_int(buf, opt.map(|i| i as i64).unwrap_or(-1))?,
+        WireVariant::Exec => {} // WireGraphExec: empty struct, no payload
+        // Vector is a struct {X, Y, Z: f64}; structs are written field-by-field.
+        WireVariant::Vector(v) => {
+            write_float64(buf, v.x as f64)?;
+            write_float64(buf, v.y as f64)?;
+            write_float64(buf, v.z as f64)?;
+        }
+        WireVariant::Str(s) => write_str(buf, s)?,
+    }
+    Ok(())
+}
+
+/// Write a `WireArrayVariant` into a named variant type (e.g.
+/// `WireGraphArrayVariant`) as `uint(tag) + array`. Each member is a
+/// `WireGraph*Array` struct holding a single `Values` array, which (having one
+/// field) encodes as just that array.
+fn write_named_array_variant(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    variant_ty: &str,
+    arr: &WireArrayVariant,
+) -> Result<(), BrdbSchemaError> {
+    let tag = variant_member_tag(schema, variant_ty, arr.member_type())?;
+    write_uint(buf, tag as u64)?;
+    match arr {
+        WireArrayVariant::DoubleArray(v) => {
+            rmp::encode::write_array_len(buf, v.len() as u32)?;
+            for x in v {
+                write_float64(buf, *x)?;
+            }
+        }
+        WireArrayVariant::Int64Array(v) => {
+            rmp::encode::write_array_len(buf, v.len() as u32)?;
+            for x in v {
+                write_int(buf, *x)?;
+            }
+        }
+        WireArrayVariant::BoolArray(v) => {
+            rmp::encode::write_array_len(buf, v.len() as u32)?;
+            for x in v {
+                write_bool(buf, *x)?;
+            }
+        }
+        WireArrayVariant::ObjectArray(v) => {
+            rmp::encode::write_array_len(buf, v.len() as u32)?;
+            for o in v {
+                // weak_object: an asset-reference index (-1 is null).
+                write_int(buf, o.map(|i| i as i64).unwrap_or(-1))?;
+            }
+        }
+        WireArrayVariant::VectorArray(v) => {
+            rmp::encode::write_array_len(buf, v.len() as u32)?;
+            for vec in v {
+                write_float64(buf, vec.x as f64)?;
+                write_float64(buf, vec.y as f64)?;
+                write_float64(buf, vec.z as f64)?;
+            }
+        }
+        WireArrayVariant::StringArray(v) => {
+            rmp::encode::write_array_len(buf, v.len() as u32)?;
+            for s in v {
+                write_str(buf, s)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Write an arbitrary `BrdbValue` into a named variant type. A `WireVar` maps to
+/// a member by its variant kind; a raw value (from a round-tripped read) maps to
+/// a member by its concrete type.
+fn write_variant_value(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    variant_ty: &str,
+    val: &BrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    if let BrdbValue::WireVar(v) = val {
+        return write_named_wire_variant(schema, buf, variant_ty, v);
+    }
+    let member_name = match val {
+        BrdbValue::F64(_) => "f64",
+        BrdbValue::I64(_) => "i64",
+        BrdbValue::Bool(_) => "bool",
+        BrdbValue::String(_) => "str",
+        BrdbValue::Asset(_) => "weak_object",
+        BrdbValue::Struct(s) => schema
+            .intern
+            .lookup_ref(s.name)
+            .ok_or_else(|| BrdbSchemaError::UnknownType(s.name.0.to_string()))?,
+        other => {
+            return Err(BrdbSchemaError::ExpectedType(
+                variant_ty.to_owned(),
+                other.get_type().to_owned(),
+            ));
+        }
+    };
+    let tag = variant_member_tag(schema, variant_ty, member_name)?;
+    write_uint(buf, tag as u64)?;
+    write_type(schema, buf, member_name, val)
 }
 
 fn write_named_type(
@@ -476,6 +636,7 @@ pub fn write_brdb(
                 ));
             }
         },
+        "bundle_path_ref" => write_str(buf, value.as_brdb_str().unwrap_or(""))?,
         "class" | "object" => {
             let asset_index = value.as_brdb_asset(schema, ty)?;
             if let Some(asset_index) = asset_index {
@@ -484,47 +645,97 @@ pub fn write_brdb(
                 write_int(buf, -1)?;
             }
         }
+        other if schema.get_variant(other).is_some() => {
+            // Array-valued variants (WireGraphArrayVariant) self-identify via
+            // `as_brdb_wire_array_variant`; everything else is a scalar variant.
+            if let Ok(arr) = value.as_brdb_wire_array_variant() {
+                write_named_array_variant(schema, buf, other, &arr)?;
+            } else {
+                write_named_wire_variant(schema, buf, other, &value.as_brdb_wire_variant()?)?;
+            }
+        }
         other => {
             if let (Some(s_id), Some(s_ty)) = (schema.intern.get(other), schema.get_struct(other)) {
                 for (prop_id, prop_schema) in s_ty {
                     match prop_schema {
                         BrdbSchemaStructProperty::Type(ty_id) => {
-                            let prop_value =
-                                value.as_brdb_struct_prop_value(schema, s_id, *prop_id)?;
-                            write_brdb(schema, buf, &lookup(*ty_id)?, &*prop_value)?;
+                            let ty_str = lookup(*ty_id)?;
+                            match value.as_brdb_struct_prop_value(schema, s_id, *prop_id) {
+                                Ok(prop_value) => {
+                                    write_brdb(schema, buf, &ty_str, &*prop_value)?;
+                                }
+                                Err(BrdbSchemaError::MissingStructField(
+                                    ref _sn,
+                                    ref field_name,
+                                )) => {
+                                    let defaults = &*crate::wrapper::component_db::STRUCT_DEFAULTS;
+                                    let found = defaults
+                                        .iter()
+                                        .find(|(name, _)| *name == other)
+                                        .and_then(|(_, fields)| {
+                                            fields
+                                                .iter()
+                                                .find(|(n, _)| *n == field_name.as_str())
+                                                .map(|(_, v)| v)
+                                        });
+                                    if let Some(default_val) = found {
+                                        write_brdb(schema, buf, &ty_str, default_val.as_ref())?;
+                                    } else {
+                                        write_brdb_zero(schema, buf, &ty_str)?;
+                                    }
+                                }
+                                Err(e) => return Err(e),
+                            }
                         }
                         BrdbSchemaStructProperty::Array(ty_id) => {
-                            let ty = &lookup(*ty_id)?;
-                            let prop_values =
-                                value.as_brdb_struct_prop_array(schema, s_id, *prop_id)?;
-                            rmp::encode::write_array_len(buf, prop_values.len() as u32)?;
-                            for prop_value in prop_values {
-                                write_brdb(schema, buf, ty, &*prop_value)?;
+                            match value.as_brdb_struct_prop_array(schema, s_id, *prop_id) {
+                                Ok(prop_values) => {
+                                    let ty = &lookup(*ty_id)?;
+                                    rmp::encode::write_array_len(buf, prop_values.len() as u32)?;
+                                    for prop_value in prop_values {
+                                        write_brdb(schema, buf, ty, &*prop_value)?;
+                                    }
+                                }
+                                Err(BrdbSchemaError::MissingStructField(..)) => {
+                                    rmp::encode::write_array_len(buf, 0)?;
+                                }
+                                Err(e) => return Err(e),
                             }
                         }
                         BrdbSchemaStructProperty::FlatArray(ty_id) => {
-                            let ty = &lookup(*ty_id)?;
-                            let prop_values =
-                                value.as_brdb_struct_prop_array(schema, s_id, *prop_id)?;
-                            // Write the length of the buffer that will be allocated
-                            let type_size = flat_type_size(schema, ty);
-                            rmp::encode::write_bin_len(
-                                buf,
-                                (prop_values.len() * type_size) as u32,
-                            )?;
-                            for prop_value in prop_values {
-                                write_brdb_flat(schema, buf, ty, &*prop_value)?;
+                            match value.as_brdb_struct_prop_array(schema, s_id, *prop_id) {
+                                Ok(prop_values) => {
+                                    let ty = &lookup(*ty_id)?;
+                                    let type_size = flat_type_size(schema, ty);
+                                    rmp::encode::write_bin_len(
+                                        buf,
+                                        (prop_values.len() * type_size) as u32,
+                                    )?;
+                                    for prop_value in prop_values {
+                                        write_brdb_flat(schema, buf, ty, &*prop_value)?;
+                                    }
+                                }
+                                Err(BrdbSchemaError::MissingStructField(..)) => {
+                                    rmp::encode::write_bin_len(buf, 0)?;
+                                }
+                                Err(e) => return Err(e),
                             }
                         }
                         BrdbSchemaStructProperty::Map(k_ty_id, v_ty_id) => {
-                            let k_ty = &lookup(*k_ty_id)?;
-                            let v_ty = &lookup(*v_ty_id)?;
-                            let prop_values =
-                                value.as_brdb_struct_prop_map(schema, s_id, *prop_id)?;
-                            rmp::encode::write_map_len(buf, prop_values.len() as u32)?;
-                            for (key, val) in prop_values {
-                                write_brdb(schema, buf, k_ty, &*key)?;
-                                write_brdb(schema, buf, v_ty, &*val)?;
+                            match value.as_brdb_struct_prop_map(schema, s_id, *prop_id) {
+                                Ok(prop_values) => {
+                                    let k_ty = &lookup(*k_ty_id)?;
+                                    let v_ty = &lookup(*v_ty_id)?;
+                                    rmp::encode::write_map_len(buf, prop_values.len() as u32)?;
+                                    for (key, val) in prop_values {
+                                        write_brdb(schema, buf, k_ty, &*key)?;
+                                        write_brdb(schema, buf, v_ty, &*val)?;
+                                    }
+                                }
+                                Err(BrdbSchemaError::MissingStructField(..)) => {
+                                    rmp::encode::write_map_len(buf, 0)?;
+                                }
+                                Err(e) => return Err(e),
                             }
                         }
                     }
@@ -544,6 +755,57 @@ pub fn write_brdb(
         }
     }
     Ok(())
+}
+
+/// Write component data structs. Same as `write_brdb` but encodes `str`
+/// fields as `uint(len) + raw bytes` ("wire graph str") instead of
+/// standard msgpack str — the game's component reader expects this format.
+pub fn write_brdb_component(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    ty: &str,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    // Override str to use wire graph str encoding
+    if ty == "str" {
+        let s = value.as_brdb_str()?;
+        write_uint(buf, s.len() as u64)?;
+        buf.write_all(s.as_bytes())?;
+        return Ok(());
+    }
+    // For struct types, recurse with component encoding for nested fields
+    let lookup = |ty: BrdbInterned| {
+        schema
+            .intern
+            .lookup_ref(ty)
+            .ok_or(BrdbSchemaError::UnknownType(ty.0.to_string()))
+    };
+    if let (Some(s_id), Some(s_ty)) = (schema.intern.get(ty), schema.get_struct(ty)) {
+        for (prop_id, prop_schema) in s_ty {
+            match prop_schema {
+                BrdbSchemaStructProperty::Type(ty_id) => {
+                    let prop_value = value.as_brdb_struct_prop_value(schema, s_id, *prop_id)?;
+                    write_brdb_component(schema, buf, &lookup(*ty_id)?, &*prop_value)?;
+                }
+                BrdbSchemaStructProperty::Array(ty_id) => {
+                    let ty = &lookup(*ty_id)?;
+                    let prop_values = value.as_brdb_struct_prop_array(schema, s_id, *prop_id)?;
+                    rmp::encode::write_array_len(buf, prop_values.len() as u32)?;
+                    for prop_value in prop_values {
+                        write_brdb_component(schema, buf, ty, &*prop_value)?;
+                    }
+                }
+                _ => {
+                    // Fall back to standard write for other field types
+                    let prop_value = value.as_brdb_struct_prop_value(schema, s_id, *prop_id)?;
+                    write_brdb(schema, buf, ty, &*prop_value)?;
+                }
+            }
+        }
+        return Ok(());
+    }
+    // Fall back to standard write for non-str, non-struct types
+    write_brdb(schema, buf, ty, value)
 }
 
 pub fn write_brdb_flat(
@@ -585,6 +847,76 @@ pub fn write_brdb_flat(
     Ok(())
 }
 
+/// Write a zero/default value for any type. Used when a struct field is
+/// missing from the component data — the engine zero-initialises fields
+/// before loading, so writing zeros is safe.
+pub fn write_brdb_zero(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    ty: &str,
+) -> Result<(), BrdbSchemaError> {
+    match ty {
+        "bool" => write_bool(buf, false)?,
+        "u8" => write_u8(buf, 0)?,
+        "u16" | "u32" | "u64" => write_uint(buf, 0)?,
+        "i8" | "i16" | "i32" | "i64" => write_int(buf, 0)?,
+        "f32" => write_float32(buf, 0.0)?,
+        "f64" => write_float64(buf, 0.0)?,
+        "str" => write_str(buf, "")?,
+        "wire_graph_variant" => {
+            write_uint(buf, 0)?; // Number
+            write_float64(buf, 0.0)?;
+        }
+        "wire_graph_prim_math_variant" => {
+            write_uint(buf, 0)?; // Number
+            write_float64(buf, 0.0)?;
+        }
+        "bundle_path_ref" => write_str(buf, "")?,
+        "class" | "object" => write_int(buf, -1)?,
+        other if schema.get_variant(other).is_some() => {
+            // Zero a named variant as tag 0 + the zero value of its first member.
+            let members = schema.get_variant(other).unwrap();
+            write_uint(buf, 0)?;
+            if let Some(first) = members.first() {
+                let inner = schema
+                    .intern
+                    .lookup_ref(*first)
+                    .ok_or_else(|| BrdbSchemaError::UnknownType(first.0.to_string()))?;
+                write_brdb_zero(schema, buf, inner)?;
+            }
+        }
+        other => {
+            if let Some(s_ty) = schema.get_struct(other) {
+                for (_, prop_schema) in s_ty {
+                    match prop_schema {
+                        BrdbSchemaStructProperty::Type(ty_id) => {
+                            let inner = schema
+                                .intern
+                                .lookup_ref(*ty_id)
+                                .ok_or_else(|| BrdbSchemaError::UnknownType(ty_id.0.to_string()))?;
+                            write_brdb_zero(schema, buf, &inner)?;
+                        }
+                        BrdbSchemaStructProperty::Array(_) => {
+                            rmp::encode::write_array_len(buf, 0)?;
+                        }
+                        BrdbSchemaStructProperty::FlatArray(_) => {
+                            rmp::encode::write_bin_len(buf, 0)?;
+                        }
+                        BrdbSchemaStructProperty::Map(_, _) => {
+                            rmp::encode::write_map_len(buf, 0)?;
+                        }
+                    }
+                }
+            } else if schema.get_enum(other).is_some() {
+                write_uint(buf, 0)?;
+            } else {
+                return Err(BrdbSchemaError::UnknownType(other.to_owned()));
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -605,5 +937,233 @@ mod tests {
             buf.clear();
             super::write_u8(&mut buf, i).unwrap();
         }
+    }
+
+    #[test]
+    fn test_named_variant_round_trip() {
+        use crate::schema::{BrdbSchema, BrdbValue, WireVariant, read::read_type};
+        use std::sync::Arc;
+
+        let schema = Arc::new(
+            BrdbSchema::new_parsed(
+                "variant WireGraphVariant {
+    f64,
+    i64,
+    bool,
+    Vector,
+}
+struct Vector {
+    X: f64,
+    Y: f64,
+    Z: f64,
+}
+",
+            )
+            .unwrap(),
+        );
+
+        // BrdbValue path (write_type): Number -> f64 member (tag 0).
+        let mut buf = Vec::new();
+        super::write_type(
+            &schema,
+            &mut buf,
+            "WireGraphVariant",
+            &BrdbValue::WireVar(WireVariant::Number(3.5)),
+        )
+        .unwrap();
+        assert_eq!(buf[0], 0); // tag 0
+        let val = read_type(&schema, "WireGraphVariant", &mut buf.as_slice()).unwrap();
+        assert!(matches!(val, BrdbValue::F64(n) if n == 3.5));
+
+        // BrdbValue path: Bool -> bool member (tag 2).
+        let mut buf = Vec::new();
+        super::write_type(
+            &schema,
+            &mut buf,
+            "WireGraphVariant",
+            &BrdbValue::WireVar(WireVariant::Bool(true)),
+        )
+        .unwrap();
+        assert_eq!(buf[0], 2); // tag 2
+        let val = read_type(&schema, "WireGraphVariant", &mut buf.as_slice()).unwrap();
+        assert!(matches!(val, BrdbValue::Bool(true)));
+
+        // AsBrdbValue path (write_brdb, the authoring path): Int -> i64 member (tag 1).
+        let mut buf = Vec::new();
+        super::write_brdb(&schema, &mut buf, "WireGraphVariant", &WireVariant::Int(7)).unwrap();
+        assert_eq!(buf[0], 1); // tag 1
+        let val = read_type(&schema, "WireGraphVariant", &mut buf.as_slice()).unwrap();
+        assert!(matches!(val, BrdbValue::I64(7)));
+
+        // Zero value: tag 0 + zero of first member (f64 0.0).
+        let mut buf = Vec::new();
+        super::write_brdb_zero(&schema, &mut buf, "WireGraphVariant").unwrap();
+        let val = read_type(&schema, "WireGraphVariant", &mut buf.as_slice()).unwrap();
+        assert!(matches!(val, BrdbValue::F64(n) if n == 0.0));
+    }
+
+    #[test]
+    fn test_legacy_wire_graph_variant_weak_object() {
+        // The legacy literal `wire_graph_variant` tag 3 is a `weak_object`
+        // (object/asset reference), an i64 index that must round-trip (it was
+        // previously written/read as nothing, causing misalignment).
+        use crate::schema::{BrdbSchema, BrdbValue, WireVariant, read::read_type};
+        use std::sync::Arc;
+
+        let schema = Arc::new(BrdbSchema::default());
+
+        for obj in [Some(5usize), None] {
+            let mut buf = Vec::new();
+            super::write_type(
+                &schema,
+                &mut buf,
+                "wire_graph_variant",
+                &BrdbValue::WireVar(WireVariant::Object(obj)),
+            )
+            .unwrap();
+            assert_eq!(buf[0], 3); // tag 3
+            let val = read_type(&schema, "wire_graph_variant", &mut buf.as_slice()).unwrap();
+            match val {
+                BrdbValue::WireVar(WireVariant::Object(got)) => assert_eq!(got, obj),
+                other => panic!("expected Object, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_named_variant_vector_and_str_round_trip() {
+        use crate::schema::{BrdbSchema, BrdbValue, WireVariant, read::read_type};
+        use crate::wrapper::Vector3f;
+        use std::sync::Arc;
+
+        let schema = Arc::new(
+            BrdbSchema::new_parsed(
+                "variant WireGraphVariant {
+    f64,
+    i64,
+    bool,
+    weak_object,
+    WireGraphExec,
+    Vector,
+    str,
+}
+struct Vector {
+    X: f64,
+    Y: f64,
+    Z: f64,
+}
+struct WireGraphExec {
+}
+",
+            )
+            .unwrap(),
+        );
+
+        // Str -> str member (tag 6).
+        let mut buf = Vec::new();
+        super::write_brdb(
+            &schema,
+            &mut buf,
+            "WireGraphVariant",
+            &WireVariant::Str("hi".into()),
+        )
+        .unwrap();
+        assert_eq!(buf[0], 6); // tag 6
+        let val = read_type(&schema, "WireGraphVariant", &mut buf.as_slice()).unwrap();
+        assert!(matches!(val, BrdbValue::String(s) if s == "hi"));
+
+        // Vector -> Vector member (tag 5), read back as a struct.
+        let mut buf = Vec::new();
+        super::write_brdb(
+            &schema,
+            &mut buf,
+            "WireGraphVariant",
+            &WireVariant::Vector(Vector3f {
+                x: 1.0,
+                y: 2.0,
+                z: 3.0,
+            }),
+        )
+        .unwrap();
+        assert_eq!(buf[0], 5); // tag 5
+        let val = read_type(&schema, "WireGraphVariant", &mut buf.as_slice()).unwrap();
+        assert!(matches!(val, BrdbValue::Struct(_)));
+
+        // A plain `String` authors via `as_brdb_wire_variant` -> str (tag 6).
+        let mut buf = Vec::new();
+        super::write_brdb(&schema, &mut buf, "WireGraphVariant", &String::from("yo")).unwrap();
+        assert_eq!(buf[0], 6);
+        let val = read_type(&schema, "WireGraphVariant", &mut buf.as_slice()).unwrap();
+        assert!(matches!(val, BrdbValue::String(s) if s == "yo"));
+
+        // A plain `Vector3f` authors via `as_brdb_wire_variant` -> Vector (tag 5).
+        let mut buf = Vec::new();
+        super::write_brdb(
+            &schema,
+            &mut buf,
+            "WireGraphVariant",
+            &Vector3f {
+                x: 4.0,
+                y: 5.0,
+                z: 6.0,
+            },
+        )
+        .unwrap();
+        assert_eq!(buf[0], 5);
+    }
+
+    #[test]
+    fn test_named_array_variant_round_trip() {
+        use crate::schema::{BrdbSchema, BrdbValue, WireArrayVariant, read::read_type};
+        use std::sync::Arc;
+
+        let schema = Arc::new(
+            BrdbSchema::new_parsed(
+                "variant WireGraphArrayVariant {
+    WireGraphDoubleArray,
+    WireGraphStringArray,
+}
+struct WireGraphDoubleArray {
+    Values: f64[],
+}
+struct WireGraphStringArray {
+    Values: str[],
+}
+",
+            )
+            .unwrap(),
+        );
+
+        // DoubleArray -> WireGraphDoubleArray member (tag 0).
+        let mut buf = Vec::new();
+        super::write_brdb(
+            &schema,
+            &mut buf,
+            "WireGraphArrayVariant",
+            &WireArrayVariant::DoubleArray(vec![1.0, 2.0, 3.0]),
+        )
+        .unwrap();
+        assert_eq!(buf[0], 0); // tag 0
+        let val = read_type(&schema, "WireGraphArrayVariant", &mut buf.as_slice()).unwrap();
+        // Read back into a WireArrayVariant via TryFrom.
+        let back = WireArrayVariant::try_from(&val).unwrap();
+        assert_eq!(back, WireArrayVariant::DoubleArray(vec![1.0, 2.0, 3.0]));
+
+        // StringArray -> WireGraphStringArray member (tag 1), full round-trip.
+        let mut buf = Vec::new();
+        super::write_brdb(
+            &schema,
+            &mut buf,
+            "WireGraphArrayVariant",
+            &WireArrayVariant::StringArray(vec!["a".into(), "b".into()]),
+        )
+        .unwrap();
+        assert_eq!(buf[0], 1); // tag 1
+        let val = read_type(&schema, "WireGraphArrayVariant", &mut buf.as_slice()).unwrap();
+        let back = WireArrayVariant::try_from(&val).unwrap();
+        assert_eq!(
+            back,
+            WireArrayVariant::StringArray(vec!["a".into(), "b".into()])
+        );
     }
 }

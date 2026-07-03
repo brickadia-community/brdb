@@ -215,7 +215,7 @@ impl AsBrdbValue for OwnerTableSoA {
         schema: &crate::schema::BrdbSchema,
         _struct_name: crate::schema::BrdbInterned,
         prop_name: crate::schema::BrdbInterned,
-    ) -> Result<crate::schema::as_brdb::BrdbArrayIter, crate::errors::BrdbSchemaError> {
+    ) -> Result<crate::schema::as_brdb::BrdbArrayIter<'_>, crate::errors::BrdbSchemaError> {
         match prop_name.get(schema).unwrap() {
             "UserIds" => Ok(self.user_ids.as_brdb_iter()),
             "UserNames" => Ok(self.user_names.as_brdb_iter()),

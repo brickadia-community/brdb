@@ -20,6 +20,7 @@ mod meta;
 pub use meta::*;
 mod bstring;
 pub use bstring::*;
+pub mod component_db;
 mod world;
 pub use world::*;
 mod position;

@@ -1,6 +1,6 @@
 use crate::{
     BString, BrdbComponent, BrickType, WirePort,
-    schema::{BrdbSchema, WireVariant, as_brdb::AsBrdbValue},
+    schema::{WireVariant, as_brdb::AsBrdbValue},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -62,22 +62,8 @@ impl AsBrdbValue for BufferTicks {
     }
 }
 impl BrdbComponent for BufferTicks {
-    fn get_schema(&self) -> Option<crate::schema::BrdbSchemaMeta> {
-        BrdbSchema::parse_to_meta(
-            "struct BrickComponentData_WireGraphPseudo_BufferTicks {
-                TicksToWait: i32,
-                CurrentTicks: i32,
-                Input: wire_graph_variant,
-                Output: wire_graph_variant,
-            }",
-        )
-        .ok()
-    }
-    fn get_schema_struct(&self) -> Option<(BString, Option<BString>)> {
-        Some((Self::COMPONENT, Some(Self::STRUCT_NAME)))
-    }
-    fn get_wire_ports(&self) -> Vec<BString> {
-        vec![Self::INPUT, Self::OUTPUT]
+    fn component_type(&self) -> Option<BString> {
+        Some(Self::COMPONENT)
     }
 }
 
@@ -141,21 +127,7 @@ impl AsBrdbValue for BufferSeconds {
     }
 }
 impl BrdbComponent for BufferSeconds {
-    fn get_schema(&self) -> Option<crate::schema::BrdbSchemaMeta> {
-        BrdbSchema::parse_to_meta(
-            "struct BrickComponentData_WireGraphPseudo_BufferSeconds {
-                SecondsToWait: f32,
-                CurrentTime: f32,
-                Input: wire_graph_variant,
-                Output: wire_graph_variant,
-            }",
-        )
-        .ok()
-    }
-    fn get_schema_struct(&self) -> Option<(BString, Option<BString>)> {
-        Some((Self::COMPONENT, Some(Self::STRUCT_NAME)))
-    }
-    fn get_wire_ports(&self) -> Vec<BString> {
-        vec![Self::INPUT, Self::OUTPUT]
+    fn component_type(&self) -> Option<BString> {
+        Some(Self::COMPONENT)
     }
 }

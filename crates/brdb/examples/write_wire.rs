@@ -8,6 +8,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Ensures the memory db can be created without errors
     let db = Brdb::new(&path)?.into_reader();
     let mut world = World::new();
+    // Register the built-in component type/struct mappings so the gate and
+    // rerouter component types resolve when writing.
+    world.register_all_components();
     world.meta.bundle.description = "Example World".to_string();
 
     let (a, a_id) = Brick {

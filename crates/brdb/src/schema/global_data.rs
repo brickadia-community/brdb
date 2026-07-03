@@ -6,10 +6,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     BString, BrdbSchemaError,
     schema::as_brdb::{AsBrdbIter, AsBrdbValue, BrdbArrayIter},
-    wrapper::{BrdbComponent, Brick, BrickType},
+    wrapper::{Brick, BrickType},
 };
 
-#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BrdbSchemaGlobalData {
     pub entity_type_names: IndexSet<String>,
     pub entity_data_class_names: IndexSet<String>,
@@ -22,6 +22,27 @@ pub struct BrdbSchemaGlobalData {
     /// Internal set for type checking, not used in the BRDB.
     pub external_asset_types: HashSet<String>,
     pub external_asset_references: IndexSet<(String, String)>,
+    /// Index into `entity_type_names` for the BP_BrickGrid_Global_C entity type,
+    /// or -1 if the save has no global grid.
+    pub global_grid_entity_type_index: i32,
+}
+
+impl Default for BrdbSchemaGlobalData {
+    fn default() -> Self {
+        Self {
+            entity_type_names: IndexSet::default(),
+            entity_data_class_names: IndexSet::default(),
+            basic_brick_asset_names: IndexSet::default(),
+            procedural_brick_asset_names: IndexSet::default(),
+            material_asset_names: IndexSet::default(),
+            component_type_names: IndexSet::default(),
+            component_data_struct_names: Vec::default(),
+            component_wire_port_names: IndexSet::default(),
+            external_asset_types: HashSet::default(),
+            external_asset_references: IndexSet::default(),
+            global_grid_entity_type_index: -1,
+        }
+    }
 }
 
 impl BrdbSchemaGlobalData {
@@ -46,34 +67,16 @@ impl BrdbSchemaGlobalData {
         }
     }
 
-    pub fn add_component_meta(&mut self, component: &dyn BrdbComponent) {
-        for (asset_ty, asset_name) in component.get_external_asset_references() {
-            self.external_asset_references
-                .insert((asset_ty.to_string(), asset_name.to_string()));
-            self.external_asset_types.insert(asset_ty.to_string());
-        }
 
-        // Add the struct names for components
-        if let Some((type_name, struct_name)) = component.get_schema_struct() {
-            if self.component_type_names.contains(type_name.as_ref()) {
-                return;
-            }
+    pub fn get_struct_name(&self, type_name: &str) -> Option<&str> {
+        let idx = self.component_type_names.get_index_of(type_name)?;
+        let sn = self.component_data_struct_names.get(idx)?;
+        if sn == "None" { None } else { Some(sn.as_str()) }
+    }
 
-            self.component_type_names.insert(type_name.to_string());
-            self.component_data_struct_names.push(
-                struct_name
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "None".to_owned()),
-            );
-        }
-
-        // Add the wire port names
-        self.component_wire_port_names.extend(
-            component
-                .get_wire_ports()
-                .into_iter()
-                .map(|p| p.to_string()),
-        );
+    pub fn get_entity_class_name(&self, type_name: &str) -> Option<&str> {
+        let idx = self.entity_type_names.get_index_of(type_name)?;
+        self.entity_data_class_names.get_index(idx).map(|s| s.as_str())
     }
 
     pub fn get_port_index(&self, port_name: &str) -> Option<u16> {
@@ -91,7 +94,24 @@ impl BrdbSchemaGlobalData {
         self.component_type_names.contains(type_name)
     }
     pub fn add_entity_type(&mut self, type_name: &str) {
-        self.entity_type_names.insert(type_name.to_string());
+        // Back-compat: if a caller doesn't know the class name, fall back to the
+        // legacy lookup table (populated at read time when only type_names were
+        // present). When writing, prefer `add_entity_type_with_class` so that
+        // `EntityDataClassNames` is paired correctly — the runtime rejects saves
+        // whose EntityDataClassNames is empty for new entity types.
+        if self.entity_type_names.insert(type_name.to_string()) {
+            let class = crate::lookup_entity_struct_name(type_name).unwrap_or(type_name);
+            self.entity_data_class_names.insert(class.to_string());
+        }
+    }
+
+    /// Register an entity type with its explicit data-class name. Keeps
+    /// `entity_type_names` and `entity_data_class_names` parallel as the
+    /// saved-world format requires.
+    pub fn add_entity_type_with_class(&mut self, type_name: &str, class_name: &str) {
+        if self.entity_type_names.insert(type_name.to_string()) {
+            self.entity_data_class_names.insert(class_name.to_string());
+        }
     }
 
     pub fn basic_brick_asset_by_index(&self, index: usize) -> Result<BString, BrdbSchemaError> {
@@ -146,12 +166,24 @@ impl BrdbSchemaGlobalData {
 }
 
 impl AsBrdbValue for BrdbSchemaGlobalData {
+    fn as_brdb_struct_prop_value(
+        &self,
+        schema: &super::BrdbSchema,
+        _struct_name: super::BrdbInterned,
+        prop_name: super::BrdbInterned,
+    ) -> Result<&dyn AsBrdbValue, crate::errors::BrdbSchemaError> {
+        match prop_name.get(schema).unwrap() {
+            "GlobalGridEntityTypeIndex" => Ok(&self.global_grid_entity_type_index),
+            n => unimplemented!("unimplemented scalar struct field {n}"),
+        }
+    }
+
     fn as_brdb_struct_prop_array(
         &self,
         schema: &super::BrdbSchema,
         _struct_name: super::BrdbInterned,
         prop_name: super::BrdbInterned,
-    ) -> Result<BrdbArrayIter, crate::errors::BrdbSchemaError> {
+    ) -> Result<BrdbArrayIter<'_>, crate::errors::BrdbSchemaError> {
         Ok(match prop_name.get(schema).unwrap() {
             "EntityTypeNames" => self.entity_type_names.as_brdb_iter(),
             "EntityDataClassNames" => self.entity_data_class_names.as_brdb_iter(),
@@ -163,7 +195,7 @@ impl AsBrdbValue for BrdbSchemaGlobalData {
             "ComponentWirePortNames" => self.component_wire_port_names.as_brdb_iter(),
             // BRSavedPrimaryAssetId is automatically inferred from (&str, &str)
             "ExternalAssetReferences" => self.external_asset_references.as_brdb_iter(),
-            n => unimplemented!("unimplemented struct field {n}"),
+            n => unimplemented!("unimplemented array struct field {n}"),
         })
     }
 }

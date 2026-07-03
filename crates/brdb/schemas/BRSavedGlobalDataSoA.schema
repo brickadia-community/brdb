@@ -12,4 +12,5 @@ struct BRSavedGlobalDataSoA {
     ComponentDataStructNames: str[],
     ComponentWirePortNames: str[],
     ExternalAssetReferences: BRSavedPrimaryAssetId[],
+    GlobalGridEntityTypeIndex: i32,
 }

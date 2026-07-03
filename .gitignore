@@ -1,3 +1,4 @@
 /target
 *.brdb
 *.brz
+crates/brdb/fixtures/

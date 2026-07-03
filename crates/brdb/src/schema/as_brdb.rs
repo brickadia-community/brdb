@@ -10,7 +10,7 @@ pub type BrdbMapIter<'a> =
     Box<dyn ExactSizeIterator<Item = (&'a dyn AsBrdbValue, &'a dyn AsBrdbValue)> + 'a>;
 
 /// A helper trait to allow serializing implementing types to msgpack schema format
-pub trait AsBrdbValue {
+pub trait AsBrdbValue: Send + Sync {
     fn as_brdb_bool(&self) -> Result<bool, BrdbSchemaError> {
         Err(BrdbSchemaError::UnimplementedCast(
             "bool".to_owned(),
@@ -111,6 +111,15 @@ pub trait AsBrdbValue {
         ))
     }
 
+    fn as_brdb_wire_array_variant(
+        &self,
+    ) -> Result<crate::schema::value::WireArrayVariant, BrdbSchemaError> {
+        Err(BrdbSchemaError::UnimplementedCast(
+            "wire array variant".to_owned(),
+            std::any::type_name::<Self>(),
+        ))
+    }
+
     /// Read a specific struct property value from the schema.
     fn as_brdb_struct_prop_value(
         &self,
@@ -130,7 +139,7 @@ pub trait AsBrdbValue {
         _schema: &BrdbSchema,
         _struct_name: BrdbInterned,
         _prop_name: BrdbInterned,
-    ) -> Result<BrdbArrayIter, BrdbSchemaError> {
+    ) -> Result<BrdbArrayIter<'_>, BrdbSchemaError> {
         Err(BrdbSchemaError::UnimplementedCast(
             "struct property array".to_owned(),
             std::any::type_name::<Self>(),
@@ -143,7 +152,7 @@ pub trait AsBrdbValue {
         _schema: &BrdbSchema,
         _struct_name: BrdbInterned,
         _prop_name: BrdbInterned,
-    ) -> Result<BrdbMapIter, BrdbSchemaError> {
+    ) -> Result<BrdbMapIter<'_>, BrdbSchemaError> {
         Err(BrdbSchemaError::UnimplementedCast(
             "struct property map".to_owned(),
             std::any::type_name::<Self>(),
@@ -249,7 +258,7 @@ impl AsBrdbValue for BrdbValue {
         schema: &BrdbSchema,
         struct_name: BrdbInterned,
         prop_name: BrdbInterned,
-    ) -> Result<BrdbArrayIter, BrdbSchemaError> {
+    ) -> Result<BrdbArrayIter<'_>, BrdbSchemaError> {
         let BrdbValue::Struct(s) = self else {
             return Err(BrdbSchemaError::ExpectedType(
                 "struct".to_owned(),
@@ -263,7 +272,7 @@ impl AsBrdbValue for BrdbValue {
         schema: &BrdbSchema,
         struct_name: BrdbInterned,
         prop_name: BrdbInterned,
-    ) -> Result<BrdbMapIter, BrdbSchemaError> {
+    ) -> Result<BrdbMapIter<'_>, BrdbSchemaError> {
         let BrdbValue::Struct(s) = self else {
             return Err(BrdbSchemaError::ExpectedType(
                 "struct".to_owned(),
@@ -302,7 +311,7 @@ impl AsBrdbValue for BrdbStruct {
         schema: &BrdbSchema,
         _struct_name: BrdbInterned,
         prop_name: BrdbInterned,
-    ) -> Result<BrdbArrayIter, BrdbSchemaError> {
+    ) -> Result<BrdbArrayIter<'_>, BrdbSchemaError> {
         match self.properties.get(&prop_name) {
             Some(BrdbValue::Array(vec)) | Some(BrdbValue::FlatArray(vec)) => Ok(vec.as_brdb_iter()),
             _ => Err(BrdbSchemaError::MissingStructField(
@@ -323,7 +332,7 @@ impl AsBrdbValue for BrdbStruct {
         schema: &BrdbSchema,
         _struct_name: BrdbInterned,
         prop_name: BrdbInterned,
-    ) -> Result<BrdbMapIter, BrdbSchemaError> {
+    ) -> Result<BrdbMapIter<'_>, BrdbSchemaError> {
         if let Some(BrdbValue::Map(map)) = self.properties.get(&prop_name) {
             Ok(Box::new(map.iter().map(|(k, v)| {
                 (k as &dyn AsBrdbValue, v as &dyn AsBrdbValue)
@@ -345,6 +354,14 @@ impl AsBrdbValue for BrdbStruct {
 
 impl AsBrdbValue for WireVariant {
     fn as_brdb_wire_variant(&self) -> Result<WireVariant, BrdbSchemaError> {
+        Ok(self.clone())
+    }
+}
+
+impl AsBrdbValue for crate::schema::value::WireArrayVariant {
+    fn as_brdb_wire_array_variant(
+        &self,
+    ) -> Result<crate::schema::value::WireArrayVariant, BrdbSchemaError> {
         Ok(self.clone())
     }
 }
@@ -394,6 +411,13 @@ macro_rules! as_brdb_int(
             ) -> Result<WireVariant, BrdbSchemaError> {
                 Ok((*self).into())
             }
+            fn as_brdb_enum(
+                &self,
+                _schema: &BrdbSchema,
+                _def: &BrdbSchemaEnum,
+            ) -> Result<i32, BrdbSchemaError> {
+                Ok(*self as i32)
+            }
         }
     }
 );
@@ -434,32 +458,38 @@ impl AsBrdbValue for String {
     fn as_brdb_str(&self) -> Result<&str, BrdbSchemaError> {
         Ok(self)
     }
+    fn as_brdb_wire_variant(&self) -> Result<WireVariant, BrdbSchemaError> {
+        Ok(WireVariant::Str(self.clone()))
+    }
 }
 impl AsBrdbValue for &str {
     fn as_brdb_str(&self) -> Result<&str, BrdbSchemaError> {
         Ok(self)
     }
+    fn as_brdb_wire_variant(&self) -> Result<WireVariant, BrdbSchemaError> {
+        Ok(WireVariant::Str(self.to_string()))
+    }
 }
 
 pub trait AsBrdbIter {
-    fn as_brdb_iter(&self) -> BrdbArrayIter;
+    fn as_brdb_iter(&self) -> BrdbArrayIter<'_>;
 }
 pub trait AsBrdbMapIter {
-    fn as_brdb_map_iter(&self) -> BrdbMapIter;
+    fn as_brdb_map_iter(&self) -> BrdbMapIter<'_>;
 }
 
 impl<T: AsBrdbValue> AsBrdbIter for Vec<T> {
-    fn as_brdb_iter(&self) -> BrdbArrayIter {
+    fn as_brdb_iter(&self) -> BrdbArrayIter<'_> {
         Box::new(self.iter().map(|v| v as &dyn AsBrdbValue))
     }
 }
 impl<T: AsBrdbValue> AsBrdbIter for IndexSet<T> {
-    fn as_brdb_iter(&self) -> BrdbArrayIter {
+    fn as_brdb_iter(&self) -> BrdbArrayIter<'_> {
         Box::new(self.iter().map(|v| v as &dyn AsBrdbValue))
     }
 }
 impl<K: AsBrdbValue, V: AsBrdbValue> AsBrdbMapIter for IndexMap<K, V> {
-    fn as_brdb_map_iter(&self) -> BrdbMapIter {
+    fn as_brdb_map_iter(&self) -> BrdbMapIter<'_> {
         Box::new(
             self.iter()
                 .map(|(k, v)| (k as &dyn AsBrdbValue, v as &dyn AsBrdbValue)),

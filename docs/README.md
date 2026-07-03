@@ -17,6 +17,10 @@
 - [Flat Arrays](format/msgpack-schema/flat-arrays.md): Binary flat array encoding and limitations
 - [Shared Schemas](format/msgpack-schema/shared-schemas.md): Global data, asset references, interning
 - [Entity & Component Files](format/msgpack-schema/entity-components.md): .mps file structure, extra data after SoA
+- [Schema Selection by Revision](format/msgpack-schema/schema-revisions.md): How a chunk's `created_at` picks the schema that decodes it
+
+### Format Properties
+- [Determinism](format/determinism.md): Which parts of each format are byte-reproducible, and how to compare independent implementations
 
 ## External References
 - [Zeblote's msgpack-schema Gist](https://gist.github.com/Zeblote/053d54cc820df3bccad57df676202895)

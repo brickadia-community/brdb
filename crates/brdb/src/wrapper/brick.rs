@@ -19,6 +19,10 @@ pub struct Brick {
     pub id: Option<usize>,
     pub asset: BrickType,
     pub owner_index: Option<usize>,
+    /// Saved-world field added alongside the schema update. If `None`, serialization
+    /// mirrors `owner_index` (preserving legacy behavior for Bricks constructed
+    /// without explicitly setting an original owner).
+    pub original_owner_index: Option<usize>,
     pub position: Position,
     pub rotation: Rotation,
     pub direction: Direction,
@@ -31,7 +35,10 @@ pub struct Brick {
 }
 
 impl Brick {
-    fn next_id() -> usize {
+    /// Monotonic id counter used for both bricks and entities. The write
+    /// path keeps separate maps (`brick_id_map`, `entity_index_map`) so
+    /// ids minted here serve both without collision concerns.
+    pub fn next_id() -> usize {
         static NEXT_ID: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
@@ -68,6 +75,16 @@ impl Brick {
         let id = Self::next_id();
         self.id = Some(id);
         id
+    }
+
+    /// True if this brick's asset is the outer microchip shell. The microchip's
+    /// inner grid is held in a separate `Entity` (see
+    /// `assets::entities::MICROCHIP_GRID`); the link is recorded at save time
+    /// in `ComponentChunkSoA`'s `microchip_brick_indices` /
+    /// `microchip_brick_grid_references`. Use `World::add_microchip` to emit
+    /// a linked (brick, entity) pair in one call.
+    pub fn is_microchip_host(&self) -> bool {
+        self.asset == assets::bricks::B_MICROCHIP
     }
 
     /// Adds a component to the brick. The component must implement the `BrdbComponent` trait.
@@ -117,6 +134,31 @@ impl Brick {
         self.set_material(material);
         self
     }
+
+    /// Axis-aligned bounds of this brick in grid-local brick units, as
+    /// `(min, max)` corners. Procedural bricks use their half-extent `size`;
+    /// basic bricks (whose extent is asset-defined and not carried here) are
+    /// treated as a point at their position. Brick rotation is not applied —
+    /// the extent is taken as authored, which is exact for unrotated bricks
+    /// and an approximation otherwise.
+    pub fn local_bounds(&self) -> (Position, Position) {
+        let half = match &self.asset {
+            BrickType::Procedural { size, .. } => Position {
+                x: size.x as i32,
+                y: size.y as i32,
+                z: size.z as i32,
+            },
+            // The collapsed microchip shell is a 1x1 plate footprint (matches
+            // what the game writes for a microchip prefab: half-extent 5,5,2).
+            BrickType::Basic(asset) if asset.as_ref() == "B_1x1_Microchip" => {
+                Position { x: 5, y: 5, z: 2 }
+            }
+            // Other basic bricks carry no size here; assume a 1x1 brick
+            // footprint rather than a zero-size point so prefab bounds are sane.
+            BrickType::Basic(_) => Position { x: 5, y: 5, z: 6 },
+        };
+        (self.position - half, self.position + half)
+    }
 }
 
 impl Default for Brick {
@@ -128,6 +170,7 @@ impl Default for Brick {
                 size: BrickSize { x: 5, y: 5, z: 6 },
             },
             owner_index: None,
+            original_owner_index: None,
             position: Position { x: 0, y: 0, z: 0 },
             rotation: Default::default(),
             direction: Default::default(),
@@ -147,6 +190,7 @@ impl Clone for Brick {
             id: None, // IDs are not cloned, they are unique per brick
             asset: self.asset.clone(),
             owner_index: self.owner_index.clone(),
+            original_owner_index: self.original_owner_index.clone(),
             position: self.position.clone(),
             rotation: self.rotation.clone(),
             direction: self.direction.clone(),
@@ -331,6 +375,19 @@ impl SavedBrickColor {
             g: 255,
             b: 255,
             a: 255,
+        }
+    }
+
+    /// Convert this color's RGB from linear to sRGB, leaving `a` (material
+    /// intensity / alpha) untouched. Used when reading saves whose colors are
+    /// stored linear (`bColorsAreLinear`); in-memory colors are kept sRGB.
+    pub fn rgb_to_srgb(self) -> Self {
+        let c = self.color().to_srgb();
+        Self {
+            r: c.r,
+            g: c.g,
+            b: c.b,
+            a: self.a,
         }
     }
 }
@@ -755,6 +812,7 @@ pub struct BrickChunkSoA {
     pub brick_type_indices: Vec<u32>,
 
     pub owner_indices: Vec<u32>,
+    pub original_owner_indices: Vec<u32>,
 
     pub relative_positions: Vec<RelativePosition>,
     pub orientations: Vec<u8>,
@@ -764,7 +822,6 @@ pub struct BrickChunkSoA {
     pub collision_flags_player3: BitFlags,
     pub collision_flags_weapon: BitFlags,
     pub collision_flags_interaction: BitFlags,
-    pub collision_flags_tool: BitFlags,
     pub collision_flags_physics: BitFlags,
     pub visibility_flags: BitFlags,
     pub material_indices: Vec<u8>,
@@ -844,6 +901,13 @@ impl BrickChunkSoA {
 
         self.owner_indices
             .push(brick.owner_index.unwrap_or(0) as u32);
+        // If original_owner_index is unset, mirror the current owner (legacy behavior).
+        self.original_owner_indices.push(
+            brick
+                .original_owner_index
+                .or(brick.owner_index)
+                .unwrap_or(0) as u32,
+        );
 
         self.relative_positions.push(brick.position.to_relative().1);
         self.orientations
@@ -859,7 +923,9 @@ impl BrickChunkSoA {
         self.collision_flags_weapon.push(brick.collision.weapon);
         self.collision_flags_interaction
             .push(brick.collision.interact);
-        self.collision_flags_tool.push(brick.collision.tool);
+        // CollisionFlags_Tool was removed from the schema; Collision::tool
+        // stays in the public struct for backward-compatible callers but
+        // is no longer serialized.
         self.collision_flags_physics.push(brick.collision.physics);
         self.visibility_flags.push(brick.visible);
 
@@ -940,11 +1006,16 @@ impl BrickChunkSoA {
                         player3: Some(self.collision_flags_player3.get(i)),
                         weapon: self.collision_flags_weapon.get(i),
                         interact: self.collision_flags_interaction.get(i),
-                        tool: self.collision_flags_tool.get(i),
+                        // Deprecated — see Collision::tool comment.
+                        tool: true,
                         physics: self.collision_flags_physics.get(i),
                     },
                     visible: self.visibility_flags.get(i),
                     owner_index: Some(self.owner_indices[i] as usize),
+                    original_owner_index: self
+                        .original_owner_indices
+                        .get(i)
+                        .map(|v| *v as usize),
                     color: color.color(),
                     material: global_data
                         .material_asset_by_index(self.material_indices[i] as usize)?,
@@ -970,9 +1041,10 @@ impl AsBrdbValue for BrickChunkSoA {
             "CollisionFlags_Player3" => Ok(&self.collision_flags_player3),
             "CollisionFlags_Weapon" => Ok(&self.collision_flags_weapon),
             "CollisionFlags_Interaction" => Ok(&self.collision_flags_interaction),
-            "CollisionFlags_Tool" => Ok(&self.collision_flags_tool),
             "CollisionFlags_Physics" => Ok(&self.collision_flags_physics),
             "VisibilityFlags" => Ok(&self.visibility_flags),
+            // New saves always store sRGB colors, so this is always false.
+            "bColorsAreLinear" => Ok(&false),
             n => unimplemented!("unimplemented struct field {n}"),
         }
     }
@@ -982,12 +1054,13 @@ impl AsBrdbValue for BrickChunkSoA {
         schema: &crate::schema::BrdbSchema,
         _struct_name: crate::schema::BrdbInterned,
         prop_name: crate::schema::BrdbInterned,
-    ) -> Result<BrdbArrayIter, crate::errors::BrdbSchemaError> {
+    ) -> Result<BrdbArrayIter<'_>, crate::errors::BrdbSchemaError> {
         match prop_name.get(schema).unwrap() {
             "BrickSizeCounters" => Ok(self.brick_size_counters.as_brdb_iter()),
             "BrickSizes" => Ok(self.brick_sizes.as_brdb_iter()),
             "BrickTypeIndices" => Ok(self.brick_type_indices.as_brdb_iter()),
             "OwnerIndices" => Ok(self.owner_indices.as_brdb_iter()),
+            "OriginalOwnerIndices" => Ok(self.original_owner_indices.as_brdb_iter()),
             "RelativePositions" => Ok(self.relative_positions.as_brdb_iter()),
             "Orientations" => Ok(self.orientations.as_brdb_iter()),
             "MaterialIndices" => Ok(self.material_indices.as_brdb_iter()),
@@ -1010,6 +1083,14 @@ impl TryFrom<&BrdbValue> for BrickChunkSoA {
             brick_sizes: value.prop("BrickSizes")?.try_into()?,
             brick_type_indices: value.prop("BrickTypeIndices")?.try_into()?,
             owner_indices: value.prop("OwnerIndices")?.try_into()?,
+            // Added alongside the schema update for per-brick original-owner tracking.
+            // Older saves won't have this field; mirror OwnerIndices so round-trips
+            // through the SoA stay consistent.
+            original_owner_indices: if value.contains_key("OriginalOwnerIndices") {
+                value.prop("OriginalOwnerIndices")?.try_into()?
+            } else {
+                value.prop("OwnerIndices")?.try_into()?
+            },
             relative_positions: value.prop("RelativePositions")?.try_into()?,
             orientations: value.prop("Orientations")?.try_into()?,
 
@@ -1033,17 +1114,27 @@ impl TryFrom<&BrdbValue> for BrickChunkSoA {
 
             collision_flags_weapon: value.prop("CollisionFlags_Weapon")?.try_into()?,
             collision_flags_interaction: value.prop("CollisionFlags_Interaction")?.try_into()?,
-
-            // Newer save formats dropped the per-brick tool collision flag
-            collision_flags_tool: if value.contains_key("CollisionFlags_Tool") {
-                value.prop("CollisionFlags_Tool")?.try_into()?
-            } else {
-                BitFlags::default()
-            },
             collision_flags_physics: value.prop("CollisionFlags_Physics")?.try_into()?,
             visibility_flags: value.prop("VisibilityFlags")?.try_into()?,
             material_indices: value.prop("MaterialIndices")?.try_into()?,
-            colors_and_alphas: value.prop("ColorsAndAlphas")?.try_into()?,
+            colors_and_alphas: {
+                let mut colors: Vec<SavedBrickColor> =
+                    value.prop("ColorsAndAlphas")?.try_into()?;
+                // Older saves (and any missing the field) store linear colors;
+                // default true and convert to sRGB so in-memory colors are
+                // always sRGB. New saves store sRGB (bColorsAreLinear = false).
+                let linear = if value.contains_key("bColorsAreLinear") {
+                    value.prop("bColorsAreLinear")?.as_brdb_bool()?
+                } else {
+                    true
+                };
+                if linear {
+                    for c in &mut colors {
+                        *c = c.rgb_to_srgb();
+                    }
+                }
+                colors
+            },
             size_index_map: HashMap::new(),
             num_brick_sizes: 0,
         };
@@ -1081,7 +1172,7 @@ impl AsBrdbValue for BrickChunkIndexSoA {
         schema: &crate::schema::BrdbSchema,
         _struct_name: crate::schema::BrdbInterned,
         prop_name: crate::schema::BrdbInterned,
-    ) -> Result<BrdbArrayIter, crate::errors::BrdbSchemaError> {
+    ) -> Result<BrdbArrayIter<'_>, crate::errors::BrdbSchemaError> {
         match prop_name.get(schema).unwrap() {
             "Chunk3DIndices" => Ok(self.chunk_3d_indices.as_brdb_iter()),
             "ChunkOffsets" => Ok(self.chunk_offsets.as_brdb_iter()),

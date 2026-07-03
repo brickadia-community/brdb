@@ -17,7 +17,7 @@ mod reader;
 pub use reader::*;
 
 #[cfg(feature = "brz")]
-mod brz;
+pub mod brz;
 #[cfg(feature = "brz")]
 pub use brz::*;
 

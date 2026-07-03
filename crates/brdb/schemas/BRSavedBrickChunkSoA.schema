@@ -27,6 +27,7 @@ struct BRSavedBrickChunkSoA {
     BrickSizes: BRSavedBrickSize[],
     BrickTypeIndices: u32[],
     OwnerIndices: u32[],
+    OriginalOwnerIndices: u32[],
     RelativePositions: BRSavedRelativeBrickPosition[flat],
     Orientations: u8[flat],
     CollisionFlags_Player: BRSavedBitFlags,
@@ -35,9 +36,9 @@ struct BRSavedBrickChunkSoA {
     CollisionFlags_Player3: BRSavedBitFlags,
     CollisionFlags_Weapon: BRSavedBitFlags,
     CollisionFlags_Interaction: BRSavedBitFlags,
-    CollisionFlags_Tool: BRSavedBitFlags,
     CollisionFlags_Physics: BRSavedBitFlags,
     VisibilityFlags: BRSavedBitFlags,
     MaterialIndices: u8[flat],
     ColorsAndAlphas: BRSavedBrickColor[flat],
+    bColorsAreLinear: bool,
 }

@@ -5,6 +5,7 @@ use indexmap::IndexMap;
 use crate::{
     errors::BrdbSchemaError,
     schema::{BrdbInterned, BrdbSchema, as_brdb::AsBrdbValue},
+    wrapper::Vector3f,
 };
 
 #[derive(Clone, Debug)]
@@ -177,13 +178,23 @@ pub enum BrdbValue {
     WireVar(WireVariant),
 }
 
+/// A wire graph variant value. The members mirror the engine's
+/// `WireGraphVariant` union (`f64`, `i64`, `bool`, `weak_object`,
+/// `WireGraphExec`, `Vector`, `str`); `WireGraphPrimMathVariant` uses the
+/// `Number`/`Int`/`Vector` subset.
 #[derive(Clone, Debug)]
 pub enum WireVariant {
     Number(f64),
     Int(i64),
     Bool(bool),
-    Object(String),
+    /// `weak_object` member: an object/asset reference, stored as an index into
+    /// `global_data.external_asset_references` (`None` is a null reference).
+    Object(Option<usize>),
     Exec,
+    /// `Vector` member (X, Y, Z).
+    Vector(Vector3f),
+    /// `str` member: a string value.
+    Str(String),
 }
 impl Default for WireVariant {
     fn default() -> Self {
@@ -196,8 +207,11 @@ impl Display for WireVariant {
             WireVariant::Number(n) => write!(f, "{n}"),
             WireVariant::Int(i) => write!(f, "{i}"),
             WireVariant::Bool(b) => write!(f, "{b}"),
-            WireVariant::Object(o) => write!(f, "{o}"),
+            WireVariant::Object(Some(i)) => write!(f, "obj#{i}"),
+            WireVariant::Object(None) => write!(f, "obj#null"),
             WireVariant::Exec => write!(f, "exec"),
+            WireVariant::Vector(v) => write!(f, "({}, {}, {})", v.x, v.y, v.z),
+            WireVariant::Str(s) => write!(f, "{s:?}"),
         }
     }
 }
@@ -234,12 +248,146 @@ impl From<bool> for WireVariant {
 }
 impl From<String> for WireVariant {
     fn from(value: String) -> Self {
-        WireVariant::Object(value)
+        WireVariant::Str(value)
     }
 }
 impl From<&str> for WireVariant {
     fn from(value: &str) -> Self {
-        WireVariant::Object(value.to_string())
+        WireVariant::Str(value.to_string())
+    }
+}
+impl From<Vector3f> for WireVariant {
+    fn from(value: Vector3f) -> Self {
+        WireVariant::Vector(value)
+    }
+}
+
+/// Convert a decoded value back into a `WireVariant`. Named variants decode to
+/// raw `BrdbValue`s (the tag is consumed on read); legacy variants decode to a
+/// `WireVar`. Both round-trip here.
+impl TryFrom<&BrdbValue> for WireVariant {
+    type Error = BrdbSchemaError;
+    fn try_from(value: &BrdbValue) -> Result<Self, Self::Error> {
+        Ok(match value {
+            BrdbValue::WireVar(v) => v.clone(),
+            BrdbValue::F64(n) => WireVariant::Number(*n),
+            BrdbValue::F32(n) => WireVariant::Number(*n as f64),
+            BrdbValue::I64(i) => WireVariant::Int(*i),
+            BrdbValue::I32(i) => WireVariant::Int(*i as i64),
+            BrdbValue::Bool(b) => WireVariant::Bool(*b),
+            BrdbValue::String(s) => WireVariant::Str(s.clone()),
+            BrdbValue::Asset(opt) => WireVariant::Object(*opt),
+            BrdbValue::Struct(s) if s.get_name() == "Vector" => {
+                WireVariant::Vector(Vector3f::try_from(value)?)
+            }
+            other => {
+                return Err(BrdbSchemaError::ExpectedType(
+                    "wire variant".to_owned(),
+                    other.get_type().to_owned(),
+                ));
+            }
+        })
+    }
+}
+
+/// A wire graph array variant value, mirroring the engine's
+/// `WireGraphArrayVariant` union (one array member per element type). Each
+/// member is a `WireGraph*Array` struct holding a single `Values` array.
+#[derive(Clone, Debug, PartialEq)]
+pub enum WireArrayVariant {
+    /// `WireGraphDoubleArray`
+    DoubleArray(Vec<f64>),
+    /// `WireGraphInt64Array`
+    Int64Array(Vec<i64>),
+    /// `WireGraphBoolArray`
+    BoolArray(Vec<bool>),
+    /// `WireGraphObjectArray` (weak_object references, as asset indices)
+    ObjectArray(Vec<Option<usize>>),
+    /// `WireGraphVectorArray`
+    VectorArray(Vec<Vector3f>),
+    /// `WireGraphStringArray`
+    StringArray(Vec<String>),
+}
+
+impl WireArrayVariant {
+    /// The `WireGraph*Array` struct name this array maps to.
+    pub fn member_type(&self) -> &'static str {
+        match self {
+            WireArrayVariant::DoubleArray(_) => "WireGraphDoubleArray",
+            WireArrayVariant::Int64Array(_) => "WireGraphInt64Array",
+            WireArrayVariant::BoolArray(_) => "WireGraphBoolArray",
+            WireArrayVariant::ObjectArray(_) => "WireGraphObjectArray",
+            WireArrayVariant::VectorArray(_) => "WireGraphVectorArray",
+            WireArrayVariant::StringArray(_) => "WireGraphStringArray",
+        }
+    }
+}
+
+impl From<Vec<f64>> for WireArrayVariant {
+    fn from(v: Vec<f64>) -> Self {
+        WireArrayVariant::DoubleArray(v)
+    }
+}
+impl From<Vec<i64>> for WireArrayVariant {
+    fn from(v: Vec<i64>) -> Self {
+        WireArrayVariant::Int64Array(v)
+    }
+}
+impl From<Vec<bool>> for WireArrayVariant {
+    fn from(v: Vec<bool>) -> Self {
+        WireArrayVariant::BoolArray(v)
+    }
+}
+impl From<Vec<Vector3f>> for WireArrayVariant {
+    fn from(v: Vec<Vector3f>) -> Self {
+        WireArrayVariant::VectorArray(v)
+    }
+}
+impl From<Vec<String>> for WireArrayVariant {
+    fn from(v: Vec<String>) -> Self {
+        WireArrayVariant::StringArray(v)
+    }
+}
+
+/// Convert a decoded `WireGraph*Array` struct back into a `WireArrayVariant`.
+impl TryFrom<&BrdbValue> for WireArrayVariant {
+    type Error = BrdbSchemaError;
+    fn try_from(value: &BrdbValue) -> Result<Self, Self::Error> {
+        let s = value.as_struct()?;
+        let values = s.prop("Values")?.as_array()?;
+        Ok(match s.get_name() {
+            "WireGraphDoubleArray" => WireArrayVariant::DoubleArray(
+                values.iter().map(|v| v.as_brdb_f64()).collect::<Result<_, _>>()?,
+            ),
+            "WireGraphInt64Array" => WireArrayVariant::Int64Array(
+                values.iter().map(|v| v.as_brdb_i64()).collect::<Result<_, _>>()?,
+            ),
+            "WireGraphBoolArray" => WireArrayVariant::BoolArray(
+                values.iter().map(|v| v.as_brdb_bool()).collect::<Result<_, _>>()?,
+            ),
+            "WireGraphStringArray" => WireArrayVariant::StringArray(
+                values
+                    .iter()
+                    .map(|v| v.as_brdb_str().map(str::to_owned))
+                    .collect::<Result<_, _>>()?,
+            ),
+            "WireGraphVectorArray" => WireArrayVariant::VectorArray(
+                values.iter().map(Vector3f::try_from).collect::<Result<_, _>>()?,
+            ),
+            "WireGraphObjectArray" => WireArrayVariant::ObjectArray(
+                values
+                    .iter()
+                    .map(|v| match v {
+                        BrdbValue::Asset(opt) => Ok(*opt),
+                        other => Err(BrdbSchemaError::ExpectedType(
+                            "weak_object".to_owned(),
+                            other.get_type().to_owned(),
+                        )),
+                    })
+                    .collect::<Result<_, _>>()?,
+            ),
+            other => return Err(BrdbSchemaError::UnknownType(other.to_owned())),
+        })
     }
 }
 
@@ -357,8 +505,10 @@ impl BrdbValue {
                 WireVariant::Number(n) => format!("wire {n}f64"),
                 WireVariant::Int(i) => format!("wire {i}i64"),
                 WireVariant::Bool(b) => format!("wire {b}"),
-                WireVariant::Object(o) => format!("wire {o}"),
+                WireVariant::Object(o) => format!("wire obj#{o:?}"),
                 WireVariant::Exec => "w exec".to_string(),
+                WireVariant::Vector(v) => format!("wire ({}, {}, {})", v.x, v.y, v.z),
+                WireVariant::Str(s) => format!("wire {s:?}"),
             },
             BrdbValue::String(v) => format!("\"{v}\""),
             BrdbValue::Asset(None) => "none".to_string(),
@@ -468,6 +618,12 @@ impl Hash for BrdbValue {
                 WireVariant::Bool(b) => b.hash(state),
                 WireVariant::Object(o) => o.hash(state),
                 WireVariant::Exec => ().hash(state),
+                WireVariant::Vector(v) => {
+                    v.x.to_bits().hash(state);
+                    v.y.to_bits().hash(state);
+                    v.z.to_bits().hash(state);
+                }
+                WireVariant::Str(s) => s.hash(state),
             },
         }
     }
@@ -516,6 +672,8 @@ impl PartialEq for BrdbValue {
                 (WireVariant::Bool(l), WireVariant::Bool(r)) => l == r,
                 (WireVariant::Object(l), WireVariant::Object(r)) => l == r,
                 (WireVariant::Exec, WireVariant::Exec) => false,
+                (WireVariant::Vector(l), WireVariant::Vector(r)) => l == r,
+                (WireVariant::Str(l), WireVariant::Str(r)) => l == r,
                 _ => false,
             },
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),

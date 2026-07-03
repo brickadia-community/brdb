@@ -42,6 +42,14 @@ pub const B_GATE_EDGE_DETECTOR: BrickType = BrickType::str("B_1x1_Gate_EdgeDetec
 pub const B_GATE_BUFFER: BrickType = BrickType::str("B_1x1_Gate_Timer");
 pub const B_GATE_BUFFER_TICK: BrickType = BrickType::str("B_1x1_Gate_Timer_Tick");
 
+/// Outer microchip brick. Each microchip brick is linked to a
+/// `BP_MicrochipBrickGridDynamicActor_C` entity (see `assets::entities`)
+/// whose inner grid holds the microchip's contents.
+pub const B_MICROCHIP: BrickType = BrickType::str("B_1x1_Microchip");
+/// I/O ports on a microchip's outer face, wiring into the inner grid.
+pub const B_MICROCHIP_INPUT: BrickType = BrickType::str("B_1x1_Gate_MicrochipInput");
+pub const B_MICROCHIP_OUTPUT: BrickType = BrickType::str("B_1x1_Gate_MicrochipOutput");
+
 pub const B_2X2_OVERHANG: BrickType = BrickType::str("B_2x2_Overhang");
 pub const B_1X4_BRICK_SIDE: BrickType = BrickType::str("B_1x4_Brick_Side");
 pub const B_1X2_OVERHANG: BrickType = BrickType::str("B_1x2_Overhang");

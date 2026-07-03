@@ -47,6 +47,7 @@ pub enum LogicGate {
 }
 
 impl LogicGate {
+
     pub const COMPONENT_BOOL_AND: BString =
         BString::str("BrickComponentType_WireGraph_Expr_LogicalAND");
     pub const COMPONENT_BOOL_OR: BString =
@@ -243,19 +244,19 @@ impl LogicGate {
         let schema_str = match self.struct_name().as_ref() {
             Self::STRUCT_BOOL_BOOL_STR => "struct BrickComponentData_WireGraph_Expr_Bool_Bool { bInput: bool }",
             Self::STRUCT_BINARY_BOOLBOOL_BOOL_STR => "struct BrickComponentData_WireGraph_Expr_BoolBool_Bool { bInputA: bool, bInputB: bool }",
-            Self::STRUCT_COMPARE_STR => "struct BrickComponentData_WireGraph_Expr_Compare { InputA: wire_graph_variant, InputB: wire_graph_variant }",
+            Self::STRUCT_COMPARE_STR => "struct BrickComponentData_WireGraph_Expr_Compare { InputA: WireGraphVariant, InputB: WireGraphVariant }",
             Self::STRUCT_FLOAT_FLOAT_STR => "struct BrickComponentData_WireGraph_Expr_Float_Float { Input: f64 }",
             Self::STRUCT_INT_INT_STR => "struct BrickComponentData_WireGraph_Expr_Int_Int { Input: i64 }",
             Self::STRUCT_BINARY_INTINT_INT_STR => "struct BrickComponentData_WireGraph_Expr_IntInt_Int { InputA: i64, InputB: i64 }",
-            Self::STRUCT_MATH_COMPARE_STR => "struct BrickComponentData_WireGraph_Expr_MathCompare { InputA: wire_graph_prim_math_variant, InputB: wire_graph_prim_math_variant }",
+            Self::STRUCT_MATH_COMPARE_STR => "struct BrickComponentData_WireGraph_Expr_MathCompare { InputA: WireGraphPrimMathVariant, InputB: WireGraphPrimMathVariant }",
             Self::STRUCT_NUMNUM_NUM_STR => {
                 "struct BrickComponentData_WireGraph_Expr_PrimMathVariantPrimMathVariant_PrimMathVariant {
-                    InputA: wire_graph_prim_math_variant,
-                    InputB: wire_graph_prim_math_variant
+                    InputA: WireGraphPrimMathVariant,
+                    InputB: WireGraphPrimMathVariant
                 }"
             }
-            Self::STRUCT_CONSTANT_STR => "struct BrickComponentData_WireGraphPseudo_Const { Value: wire_graph_variant }",
-            Self::STRUCT_BLEND_STR => "struct BrickComponentData_WireGraph_Expr_MathBlend { InputA: wire_graph_variant, InputB: wire_graph_variant, Blend: f64 }",
+            Self::STRUCT_CONSTANT_STR => "struct BrickComponentData_WireGraphPseudo_Const { Value: WireGraphVariant }",
+            Self::STRUCT_BLEND_STR => "struct BrickComponentData_WireGraph_Expr_MathBlend { InputA: WireGraphVariant, InputB: WireGraphVariant, Blend: f64 }",
             Self::STRUCT_EDGE_DETECTOR_STR => "struct BrickComponentData_WireGraph_Expr_EdgeDetector { Input: f64, bPulseOnRisingEdge: bool, bPulseOnFallingEdge: bool }",
             n => unimplemented!("unimplemented struct {n}"),
         };
@@ -584,13 +585,7 @@ impl AsBrdbValue for LogicGateComponent {
     }
 }
 impl BrdbComponent for LogicGateComponent {
-    fn get_schema(&self) -> Option<crate::schema::BrdbSchemaMeta> {
-        Some(self.gate.schema())
-    }
-    fn get_schema_struct(&self) -> Option<(BString, Option<BString>)> {
-        Some((self.gate.component_name(), Some(self.gate.struct_name())))
-    }
-    fn get_wire_ports(&self) -> Vec<BString> {
-        self.gate.wire_port_names()
+    fn component_type(&self) -> Option<BString> {
+        Some(self.gate.component_name())
     }
 }

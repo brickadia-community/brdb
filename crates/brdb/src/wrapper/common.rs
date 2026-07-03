@@ -1,5 +1,5 @@
 use crate::{
-    schema::{BrdbValue, as_brdb::AsBrdbValue},
+    schema::{BrdbValue, WireVariant, as_brdb::AsBrdbValue},
     wrapper::CHUNK_SIZE,
 };
 
@@ -34,6 +34,9 @@ impl AsBrdbValue for Vector3f {
             "Z" => Ok(&self.z),
             n => unimplemented!("unimplemented struct field {n}"),
         }
+    }
+    fn as_brdb_wire_variant(&self) -> Result<WireVariant, crate::errors::BrdbSchemaError> {
+        Ok(WireVariant::Vector(*self))
     }
 }
 impl std::ops::Neg for Vector3f {
@@ -378,12 +381,26 @@ impl IntVector {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Quat4f {
     pub x: f32,
     pub y: f32,
     pub z: f32,
     pub w: f32,
+}
+
+impl Default for Quat4f {
+    /// Identity quaternion (w=1). Using the zero-init `[0,0,0,0]` as default
+    /// causes the Brickadia loader to warn "Entity does not have finite
+    /// rotation" because it's non-normalized.
+    fn default() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: 1.0,
+        }
+    }
 }
 
 impl TryFrom<&BrdbValue> for Quat4f {

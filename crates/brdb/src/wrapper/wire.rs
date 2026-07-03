@@ -141,7 +141,7 @@ impl AsBrdbValue for WireChunkSoA {
         schema: &crate::schema::BrdbSchema,
         _struct_name: crate::schema::BrdbInterned,
         prop_name: crate::schema::BrdbInterned,
-    ) -> Result<BrdbArrayIter, BrdbSchemaError> {
+    ) -> Result<BrdbArrayIter<'_>, BrdbSchemaError> {
         match prop_name.get(schema).unwrap() {
             "RemoteWireSources" => Ok(self.remote_wire_sources.as_brdb_iter()),
             "LocalWireSources" => Ok(self.local_wire_sources.as_brdb_iter()),
