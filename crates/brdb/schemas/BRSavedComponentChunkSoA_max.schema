@@ -127,6 +127,12 @@ enum EProjectileSpawnLocation {
     EProjectileSpawnLocation::RandomPointInFace = 1,
     EProjectileSpawnLocation::EProjectileSpawnLocation_MAX = 2,
 }
+variant BRInventoryEntryVariant {
+    BRInventoryEntryNothing,
+    BRInventoryEntryBrick,
+    BRInventoryEntryEntity,
+    BRInventoryEntryItem,
+}
 variant WireGraphArrayVariant {
     WireGraphDoubleArray,
     WireGraphInt64Array,
@@ -211,6 +217,7 @@ struct BrickComponentData_AudioEmitter {
 struct BrickComponentData_Bearing {
     bLimitAngle: bool,
     LimitAngle: f32,
+    CurrentAngle: f32,
     bAnglesArePercentages: bool,
     bReversed: bool,
     Damping: f32,
@@ -283,6 +290,7 @@ struct BrickComponentData_Motor {
     Power: f32,
     bLimitAngle: bool,
     LimitAngle: f32,
+    CurrentAngle: f32,
     bAnglesArePercentages: bool,
     bReversed: bool,
     Damping: f32,
@@ -328,6 +336,7 @@ struct BrickComponentData_RigidBearing {
     TargetAngle: f32,
     bAnglesArePercentages: bool,
     bReversed: bool,
+    CurrentAngle: f32,
     InterpMode: EBrickRigidJointInterpMode,
     SmoothTime: f32,
     TopSpeed: f32,
@@ -336,6 +345,7 @@ struct BrickComponentData_RigidSlider {
     TargetPosition: f32,
     bPositionsArePercentages: bool,
     bReversed: bool,
+    CurrentPosition: f32,
     InterpMode: EBrickRigidJointInterpMode,
     SmoothTime: f32,
     TopSpeed: f32,
@@ -348,6 +358,7 @@ struct BrickComponentData_Servo {
     ForceLimit: f32,
     bLimitAngle: bool,
     LimitAngle: f32,
+    CurrentAngle: f32,
     bAnglesArePercentages: bool,
     bReversed: bool,
     Damping: f32,
@@ -412,6 +423,7 @@ struct BrickComponentData_WireGraph_EntityTypeReference {
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Average {
     Value: WireGraphVariant,
+    bIsEmpty: bool,
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Base {
 }
@@ -422,22 +434,29 @@ struct BrickComponentData_WireGraph_Exec_ArrayVar_ElementOp {
     Value: WireGraphVariant,
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Find {
+    Index: i64,
+    bFound: bool,
     Value: WireGraphVariant,
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Get {
+    bOutOfBounds: bool,
     Index: i64,
     Value: WireGraphVariant,
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_GetLength {
+    Length: i64,
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Insert {
+    bOutOfBounds: bool,
     Index: i64,
     Value: WireGraphVariant,
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_MinMax {
     Value: WireGraphVariant,
+    bIsEmpty: bool,
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Pop {
+    bIsEmpty: bool,
     Value: WireGraphVariant,
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Push {
@@ -445,6 +464,7 @@ struct BrickComponentData_WireGraph_Exec_ArrayVar_Push {
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_RemoveAtIndex {
     Index: i64,
+    bOutOfBounds: bool,
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Resize {
     Size: i64,
@@ -453,6 +473,7 @@ struct BrickComponentData_WireGraph_Exec_ArrayVar_Resize {
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Slice {
     Start: i64,
     Count: i64,
+    bOutOfBounds: bool,
 }
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Sort {
     bDescending: bool,
@@ -463,10 +484,13 @@ struct BrickComponentData_WireGraph_Exec_ArrayVar_Sum {
 struct BrickComponentData_WireGraph_Exec_ArrayVar_Swap {
     IndexA: i64,
     IndexB: i64,
+    bOutOfBounds: bool,
 }
 struct BrickComponentData_WireGraph_Exec_Character_AddInventoryEntity {
+    EntityType: class,
 }
 struct BrickComponentData_WireGraph_Exec_Character_AddInventoryItem {
+    Item: class,
 }
 struct BrickComponentData_WireGraph_Exec_Character_GetAim {
 }
@@ -482,9 +506,11 @@ struct BrickComponentData_WireGraph_Exec_Character_SetDamage {
 }
 struct BrickComponentData_WireGraph_Exec_Character_SetInventoryEntity {
     Slot: i32,
+    EntityType: class,
 }
 struct BrickComponentData_WireGraph_Exec_Character_SetInventoryItem {
     Slot: i32,
+    Item: class,
 }
 struct BrickComponentData_WireGraph_Exec_Character_SetTempPermission {
     PermissionTagStr: str,
@@ -520,25 +546,19 @@ struct BrickComponentData_WireGraph_Exec_Controller_SetCanRespawn {
 struct BrickComponentData_WireGraph_Exec_Controller_ShowChatMessage {
     Message: str,
 }
+struct BrickComponentData_WireGraph_Exec_Controller_ShowMessageBox {
+    Title: str,
+    Message: str,
+}
 struct BrickComponentData_WireGraph_Exec_Controller_ShowStatusMessage {
+    Message: str,
 }
 struct BrickComponentData_WireGraph_Exec_Cycle {
     Count: i64,
     Value: i64,
 }
-struct BrickComponentData_WireGraph_Exec_Entity_GetAngularVelocity {
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetLinearVelocity {
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetLocation {
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetLocationRotation {
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetRotation {
-}
 struct BrickComponentData_WireGraph_Exec_Entity_GetTag {
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetVelocity {
+    Tag: str,
 }
 struct BrickComponentData_WireGraph_Exec_Entity_PlayAudioAt {
     AudioDescriptor: object,
@@ -630,17 +650,20 @@ struct BrickComponentData_WireGraph_Expr_BoolBool_Bool {
     bInputA: bool,
     bInputB: bool,
 }
+struct BrickComponentData_WireGraph_Expr_ChangeDetector {
+    Input: WireGraphVariant,
+}
 struct BrickComponentData_WireGraph_Expr_Compare {
     InputA: WireGraphVariant,
     InputB: WireGraphVariant,
 }
 struct BrickComponentData_WireGraph_Expr_Convert {
+    Input: WireGraphVariant,
+    Output: WireGraphVariant,
     TargetType: WireGraphVariant,
 }
 struct BrickComponentData_WireGraph_Expr_EdgeDetector {
     Input: f64,
-    bPulseOnRisingEdge: bool,
-    bPulseOnFallingEdge: bool,
 }
 struct BrickComponentData_WireGraph_Expr_Float_Float {
     Input: f64,
@@ -892,7 +915,13 @@ struct BrickComponentWireControl_DriveAndSteer {
 }
 struct BrickComponentWirePortControl_TeleportDestination {
 }
-struct BRInventoryEntryVariant {
+struct BRInventoryEntryConfig {
+    Item: BRInventoryEntryVariant,
+}
+struct BRInventoryEntryEntity {
+    EntityType: class,
+}
+struct BRInventoryEntryNothing {
 }
 struct BRQueueSecondsEntry {
     Data: WireGraphVariant[],
@@ -1227,11 +1256,37 @@ struct BrickComponentData_WheelEngine_V2 {
     AudioDescriptor: object,
 }
 struct BrickComponentData_WireGraph_Exec_Character_AddInventoryBrick {
+    BrickAsset: object,
     ProceduralSize: Vector,
+}
+struct BrickComponentData_WireGraph_Exec_Character_AddInventoryEntry {
+    Entry: BRInventoryEntryConfig,
+}
+struct BrickComponentData_WireGraph_Exec_Character_AddInventoryItemAdv {
+    ItemType: class,
+    DamageMultiplier: f64,
+    WeaponSpeedMultiplier: f64,
+    ItemScale: f64,
+    ItemNameOverride: str,
+    ProjectileOverride: class,
+    bOverrideColors: bool,
+    MeshColors: Color[],
 }
 struct BrickComponentData_WireGraph_Exec_Character_SetInventoryBrick {
     Slot: i32,
+    BrickAsset: object,
     ProceduralSize: Vector,
+}
+struct BrickComponentData_WireGraph_Exec_Character_SetInventoryItemAdv {
+    Slot: i32,
+    ItemType: class,
+    DamageMultiplier: f64,
+    WeaponSpeedMultiplier: f64,
+    ItemScale: f64,
+    ItemNameOverride: str,
+    ProjectileOverride: class,
+    bOverrideColors: bool,
+    MeshColors: Color[],
 }
 struct BrickComponentData_WireGraph_Exec_Controller_DisplayText {
     Text: str,
@@ -1257,6 +1312,26 @@ struct BrickComponentData_WireGraph_Exec_Entity_AddLocationRotation {
     Rotation: Rotator,
 }
 struct BrickComponentData_WireGraph_Exec_Entity_AddVelocity {
+    Vector: Vector,
+    Rotation: Vector,
+}
+struct BrickComponentData_WireGraph_Exec_Entity_GetAngularVelocity {
+    AngularVelocity: Vector,
+}
+struct BrickComponentData_WireGraph_Exec_Entity_GetLinearVelocity {
+    LinearVelocity: Vector,
+}
+struct BrickComponentData_WireGraph_Exec_Entity_GetLocation {
+    Vector: Vector,
+}
+struct BrickComponentData_WireGraph_Exec_Entity_GetLocationRotation {
+    Vector: Vector,
+    Rotation: Rotator,
+}
+struct BrickComponentData_WireGraph_Exec_Entity_GetRotation {
+    Rotation: Rotator,
+}
+struct BrickComponentData_WireGraph_Exec_Entity_GetVelocity {
     Vector: Vector,
     Rotation: Vector,
 }
@@ -1313,6 +1388,9 @@ struct BrickComponentData_WireGraph_Exec_Sweep {
     bDetectMap: bool,
     bRelative: bool,
     bIgnoreOwningGrid: bool,
+    HitLocation: Vector,
+    HitNormal: Vector,
+    HitDistance: f64,
 }
 struct BrickComponentData_WireGraph_Expr_ColorBlend {
     ColorA: LinearColor,
@@ -1451,8 +1529,15 @@ struct BrickTypeNetWrapper {
     BrickAsset: object,
     ProceduralSize: IntVector,
 }
-struct BRInventoryEntryConfig {
-    Item: BRInventoryEntryVariant,
+struct BRInventoryEntryItem {
+    ItemType: class,
+    bOverrideColors: bool,
+    MeshColors: Color[],
+    DamageMultiplier: f32,
+    WeaponSpeedMultiplier: f32,
+    ItemScale: f32,
+    ItemNameOverride: str,
+    ProjectileOverride: class,
 }
 struct BRPlayerPartCustomizationV3 {
     PartDescriptor: object,
@@ -1482,8 +1567,8 @@ struct WireGraphRotatorArray {
 struct WireGraphVectorArray {
     Values: Vector[],
 }
-struct BrickComponentData_WireGraph_Exec_Character_AddInventoryEntry {
-    Entry: BRInventoryEntryConfig,
+struct BRInventoryEntryBrick {
+    BrickType: BrickTypeNetWrapper,
 }
 struct BRInventoryEntryPlan {
     Type: EBRInventoryEntryPlanType,

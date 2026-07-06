@@ -35,6 +35,15 @@ fn format_value(
                     v.x, v.y, v.z
                 ),
                 WireVariant::Str(s) => format!("WireVariant::Str({s:?}.into())"),
+                WireVariant::Rotator { pitch, yaw, roll } => format!(
+                    "WireVariant::Rotator {{ pitch: {pitch:?}, yaw: {yaw:?}, roll: {roll:?} }}"
+                ),
+                WireVariant::Quat { x, y, z, w } => format!(
+                    "WireVariant::Quat {{ x: {x:?}, y: {y:?}, z: {z:?}, w: {w:?} }}"
+                ),
+                WireVariant::LinearColor { r, g, b, a } => format!(
+                    "WireVariant::LinearColor {{ r: {r:?}f32, g: {g:?}f32, b: {b:?}f32, a: {a:?}f32 }}"
+                ),
             };
             Some(b(wv))
         }

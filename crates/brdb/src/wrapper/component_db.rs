@@ -54,6 +54,7 @@ pub static COMPONENT_TYPE_STRUCT_PAIRS: &[(&str, &str)] = &[
     ("BrickComponentType_WireGraph_Exec_Character_AddInventoryEntity", "BrickComponentData_WireGraph_Exec_Character_AddInventoryEntity"),
     ("BrickComponentType_WireGraph_Exec_Character_AddInventoryEntry", "BrickComponentData_WireGraph_Exec_Character_AddInventoryEntry"),
     ("BrickComponentType_WireGraph_Exec_Character_AddInventoryItem", "BrickComponentData_WireGraph_Exec_Character_AddInventoryItem"),
+    ("BrickComponentType_WireGraph_Exec_Character_AddInventoryItemAdv", "BrickComponentData_WireGraph_Exec_Character_AddInventoryItemAdv"),
     ("BrickComponentType_WireGraph_Exec_Character_GetAim", "BrickComponentData_WireGraph_Exec_Character_GetAim"),
     ("BrickComponentType_WireGraph_Exec_Character_GetDamage", "BrickComponentData_WireGraph_Exec_Character_GetDamage"),
     ("BrickComponentType_WireGraph_Exec_Character_GetFromController", "BrickComponentData_WireGraph_Exec_Character_GetFromController"),
@@ -63,6 +64,7 @@ pub static COMPONENT_TYPE_STRUCT_PAIRS: &[(&str, &str)] = &[
     ("BrickComponentType_WireGraph_Exec_Character_SetInventoryEntity", "BrickComponentData_WireGraph_Exec_Character_SetInventoryEntity"),
     ("BrickComponentType_WireGraph_Exec_Character_SetInventoryEntry", "BrickComponentData_WireGraph_Exec_Character_SetInventoryEntry"),
     ("BrickComponentType_WireGraph_Exec_Character_SetInventoryItem", "BrickComponentData_WireGraph_Exec_Character_SetInventoryItem"),
+    ("BrickComponentType_WireGraph_Exec_Character_SetInventoryItemAdv", "BrickComponentData_WireGraph_Exec_Character_SetInventoryItemAdv"),
     ("BrickComponentType_WireGraph_Exec_Character_SetTempPermission", "BrickComponentData_WireGraph_Exec_Character_SetTempPermission"),
     ("BrickComponentType_WireGraph_Exec_Character_ShowHint", "BrickComponentData_WireGraph_Exec_Character_ShowHint"),
     ("BrickComponentType_WireGraph_Exec_ChatCommand", "BrickComponentData_WireGraph_Exec_ChatCommand"),
@@ -76,6 +78,7 @@ pub static COMPONENT_TYPE_STRUCT_PAIRS: &[(&str, &str)] = &[
     ("BrickComponentType_WireGraph_Exec_Controller_IsTrustedByBrickOwner", "BrickComponentData_WireGraph_Exec_Controller_IsTrustedByBrickOwner"),
     ("BrickComponentType_WireGraph_Exec_Controller_SetCanRespawn", "BrickComponentData_WireGraph_Exec_Controller_SetCanRespawn"),
     ("BrickComponentType_WireGraph_Exec_Controller_ShowChatMessage", "BrickComponentData_WireGraph_Exec_Controller_ShowChatMessage"),
+    ("BrickComponentType_WireGraph_Exec_Controller_ShowMessageBox", "BrickComponentData_WireGraph_Exec_Controller_ShowMessageBox"),
     ("BrickComponentType_WireGraph_Exec_Controller_ShowStatusMessage", "BrickComponentData_WireGraph_Exec_Controller_ShowStatusMessage"),
     ("BrickComponentType_WireGraph_Exec_Cycle", "BrickComponentData_WireGraph_Exec_Cycle"),
     ("BrickComponentType_WireGraph_Exec_Entity_AddLocationRotation", "BrickComponentData_WireGraph_Exec_Entity_AddLocationRotation"),
@@ -136,6 +139,7 @@ pub static COMPONENT_TYPE_STRUCT_PAIRS: &[(&str, &str)] = &[
     ("BrickComponentType_WireGraph_Expr_BitwiseShiftRight", "BrickComponentData_WireGraph_Expr_IntInt_Int"),
     ("BrickComponentType_WireGraph_Expr_BitwiseXOR", "BrickComponentData_WireGraph_Expr_IntInt_Int"),
     ("BrickComponentType_WireGraph_Expr_Ceil", "BrickComponentData_WireGraph_Expr_Float_Float"),
+    ("BrickComponentType_WireGraph_Expr_ChangeDetector", "BrickComponentData_WireGraph_Expr_ChangeDetector"),
     ("BrickComponentType_WireGraph_Expr_ColorBlend", "BrickComponentData_WireGraph_Expr_ColorBlend"),
     ("BrickComponentType_WireGraph_Expr_ColorConvert", "BrickComponentData_WireGraph_Expr_ColorConvert"),
     ("BrickComponentType_WireGraph_Expr_ColorToHex", "BrickComponentData_WireGraph_Expr_ColorToHex"),
@@ -490,6 +494,8 @@ pub static WIRE_PORT_NAMES: &[&str] = &[
     "InterpMode",
     "Item",
     "ItemNameOverride",
+    "ItemScale",
+    "ItemType",
     "JointDistance",
     "Jumpyness",
     "Kerning",
@@ -544,7 +550,10 @@ pub static WIRE_PORT_NAMES: &[&str] = &[
     "Offset.X",
     "Offset.Y",
     "Offset.Z",
+    "OnChanged",
+    "OnFallingEdge",
     "OnFired",
+    "OnRisingEdge",
     "OnTime",
     "Origin",
     "Origin.X",
@@ -585,8 +594,6 @@ pub static WIRE_PORT_NAMES: &[&str] = &[
     "PositionX",
     "PositionY",
     "Power",
-    "Prefab",
-    "Prefab.Path",
     "Prefix",
     "PressCount",
     "PressSound",
@@ -697,6 +704,7 @@ pub static WIRE_PORT_NAMES: &[&str] = &[
     "Throttle",
     "TicksToWait",
     "Time",
+    "Title",
     "To",
     "To.X",
     "To.Y",
@@ -814,8 +822,6 @@ pub static WIRE_PORT_NAMES: &[&str] = &[
     "bPinned",
     "bPositionsArePercentages",
     "bPressedJump",
-    "bPulseOnFallingEdge",
-    "bPulseOnRisingEdge",
     "bRelative",
     "bRenderTranslucentWhenDisabled",
     "bReversed",
@@ -875,6 +881,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BrickComponentData_Bearing", vec![
             ("bLimitAngle", Box::new(false)),
             ("LimitAngle", Box::new(0.0f32)),
+            ("CurrentAngle", Box::new(0.0f32)),
             ("bAnglesArePercentages", Box::new(false)),
             ("bReversed", Box::new(false)),
             ("Damping", Box::new(1.0f32)),
@@ -996,7 +1003,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("PickupSpinSpeed", Box::new(0.2f32)),
             ("PickupBobSpeed", Box::new(0.1f32)),
             ("PickupBobHeight", Box::new(4.0f32)),
-            ("PickupAnimationPhase", Box::new(0.14593951f32)),
+            ("PickupAnimationPhase", Box::new(0.81154823f32)),
         ]),
         ("BrickComponentData_Joint_Wheel", vec![
             ("bEnabled", Box::new(true)),
@@ -1042,6 +1049,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Power", Box::new(10.0f32)),
             ("bLimitAngle", Box::new(false)),
             ("LimitAngle", Box::new(0.0f32)),
+            ("CurrentAngle", Box::new(0.0f32)),
             ("bAnglesArePercentages", Box::new(false)),
             ("bReversed", Box::new(false)),
             ("Damping", Box::new(1.0f32)),
@@ -1096,6 +1104,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("TargetAngle", Box::new(0.0f32)),
             ("bAnglesArePercentages", Box::new(false)),
             ("bReversed", Box::new(false)),
+            ("CurrentAngle", Box::new(0.0f32)),
             ("InterpMode", Box::new(0u8)),
             ("SmoothTime", Box::new(0.25f32)),
             ("TopSpeed", Box::new(0.0f32)),
@@ -1104,6 +1113,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("TargetPosition", Box::new(0.0f32)),
             ("bPositionsArePercentages", Box::new(false)),
             ("bReversed", Box::new(false)),
+            ("CurrentPosition", Box::new(0.0f32)),
             ("InterpMode", Box::new(0u8)),
             ("SmoothTime", Box::new(0.25f32)),
             ("TopSpeed", Box::new(0.0f32)),
@@ -1123,6 +1133,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("ForceLimit", Box::new(0.0f32)),
             ("bLimitAngle", Box::new(false)),
             ("LimitAngle", Box::new(0.0f32)),
+            ("CurrentAngle", Box::new(0.0f32)),
             ("bAnglesArePercentages", Box::new(false)),
             ("bReversed", Box::new(false)),
             ("Damping", Box::new(1.0f32)),
@@ -1219,7 +1230,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("ManualInput_Drive", Box::new(0.0f32)),
             ("ManualInput_Steer", Box::new(0.0f32)),
             ("bManualInput_Brake", Box::new(false)),
-            ("CustomMass", Box::new(500.0f32)),
+            ("CustomMass", Box::new(100.0f32)),
             ("CustomMassVerticalOffset", Box::new(0.0f32)),
             ("DriveInterpSpeed", Box::new(1.0f32)),
             ("DriveSpeed", Box::new(500.0f32)),
@@ -1275,17 +1286,36 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BrickComponentData_WireGraph_ExecBranch", vec![
             ("bCond", Box::new(false)),
         ]),
+        ("BrickComponentData_WireGraph_Exec_ArrayVar_Average", vec![
+            ("bIsEmpty", Box::new(false)),
+        ]),
         ("BrickComponentData_WireGraph_Exec_ArrayVar_ElementOp", vec![
             ("Index", Box::new(0i64)),
         ]),
+        ("BrickComponentData_WireGraph_Exec_ArrayVar_Find", vec![
+            ("Index", Box::new(0i64)),
+            ("bFound", Box::new(false)),
+        ]),
         ("BrickComponentData_WireGraph_Exec_ArrayVar_Get", vec![
+            ("bOutOfBounds", Box::new(false)),
             ("Index", Box::new(0i64)),
         ]),
+        ("BrickComponentData_WireGraph_Exec_ArrayVar_GetLength", vec![
+            ("Length", Box::new(0i64)),
+        ]),
         ("BrickComponentData_WireGraph_Exec_ArrayVar_Insert", vec![
+            ("bOutOfBounds", Box::new(false)),
             ("Index", Box::new(0i64)),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_ArrayVar_MinMax", vec![
+            ("bIsEmpty", Box::new(false)),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_ArrayVar_Pop", vec![
+            ("bIsEmpty", Box::new(false)),
         ]),
         ("BrickComponentData_WireGraph_Exec_ArrayVar_RemoveAtIndex", vec![
             ("Index", Box::new(0i64)),
+            ("bOutOfBounds", Box::new(false)),
         ]),
         ("BrickComponentData_WireGraph_Exec_ArrayVar_Resize", vec![
             ("Size", Box::new(0i64)),
@@ -1293,6 +1323,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BrickComponentData_WireGraph_Exec_ArrayVar_Slice", vec![
             ("Start", Box::new(0i64)),
             ("Count", Box::new(0i64)),
+            ("bOutOfBounds", Box::new(false)),
         ]),
         ("BrickComponentData_WireGraph_Exec_ArrayVar_Sort", vec![
             ("bDescending", Box::new(false)),
@@ -1300,6 +1331,14 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BrickComponentData_WireGraph_Exec_ArrayVar_Swap", vec![
             ("IndexA", Box::new(0i64)),
             ("IndexB", Box::new(0i64)),
+            ("bOutOfBounds", Box::new(false)),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Character_AddInventoryItemAdv", vec![
+            ("DamageMultiplier", Box::new(1.0f64)),
+            ("WeaponSpeedMultiplier", Box::new(1.0f64)),
+            ("ItemScale", Box::new(1.0f64)),
+            ("ItemNameOverride", Box::new(String::from(""))),
+            ("bOverrideColors", Box::new(false)),
         ]),
         ("BrickComponentData_WireGraph_Exec_Character_IncDamage", vec![
             ("Amount", Box::new(0.0f64)),
@@ -1318,6 +1357,14 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BrickComponentData_WireGraph_Exec_Character_SetInventoryItem", vec![
             ("Slot", Box::new(0i32)),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Character_SetInventoryItemAdv", vec![
+            ("Slot", Box::new(0i32)),
+            ("DamageMultiplier", Box::new(1.0f64)),
+            ("WeaponSpeedMultiplier", Box::new(1.0f64)),
+            ("ItemScale", Box::new(1.0f64)),
+            ("ItemNameOverride", Box::new(String::from(""))),
+            ("bOverrideColors", Box::new(false)),
         ]),
         ("BrickComponentData_WireGraph_Exec_Character_SetTempPermission", vec![
             ("PermissionTagStr", Box::new(String::from("BR.Permission.Building"))),
@@ -1362,9 +1409,19 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BrickComponentData_WireGraph_Exec_Controller_ShowChatMessage", vec![
             ("Message", Box::new(String::from(""))),
         ]),
+        ("BrickComponentData_WireGraph_Exec_Controller_ShowMessageBox", vec![
+            ("Title", Box::new(String::from(""))),
+            ("Message", Box::new(String::from(""))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Controller_ShowStatusMessage", vec![
+            ("Message", Box::new(String::from(""))),
+        ]),
         ("BrickComponentData_WireGraph_Exec_Cycle", vec![
             ("Count", Box::new(3i64)),
             ("Value", Box::new(0i64)),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_GetTag", vec![
+            ("Tag", Box::new(String::from(""))),
         ]),
         ("BrickComponentData_WireGraph_Exec_Entity_PlayAudioAt", vec![
             ("VolumeMultiplier", Box::new(1.0f32)),
@@ -1436,6 +1493,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bDetectMap", Box::new(true)),
             ("bRelative", Box::new(false)),
             ("bIgnoreOwningGrid", Box::new(true)),
+            ("HitDistance", Box::new(0.0f64)),
         ]),
         ("BrickComponentData_WireGraph_Exec_Toggle", vec![
             ("Value", Box::new(false)),
@@ -1458,8 +1516,6 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BrickComponentData_WireGraph_Expr_EdgeDetector", vec![
             ("Input", Box::new(0.0f64)),
-            ("bPulseOnRisingEdge", Box::new(false)),
-            ("bPulseOnFallingEdge", Box::new(false)),
         ]),
         ("BrickComponentData_WireGraph_Expr_Float_Float", vec![
             ("Input", Box::new(0.0f64)),
