@@ -652,6 +652,10 @@ struct BrickComponentData_WireGraph_Expr_BoolBool_Bool {
 }
 struct BrickComponentData_WireGraph_Expr_ChangeDetector {
     Input: WireGraphVariant,
+    bPulseOnChange: bool,
+}
+struct BrickComponentData_WireGraph_Expr_ChangeDetectorExec {
+    Input: WireGraphVariant,
 }
 struct BrickComponentData_WireGraph_Expr_Compare {
     InputA: WireGraphVariant,
@@ -663,6 +667,11 @@ struct BrickComponentData_WireGraph_Expr_Convert {
     TargetType: WireGraphVariant,
 }
 struct BrickComponentData_WireGraph_Expr_EdgeDetector {
+    Input: f64,
+    bPulseOnRisingEdge: bool,
+    bPulseOnFallingEdge: bool,
+}
+struct BrickComponentData_WireGraph_Expr_EdgeDetectorExec {
     Input: f64,
 }
 struct BrickComponentData_WireGraph_Expr_Float_Float {

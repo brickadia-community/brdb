@@ -55,6 +55,30 @@ impl AsBrdbValue for LiteralComponent {
             )),
         }
     }
+
+    fn as_brdb_struct_prop_array(
+        &self,
+        schema: &crate::schema::BrdbSchema,
+        _struct_name: crate::schema::BrdbInterned,
+        prop_name: crate::schema::BrdbInterned,
+    ) -> Result<crate::schema::as_brdb::BrdbArrayIter<'_>, crate::errors::BrdbSchemaError> {
+        let prop_name_str = prop_name.get(schema).unwrap();
+        match self.data.get(prop_name_str) {
+            // Literal gate data only carries scalars; a stored value for an
+            // array-typed field can't be iterated, so keep the loud default.
+            Some(_) => Err(BrdbSchemaError::UnimplementedCast(
+                "struct property array".to_owned(),
+                std::any::type_name::<Self>(),
+            )),
+            // An unset array field (e.g. PrefabSpawner's SpawnedEntityIds) is
+            // "missing" — the schema writer serializes it as an empty array,
+            // matching the scalar missing-field behavior above.
+            None => Err(BrdbSchemaError::MissingStructField(
+                self.component_name.to_string(),
+                prop_name_str.to_string(),
+            )),
+        }
+    }
 }
 
 impl BrdbComponent for LiteralComponent {
