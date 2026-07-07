@@ -142,6 +142,8 @@ pub const B_JOINT_BEARING: BrickType = BrickType::str("B_Joint_Bearing");
 pub const B_1X1_SOUND_EMITTER: BrickType = BrickType::str("B_1x1_SoundEmitter");
 pub const B_1X1_GATE_TELEPORT: BrickType = BrickType::str("B_1x1_Gate_Teleport");
 pub const B_1X1_GATE_RELATIVE_TELEPORT: BrickType = BrickType::str("B_1x1_Gate_RelativeTeleport");
+pub const B_1X1_GATE_EXEC_PREFAB_SPAWNER: BrickType =
+    BrickType::str("B_1x1_Gate_Exec_PrefabSpawner");
 pub const B_1X1_ENTITY_GATE_SET_VELOCITY: BrickType =
     BrickType::str("B_1x1_EntityGate_SetVelocity");
 pub const B_1X1_ENTITY_GATE_SET_LOCATION_AND_ROTATION: BrickType =

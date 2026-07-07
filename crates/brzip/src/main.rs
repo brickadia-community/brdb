@@ -111,7 +111,9 @@ fn unpack_recursive<T: BrFsReader>(reader: &BrReader<T>, fs: &BrPendingFs, outpu
 
 fn convert_to_json<T: BrFsReader>(reader: &BrReader<T>, rel_path: &Path, content: &[u8], output_path: &Path) -> Result<()> {
     let ext = rel_path.extension().and_then(|e| e.to_str()).unwrap_or("");
-    let path_str = rel_path.to_string_lossy();
+    // Normalize Windows separators so the forward-slash patterns in
+    // resolve_mps_info match.
+    let path_str = rel_path.to_string_lossy().replace('\\', "/");
 
 
     let mut cursor = content;

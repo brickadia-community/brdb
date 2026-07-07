@@ -23,6 +23,34 @@ pub enum BrPendingFs {
     File(Option<Vec<u8>>),
 }
 
+/// Insert `content` at the nested `segments` path, creating folders as
+/// needed and reusing existing ones (insertion order is preserved — it
+/// defines archive ids).
+fn insert_path(tree: &mut Vec<(String, BrPendingFs)>, segments: &[&str], content: Vec<u8>) {
+    use BrPendingFs::*;
+    let name = segments[0].to_string();
+    if segments.len() == 1 {
+        tree.push((name, File(Some(content))));
+        return;
+    }
+    let idx = match tree
+        .iter()
+        .position(|(n, e)| *n == name && matches!(e, Folder(_)))
+    {
+        Some(i) => i,
+        None => {
+            tree.push((name, Folder(Some(Vec::new()))));
+            tree.len() - 1
+        }
+    };
+    let Folder(Some(children)) = &mut tree[idx].1 else {
+        // A Folder(None) (patch placeholder) can't come from from_unsaved's
+        // freshly-built tree.
+        unreachable!("insert_path only appends Folder(Some) entries");
+    };
+    insert_path(children, &segments[1..], content);
+}
+
 impl BrPendingFs {
     pub fn is_root(&self) -> bool {
         matches!(self, BrPendingFs::Root(_))
@@ -187,6 +215,8 @@ impl BrPendingFs {
                 "Prefab.json".to_owned(),
                 File(Some(serde_json::to_vec(prefab).about("Prefab.json")?)),
             ));
+            // Game-written prefabs carry a thumbnail (but no Screenshot.jpg).
+            meta_files.push(("Thumbnail.png".to_owned(), File(fs.meta.thumbnail.clone())));
         } else {
             meta_files.push((
                 "Screenshot.jpg".to_owned(),
@@ -203,7 +233,15 @@ impl BrPendingFs {
 
         let world_dir = ("World".to_owned(), Folder(Some(worlds)));
 
-        Ok(Root(vec![meta_dir, world_dir]))
+        let mut root = vec![meta_dir, world_dir];
+        // Embedded prefabs (root `Prefabs/` folder), only when present —
+        // bundles with no prefab references have no Prefabs folder at all.
+        // Paths nest generically so future subpaths beyond Uploads/ survive.
+        for (path, bytes) in fs.prefabs {
+            let segments: Vec<&str> = path.split('/').collect();
+            insert_path(&mut root, &segments, bytes);
+        }
+        Ok(Root(root))
     }
 
     #[cfg(feature = "brz")]

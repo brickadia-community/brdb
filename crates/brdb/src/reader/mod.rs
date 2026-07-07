@@ -1,6 +1,6 @@
 mod reader_trait;
 
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 pub use reader_trait::{BrFsReader, FoundFile};
 use std::{
     collections::{BTreeMap, HashSet},
@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     AsBrdbValue, BString, BrFsError, BrdbComponent, BrickChunkSoA, ChunkIndex, ComponentChunkSoA,
-    Entity, EntityChunkIndexSoA, EntityChunkSoA, IntVector,
+    Entity, EntityChunkIndexSoA, EntityChunkSoA, IntVector, Wrap,
     assets::LiteralComponent,
     errors::{BrError, BrdbSchemaError},
     lookup_entity_struct_name,
@@ -204,6 +204,130 @@ impl<T> BrReader<T> {
         T: BrFsReader,
     {
         self.reader.get_fs()?.to_pending_patch()
+    }
+
+    /// Parse `Meta/Bundle.json` (present in every bundle).
+    pub fn bundle_json(&self) -> Result<crate::wrapper::BundleJson, BrError>
+    where
+        T: BrFsReader,
+    {
+        let bytes = self.read_file("Meta/Bundle.json")?;
+        serde_json::from_slice(&bytes).about("Meta/Bundle.json")
+    }
+
+    /// Read an optional Meta file; `Ok(None)` when the file doesn't exist
+    /// (e.g. `World.json` in a prefab bundle).
+    fn optional_file(&self, path: &str) -> Result<Option<Vec<u8>>, BrError>
+    where
+        T: BrFsReader,
+    {
+        if self.find_file_by_path(path)?.is_none() {
+            return Ok(None);
+        }
+        Ok(Some(self.read_file(path)?))
+    }
+
+    /// Parse `Meta/World.json`; `None` for prefab bundles.
+    pub fn world_json(&self) -> Result<Option<crate::wrapper::WorldJson>, BrError>
+    where
+        T: BrFsReader,
+    {
+        self.optional_file("Meta/World.json")?
+            .map(|b| serde_json::from_slice(&b).about("Meta/World.json"))
+            .transpose()
+    }
+
+    /// Parse `Meta/Prefab.json`; `None` for world bundles.
+    pub fn prefab_json(&self) -> Result<Option<crate::wrapper::PrefabJson>, BrError>
+    where
+        T: BrFsReader,
+    {
+        self.optional_file("Meta/Prefab.json")?
+            .map(|b| serde_json::from_slice(&b).about("Meta/Prefab.json"))
+            .transpose()
+    }
+
+    /// `Meta/Thumbnail.png` bytes, when present.
+    pub fn thumbnail(&self) -> Result<Option<Vec<u8>>, BrError>
+    where
+        T: BrFsReader,
+    {
+        self.optional_file("Meta/Thumbnail.png")
+    }
+
+    /// `Meta/Screenshot.jpg` bytes, when present.
+    pub fn screenshot(&self) -> Result<Option<Vec<u8>>, BrError>
+    where
+        T: BrFsReader,
+    {
+        self.optional_file("Meta/Screenshot.jpg")
+    }
+
+    /// Assemble the same [`crate::wrapper::WorldMeta`] the wrapper writes:
+    /// bundle, world/prefab JSON, screenshot and thumbnail.
+    pub fn world_meta(&self) -> Result<crate::wrapper::WorldMeta, BrError>
+    where
+        T: BrFsReader,
+    {
+        Ok(crate::wrapper::WorldMeta {
+            bundle: self.bundle_json()?,
+            screenshot: self.screenshot()?,
+            thumbnail: self.thumbnail()?,
+            world: self.world_json()?.unwrap_or_default(),
+            prefab: self.prefab_json()?,
+        })
+    }
+
+    /// Root-relative paths of every embedded prefab (files under `Prefabs/`),
+    /// e.g. `Prefabs/Uploads/<HASH>.brz`. Empty when the bundle embeds none.
+    /// These are the exact strings `Prefab` component properties
+    /// (`bundle_path_ref`) reference.
+    pub fn prefab_paths(&self) -> Result<Vec<String>, BrError>
+    where
+        T: BrFsReader,
+    {
+        use crate::fs::BrFs;
+        fn collect(fs: &BrFs, path: String, out: &mut Vec<String>) {
+            match fs {
+                BrFs::Root(children) | BrFs::Folder(_, children) => {
+                    for (name, child) in children {
+                        collect(child, format!("{path}/{name}"), out);
+                    }
+                }
+                BrFs::File(_) => out.push(path),
+            }
+        }
+        let mut out = Vec::new();
+        if let BrFs::Root(children) = self.get_fs()?
+            && let Some(prefabs) = children.get("Prefabs")
+        {
+            collect(prefabs, "Prefabs".to_string(), &mut out);
+        }
+        Ok(out)
+    }
+
+    /// Read every embedded prefab: root-relative path → raw `.brz` bytes.
+    /// The result is directly assignable to `World::prefabs`.
+    pub fn read_prefabs(&self) -> Result<IndexMap<String, Vec<u8>>, BrError>
+    where
+        T: BrFsReader,
+    {
+        let mut out = IndexMap::new();
+        for path in self.prefab_paths()? {
+            let bytes = self.read_file(&path)?;
+            out.insert(path, bytes);
+        }
+        Ok(out)
+    }
+
+    /// Parse an embedded prefab archive (a path from [`Self::prefab_paths`] or
+    /// a component's `Prefab` property). Chain `.into_reader()` to read inside.
+    #[cfg(feature = "brz")]
+    pub fn open_prefab(&self, path: &str) -> Result<crate::Brz, BrError>
+    where
+        T: BrFsReader,
+    {
+        Ok(crate::Brz::read_slice(&self.read_file(path)?)?)
     }
 
     /// Read the GlobalData

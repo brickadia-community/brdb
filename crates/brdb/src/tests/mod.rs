@@ -307,6 +307,81 @@ fn test_debugging() -> Result<(), BrError> {
     Ok(())
 }
 
+/// Builds a spawner prefab embedding another prefab, writes it to an
+/// in-memory .brz, and reads everything back through the new accessors.
+#[test]
+fn spawner_prefab_round_trip() -> Result<(), Box<dyn std::error::Error>> {
+    use crate::{Brz, wrapper::BrickType};
+
+    // Inner: single-brick prefab.
+    let mut inner = World::new();
+    inner.bricks.push(Brick::default());
+    inner.make_prefab();
+    inner.meta.bundle.name = "inner brick".to_string();
+    let inner_bytes = inner.to_brz_vec()?;
+
+    // Outer: a spawner-gate prefab embedding the inner prefab.
+    let mut outer = World::new();
+    outer.register_all_components();
+    let prefab_path = outer.add_prefab(inner_bytes.clone());
+    outer.bricks.push(
+        Brick {
+            asset: BrickType::str("B_1x1_Gate_Exec_PrefabSpawner"),
+            position: (0, 0, 1).into(),
+            ..Default::default()
+        }
+        .with_component(
+            assets::LiteralComponent::new("BrickComponentType_WireGraph_Exec_PrefabSpawner")
+                .with_data([(
+                    "Prefab",
+                    Box::new(prefab_path.clone())
+                        as Box<dyn crate::schema::as_brdb::AsBrdbValue>,
+                )]),
+        ),
+    );
+    outer.make_prefab();
+    outer.meta.thumbnail = Some(vec![9, 9, 9]);
+    let outer_bytes = outer.to_brz_vec()?;
+
+    // Read back.
+    let reader = Brz::read_slice(&outer_bytes)?.into_reader();
+
+    let bundle = reader.bundle_json()?;
+    assert_eq!(bundle.level_type, "Prefab");
+    assert!(reader.prefab_json()?.is_some());
+    assert!(reader.world_json()?.is_none());
+    assert_eq!(reader.thumbnail()?, Some(vec![9, 9, 9]));
+
+    let meta = reader.world_meta()?;
+    assert!(meta.prefab.is_some());
+    assert_eq!(meta.thumbnail, Some(vec![9, 9, 9]));
+
+    // Embedded prefab enumeration + content round trip.
+    assert_eq!(reader.prefab_paths()?, vec![prefab_path.clone()]);
+    let prefabs = reader.read_prefabs()?;
+    assert_eq!(prefabs.get(&prefab_path).unwrap(), &inner_bytes);
+
+    // The component's Prefab property points at the enumerated path.
+    let (_soa, components) = reader.component_chunk_soa(1, (0, 0, 0).into())?;
+    let rendered = components[0].to_string();
+    assert!(rendered.contains(&prefab_path), "component: {rendered}");
+
+    // Nested read: the embedded archive parses and carries the inner bundle.
+    let inner_reader = reader.open_prefab(&prefab_path)?.into_reader();
+    assert_eq!(inner_reader.bundle_json()?.name, "inner brick");
+
+    // A world without prefabs enumerates empty.
+    let mut plain = World::new();
+    plain.bricks.push(Brick::default());
+    let plain_reader = Brz::read_slice(&plain.to_brz_vec()?)?.into_reader();
+    assert!(plain_reader.prefab_paths()?.is_empty());
+    assert!(plain_reader.world_json()?.is_some());
+    assert!(plain_reader.prefab_json()?.is_none());
+    assert!(plain_reader.thumbnail()?.is_none());
+
+    Ok(())
+}
+
 #[test]
 fn unregistered_component_type_errors_cleanly() {
     // Building a world with a gate component but WITHOUT calling

@@ -13,7 +13,7 @@ use brdb::{
     Collision, Direction, Entity, Guid, IntoReader, Owner, Rotation, SavedBrickColor, World,
 };
 
-const CAKE_UUID: &str = "a1b2c3d4-e5f6-4789-8abc-def012345678";
+const ALICE_UUID: &str = "a1b2c3d4-e5f6-4789-8abc-def012345678";
 const BOB_UUID: &str = "00112233-4455-6677-8899-aabbccddeeff";
 
 fn brick_world() -> World {
@@ -35,12 +35,12 @@ fn features_world() -> World {
     let mut world = World::new();
     world.meta.bundle.description = "Feature fixture".to_string();
 
-    let cake = Guid::from_uuid(uuid::Uuid::parse_str(CAKE_UUID).unwrap());
+    let alice = Guid::from_uuid(uuid::Uuid::parse_str(ALICE_UUID).unwrap());
     let bob = Guid::from_uuid(uuid::Uuid::parse_str(BOB_UUID).unwrap());
-    world.owners.insert(cake, Owner {
-        user_id: cake,
-        user_name: "cake".to_string(),
-        display_name: "Cake".to_string(),
+    world.owners.insert(alice, Owner {
+        user_id: alice,
+        user_name: "alice".to_string(),
+        display_name: "Alice".to_string(),
     });
     world.owners.insert(bob, Owner {
         user_id: bob,
@@ -362,6 +362,53 @@ fn entities_world() -> World {
     world
 }
 
+fn spawner_world() -> World {
+    // Prefab-embedding fixture: an outer prefab whose spawner gate references
+    // an inner single-brick prefab embedded at Prefabs/Uploads/<BLAKE3>.brz.
+    // Single grid, single chunk, one insertion-ordered prefab map entry —
+    // fully deterministic. The inner archive is written raw (no zstd) so the
+    // embedded bytes are cross-language reproducible.
+    let mut inner = World::new();
+    inner.meta.bundle.description = "Inner prefab".to_string();
+    inner.bricks.push(Brick {
+        position: (0, 0, 6).into(),
+        color: (255, 0, 0).into(),
+        ..Default::default()
+    });
+    inner.make_prefab();
+    let inner_bytes = {
+        let pending = inner.to_unsaved().unwrap().to_pending().unwrap();
+        let mut buf = Vec::new();
+        pending
+            .to_brz_data(None)
+            .unwrap()
+            .write(&mut buf, None)
+            .unwrap();
+        buf
+    };
+
+    let mut world = World::new();
+    world.register_all_components();
+    world.meta.bundle.description = "Spawner fixture".to_string();
+    let prefab_path = world.add_prefab(inner_bytes);
+    world.bricks.push(
+        Brick {
+            asset: brdb::BrickType::str("B_1x1_Gate_Exec_PrefabSpawner"),
+            position: (0, 0, 1).into(),
+            ..Default::default()
+        }
+        .with_component(
+            assets::LiteralComponent::new("BrickComponentType_WireGraph_Exec_PrefabSpawner")
+                .with_data([(
+                    "Prefab",
+                    Box::new(prefab_path) as Box<dyn AsBrdbValue>,
+                )]),
+        ),
+    );
+    world.make_prefab();
+    world
+}
+
 fn hash_archive(path: &PathBuf) -> Result<BTreeMap<String, serde_json::Value>, Box<dyn std::error::Error>> {
     fn collect(fs: &BrFs, prefix: &str, out: &mut Vec<(String, Option<i64>)>) {
         match fs {
@@ -402,6 +449,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("wires", wires_world()),
         ("components", components_world()),
         ("entities", entities_world()),
+        ("spawner", spawner_world()),
     ] {
         let pending = world.to_unsaved()?.to_pending()?;
         // raw variant: no zstd anywhere — byte-comparable across languages

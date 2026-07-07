@@ -10,6 +10,7 @@
 ### BRZ (Binary Archive)
 - [File Tree Structure](format/brz/file-tree.md): Binary layout, index format, blob data
 - [BRDB vs BRZ](format/brz/brdb-vs-brz.md): Side-by-side comparison of the two formats
+- [Prefab Bundles](format/brz/prefabs.md): Prefab file tree, embedded `Prefabs/Uploads` archives, `bundle_path_ref` component references
 
 ### MessagePack Schema
 - [Overview](format/msgpack-schema/overview.md): Schema format, types, deviations from Zeblote's gist

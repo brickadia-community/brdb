@@ -230,3 +230,51 @@ fn test_brick_write() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn test_world_embeds_prefabs_in_pending_fs() -> Result<(), Box<dyn Error>> {
+    let mut inner = World::new();
+    inner.bricks.push(Brick::default());
+    inner.make_prefab();
+    let inner_bytes = inner.to_brz_vec()?;
+    let expected_hash = blake3::hash(&inner_bytes).to_hex().to_string().to_uppercase();
+
+    let mut outer = World::new();
+    outer.bricks.push(Brick::default());
+    let path = outer.add_prefab(inner_bytes.clone());
+    assert_eq!(path, format!("Prefabs/Uploads/{expected_hash}.brz"));
+    outer.make_prefab();
+    outer.meta.thumbnail = Some(vec![1, 2, 3]);
+
+    let pending = outer.to_unsaved()?.to_pending()?;
+    let root = pending.to_root().unwrap();
+
+    // Root order is part of the byte format: Meta, World, Prefabs.
+    let names: Vec<&str> = root.iter().map(|(n, _)| n.as_str()).collect();
+    assert_eq!(names, ["Meta", "World", "Prefabs"]);
+
+    // Prefab Meta writes Bundle.json, Prefab.json, Thumbnail.png in order.
+    let meta = root[0].1.clone().to_folder().unwrap();
+    let meta_names: Vec<&str> = meta.iter().map(|(n, _)| n.as_str()).collect();
+    assert_eq!(meta_names, ["Bundle.json", "Prefab.json", "Thumbnail.png"]);
+    assert_eq!(meta[2].1.clone().to_file().unwrap(), vec![1, 2, 3]);
+
+    // Prefabs/Uploads/<hash>.brz holds the exact bytes.
+    let prefabs = root[2].1.clone().to_folder().unwrap();
+    assert_eq!(prefabs[0].0, "Uploads");
+    let uploads = prefabs[0].1.clone().to_folder().unwrap();
+    assert_eq!(uploads[0].0, format!("{expected_hash}.brz"));
+    assert_eq!(uploads[0].1.clone().to_file().unwrap(), inner_bytes);
+
+    Ok(())
+}
+
+#[test]
+fn test_world_without_prefabs_has_no_prefabs_folder() -> Result<(), Box<dyn Error>> {
+    let mut world = World::new();
+    world.bricks.push(Brick::default());
+    let pending = world.to_unsaved()?.to_pending()?;
+    let root = pending.to_root().unwrap();
+    assert!(root.iter().all(|(n, _)| n != "Prefabs"));
+    Ok(())
+}

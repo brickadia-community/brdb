@@ -20,6 +20,8 @@ pub struct UnsavedFs {
     pub meta: WorldMeta,
     /// World/
     pub worlds: HashMap<usize, UnsavedWorld>,
+    /// Prefabs/ - embedded prefab archives, root-relative path → raw bytes.
+    pub prefabs: indexmap::IndexMap<String, Vec<u8>>,
 }
 
 impl UnsavedFs {

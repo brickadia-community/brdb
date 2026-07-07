@@ -26,6 +26,15 @@ pub struct World {
     /// Per-microchip linkage pairs: `(brick_id, entity_id)` where the brick
     /// is the outer microchip shell and the entity is the inner grid.
     pub microchip_links: Vec<(usize, usize)>,
+    /// Embedded prefab archives (the root `Prefabs/` folder), keyed by
+    /// root-relative path (`Prefabs/Uploads/<BLAKE3>.brz`) with raw `.brz`
+    /// bytes as values. Populate via [`World::add_prefab`]; the returned
+    /// path is what a `Prefab` component property references.
+    ///
+    /// The game requires the `Prefabs/Uploads/<BLAKE3>.brz` naming — it
+    /// crashes loading a bundle whose embedded prefab has any other filename.
+    /// Use [`World::add_prefab`] rather than inserting a custom key here.
+    pub prefabs: IndexMap<String, Vec<u8>>,
     pub global_data: crate::schema::BrdbSchemaGlobalData,
     pub component_schema: BrdbSchema,
     pub entity_schema: BrdbSchema,
@@ -221,10 +230,30 @@ impl World {
         self.meta.prefab = Some(PrefabJson::from_bounds(min, max));
     }
 
+    /// Embed a prefab archive, content-addressed the way the game does:
+    /// `Prefabs/Uploads/<BLAKE3-uppercase-hex>.brz`. Returns that path — the
+    /// exact string to store in a `Prefab` component property
+    /// (`bundle_path_ref`), e.g. on `BrickComponentType_PrefabSpawn` or
+    /// `BrickComponentType_WireGraph_Exec_PrefabSpawner`.
+    pub fn add_prefab(&mut self, brz_bytes: impl Into<Vec<u8>>) -> String {
+        let bytes = brz_bytes.into();
+        let hash = blake3::hash(&bytes).to_hex().to_string().to_uppercase();
+        let path = format!("Prefabs/Uploads/{hash}.brz");
+        self.prefabs.insert(path.clone(), bytes);
+        path
+    }
+
+    /// Serialize `world` to an in-memory `.brz` and embed it as a prefab.
+    #[cfg(feature = "brz")]
+    pub fn add_prefab_world(&mut self, world: &World) -> Result<String, BrError> {
+        Ok(self.add_prefab(world.to_brz_vec()?))
+    }
+
     pub fn to_unsaved(&self) -> Result<UnsavedFs, BrError> {
         let mut unsaved_fs = UnsavedFs {
             meta: self.meta.clone(),
             worlds: Default::default(),
+            prefabs: self.prefabs.clone(),
         };
 
         {
