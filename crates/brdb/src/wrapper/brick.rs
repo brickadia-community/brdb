@@ -589,7 +589,7 @@ impl Display for ChunkIndex {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct BrickSize {
     pub x: u16,
     pub y: u16,
@@ -648,6 +648,12 @@ impl Ord for BrickSize {
             },
             ord => ord,
         }
+    }
+}
+
+impl PartialOrd for BrickSize {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
