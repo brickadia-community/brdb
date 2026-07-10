@@ -651,7 +651,7 @@ impl Hash for BrdbValue {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         core::mem::discriminant(self).hash(state);
         match self {
-            BrdbValue::Nil => ().hash(state),
+            BrdbValue::Nil => {}
             BrdbValue::Bool(v) => v.hash(state),
             BrdbValue::U8(v) => v.hash(state),
             BrdbValue::U16(v) => v.hash(state),
@@ -687,7 +687,7 @@ impl Hash for BrdbValue {
                 WireVariant::Int(i) => i.hash(state),
                 WireVariant::Bool(b) => b.hash(state),
                 WireVariant::Object(o) => o.hash(state),
-                WireVariant::Exec => ().hash(state),
+                WireVariant::Exec => {}
                 WireVariant::Vector(v) => {
                     v.x.to_bits().hash(state);
                     v.y.to_bits().hash(state);
