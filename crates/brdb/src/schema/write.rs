@@ -605,44 +605,44 @@ pub fn write_flat_type(
 }
 
 fn write_flat_u8(buf: &mut impl Write, value: u8) -> Result<(), BrdbSchemaError> {
-    buf.write(&[value])?;
+    buf.write_all(&[value])?;
     Ok(())
 }
 fn write_flat_u16(buf: &mut impl Write, value: u16) -> Result<(), BrdbSchemaError> {
-    buf.write(&value.to_le_bytes())?;
+    buf.write_all(&value.to_le_bytes())?;
     Ok(())
 }
 fn write_flat_u32(buf: &mut impl Write, value: u32) -> Result<(), BrdbSchemaError> {
-    buf.write(&value.to_le_bytes())?;
+    buf.write_all(&value.to_le_bytes())?;
     Ok(())
 }
 fn write_flat_u64(buf: &mut impl Write, value: u64) -> Result<(), BrdbSchemaError> {
-    buf.write(&value.to_le_bytes())?;
+    buf.write_all(&value.to_le_bytes())?;
     Ok(())
 }
 fn write_flat_i8(buf: &mut impl Write, value: i8) -> Result<(), BrdbSchemaError> {
-    buf.write(&[value as u8])?;
+    buf.write_all(&[value as u8])?;
     Ok(())
 }
 fn write_flat_i16(buf: &mut impl Write, value: i16) -> Result<(), BrdbSchemaError> {
-    buf.write(&value.to_le_bytes())?;
+    buf.write_all(&value.to_le_bytes())?;
     Ok(())
 }
 fn write_flat_i32(buf: &mut impl Write, value: i32) -> Result<(), BrdbSchemaError> {
-    buf.write(&value.to_le_bytes())?;
+    buf.write_all(&value.to_le_bytes())?;
     Ok(())
 }
 fn write_flat_i64(buf: &mut impl Write, value: i64) -> Result<(), BrdbSchemaError> {
-    buf.write(&value.to_le_bytes())?;
+    buf.write_all(&value.to_le_bytes())?;
     Ok(())
 }
 
 fn write_flat_f32(buf: &mut impl Write, value: f32) -> Result<(), BrdbSchemaError> {
-    buf.write(&value.to_le_bytes())?;
+    buf.write_all(&value.to_le_bytes())?;
     Ok(())
 }
 fn write_flat_f64(buf: &mut impl Write, value: f64) -> Result<(), BrdbSchemaError> {
-    buf.write(&value.to_le_bytes())?;
+    buf.write_all(&value.to_le_bytes())?;
     Ok(())
 }
 
