@@ -223,14 +223,25 @@ impl Brz {
         Ok(())
     }
 
-    /// Write a brz archive to a file.
+    /// Write a brz archive to a file (zstd level 14 — small but slow;
+    /// see [`Brz::save_with_level`] for a faster tradeoff).
     pub fn save(path: impl AsRef<std::path::Path>, world: &World) -> Result<(), BrError> {
+        Self::save_with_level(path, world, Some(14))
+    }
+
+    /// Write a brz archive to a file at an explicit zstd level.
+    /// Levels 3–6 are ~5-10× faster than 14 for a few percent extra size.
+    pub fn save_with_level(
+        path: impl AsRef<std::path::Path>,
+        world: &World,
+        zstd_level: Option<i32>,
+    ) -> Result<(), BrError> {
         let mut file = std::fs::File::create(path).map_err(BrzError::IO)?;
         world
             .to_unsaved()?
             .to_pending()?
-            .to_brz_data(Some(14))?
-            .write(&mut file, Some(14))?;
+            .to_brz_data(zstd_level)?
+            .write(&mut file, zstd_level)?;
         Ok(())
     }
 
@@ -247,20 +258,19 @@ impl Brz {
         w.write(b"BRZ")?;
         let mut index_data = self.index_data.to_vec()?;
         let index_size_uncompressed = index_data.len() as i32;
-        #[allow(unused)]
         let mut index_size_compressed = index_size_uncompressed;
         let mut index_method = CompressionMethod::None;
         let index_hash = BrBlob::hash(&index_data);
 
         if let Some(level) = zstd_level {
             let compressed_data = crate::compression::compress(&index_data, level)?;
-            // Only use the compressed data if it improves file size
-            if (index_data.len() as i32) < index_size_uncompressed {
+            // Only use the compressed data if it improves file size.
+            if (compressed_data.len() as i32) < index_size_uncompressed {
                 index_size_compressed = compressed_data.len() as i32;
                 index_method = CompressionMethod::GenericZstd;
                 index_data = compressed_data;
             }
-        };
+        }
 
         BrzArchiveHeader {
             version: FormatVersion::Initial,

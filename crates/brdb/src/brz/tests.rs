@@ -265,7 +265,10 @@ fn test_pending_fs() -> Result<(), Box<dyn Error>> {
     let comp = compdata.to_vec(Some(14))?;
 
     assert_eq!(raw.len(), 317);
-    assert_eq!(comp.len(), 270);
+    // 253 = compressed index (the fixed size guard actually stores the
+    // zstd index now) + compressed blobs; was 270 with the index stored
+    // uncompressed.
+    assert_eq!(comp.len(), 253);
 
     println!("Reading");
     let raw = Brz::read_slice(&raw)?.into_reader();

@@ -646,6 +646,44 @@ fn write_flat_f64(buf: &mut impl Write, value: f64) -> Result<(), BrdbSchemaErro
     Ok(())
 }
 
+/// O(1) lookup into the generated `STRUCT_DEFAULTS` table, replacing a
+/// linear scan over all structs (and their fields) per unset field.
+fn struct_field_default(struct_name: &str, field: &str) -> Option<&'static dyn AsBrdbValue> {
+    use std::collections::HashMap;
+    use std::sync::LazyLock;
+    static MAP: LazyLock<HashMap<&'static str, HashMap<&'static str, &'static dyn AsBrdbValue>>> =
+        LazyLock::new(|| {
+            LazyLock::force(&crate::wrapper::component_db::STRUCT_DEFAULTS)
+                .iter()
+                .map(|(name, fields)| {
+                    (
+                        *name,
+                        fields
+                            .iter()
+                            .map(|(n, v)| (*n, v.as_ref() as &'static dyn AsBrdbValue))
+                            .collect(),
+                    )
+                })
+                .collect()
+        });
+    MAP.get(struct_name).and_then(|m| m.get(field)).copied()
+}
+
+/// Write the default (or zero) value for an unset struct field.
+fn write_struct_field_default(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    struct_name: &str,
+    field_name: &str,
+    ty_str: &str,
+) -> Result<(), BrdbSchemaError> {
+    if let Some(default_val) = struct_field_default(struct_name, field_name) {
+        write_brdb(schema, buf, ty_str, default_val)
+    } else {
+        write_brdb_zero(schema, buf, ty_str)
+    }
+}
+
 pub fn write_brdb(
     schema: &BrdbSchema,
     buf: &mut impl Write,
@@ -713,6 +751,17 @@ pub fn write_brdb(
                     match prop_schema {
                         BrdbSchemaStructProperty::Type(ty_id) => {
                             let ty_str = lookup(*ty_id)?;
+                            if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
+                                // Fast path: unset field, no error allocation.
+                                write_struct_field_default(
+                                    schema,
+                                    buf,
+                                    other,
+                                    lookup(*prop_id)?,
+                                    &ty_str,
+                                )?;
+                                continue;
+                            }
                             match value.as_brdb_struct_prop_value(schema, s_id, *prop_id) {
                                 Ok(prop_value) => {
                                     write_brdb(schema, buf, &ty_str, &*prop_value)?;
@@ -721,26 +770,22 @@ pub fn write_brdb(
                                     ref _sn,
                                     ref field_name,
                                 )) => {
-                                    let defaults = &*crate::wrapper::component_db::STRUCT_DEFAULTS;
-                                    let found = defaults
-                                        .iter()
-                                        .find(|(name, _)| *name == other)
-                                        .and_then(|(_, fields)| {
-                                            fields
-                                                .iter()
-                                                .find(|(n, _)| *n == field_name.as_str())
-                                                .map(|(_, v)| v)
-                                        });
-                                    if let Some(default_val) = found {
-                                        write_brdb(schema, buf, &ty_str, default_val.as_ref())?;
-                                    } else {
-                                        write_brdb_zero(schema, buf, &ty_str)?;
-                                    }
+                                    write_struct_field_default(
+                                        schema,
+                                        buf,
+                                        other,
+                                        field_name.as_str(),
+                                        &ty_str,
+                                    )?;
                                 }
                                 Err(e) => return Err(e),
                             }
                         }
                         BrdbSchemaStructProperty::Array(ty_id) => {
+                            if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
+                                rmp::encode::write_array_len(buf, 0)?;
+                                continue;
+                            }
                             match value.as_brdb_struct_prop_array(schema, s_id, *prop_id) {
                                 Ok(prop_values) => {
                                     let ty = &lookup(*ty_id)?;
@@ -756,6 +801,10 @@ pub fn write_brdb(
                             }
                         }
                         BrdbSchemaStructProperty::FlatArray(ty_id) => {
+                            if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
+                                rmp::encode::write_bin_len(buf, 0)?;
+                                continue;
+                            }
                             match value.as_brdb_struct_prop_array(schema, s_id, *prop_id) {
                                 Ok(prop_values) => {
                                     let ty = &lookup(*ty_id)?;
@@ -775,6 +824,10 @@ pub fn write_brdb(
                             }
                         }
                         BrdbSchemaStructProperty::Map(k_ty_id, v_ty_id) => {
+                            if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
+                                rmp::encode::write_map_len(buf, 0)?;
+                                continue;
+                            }
                             match value.as_brdb_struct_prop_map(schema, s_id, *prop_id) {
                                 Ok(prop_values) => {
                                     let k_ty = &lookup(*k_ty_id)?;
@@ -1167,7 +1220,7 @@ struct WireGraphExec {
 
     #[test]
     fn test_named_array_variant_round_trip() {
-        use crate::schema::{BrdbSchema, BrdbValue, WireArrayVariant, read::read_type};
+        use crate::schema::{BrdbSchema, WireArrayVariant, read::read_type};
         use std::sync::Arc;
 
         let schema = Arc::new(

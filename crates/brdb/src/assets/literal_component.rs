@@ -40,6 +40,17 @@ impl LiteralComponent {
 }
 
 impl AsBrdbValue for LiteralComponent {
+    fn has_brdb_struct_prop(
+        &self,
+        schema: &crate::schema::BrdbSchema,
+        _struct_name: crate::schema::BrdbInterned,
+        prop_name: crate::schema::BrdbInterned,
+    ) -> bool {
+        prop_name
+            .get(schema)
+            .is_some_and(|name| self.data.contains_key(name))
+    }
+
     fn as_brdb_struct_prop_value(
         &self,
         schema: &crate::schema::BrdbSchema,

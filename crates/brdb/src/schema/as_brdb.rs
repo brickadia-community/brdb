@@ -120,6 +120,21 @@ pub trait AsBrdbValue: Send + Sync {
         ))
     }
 
+    /// Cheap presence probe for a struct property. When this returns
+    /// `false`, the schema writer takes the default/zero path directly
+    /// instead of paying for a `MissingStructField` error (two `String`
+    /// allocations) per unset field. Implementations that can't answer
+    /// cheaply keep the default `true`; the writer then falls back to
+    /// the erroring accessors below.
+    fn has_brdb_struct_prop(
+        &self,
+        _schema: &BrdbSchema,
+        _struct_name: BrdbInterned,
+        _prop_name: BrdbInterned,
+    ) -> bool {
+        true
+    }
+
     /// Read a specific struct property value from the schema.
     fn as_brdb_struct_prop_value(
         &self,
@@ -238,6 +253,17 @@ impl AsBrdbValue for BrdbValue {
             ))
         }
     }
+    fn has_brdb_struct_prop(
+        &self,
+        schema: &BrdbSchema,
+        struct_name: BrdbInterned,
+        prop_name: BrdbInterned,
+    ) -> bool {
+        match self {
+            BrdbValue::Struct(s) => s.has_brdb_struct_prop(schema, struct_name, prop_name),
+            _ => true,
+        }
+    }
     fn as_brdb_struct_prop_value(
         &self,
         schema: &BrdbSchema,
@@ -284,6 +310,15 @@ impl AsBrdbValue for BrdbValue {
 }
 
 impl AsBrdbValue for BrdbStruct {
+    fn has_brdb_struct_prop(
+        &self,
+        _schema: &BrdbSchema,
+        _struct_name: BrdbInterned,
+        prop_name: BrdbInterned,
+    ) -> bool {
+        self.properties.contains_key(&prop_name)
+    }
+
     fn as_brdb_struct_prop_value(
         &self,
         schema: &BrdbSchema,
