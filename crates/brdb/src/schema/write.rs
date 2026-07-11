@@ -487,13 +487,12 @@ pub fn write_int(buf: &mut impl Write, value: i64) -> Result<(), BrdbSchemaError
 
 /// Write the smallest possible unsigned integer representation of `value` to the buffer.
 pub fn write_u8(buf: &mut impl Write, value: u64) -> Result<(), BrdbSchemaError> {
-    if value <= 127 {
-        rmp::encode::write_pfix(buf, value as u8)?;
-    } else if value > 256 - 32 && value <= u8::MAX as u64 {
-        rmp::encode::write_nfix(buf, value as i8)?;
-    } else {
-        rmp::encode::write_u8(buf, value as u8)?;
-    }
+    // The game serializes u8 as a *signed* value: positive fixint for 0..=127,
+    // negative fixint for 224..=255, and int8 (marker 0xd0) for 128..=223. It
+    // never emits uint8 (marker 0xcc), and its component reader rejects that
+    // marker (`mpack_error_type`). Reinterpret as i8 and let msgpack pick the
+    // smallest signed encoding so mid-range bytes (e.g. color channels) match.
+    rmp::encode::write_sint(buf, value as u8 as i8 as i64)?;
     Ok(())
 }
 
