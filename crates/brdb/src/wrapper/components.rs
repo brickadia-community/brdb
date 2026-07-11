@@ -101,7 +101,91 @@ impl ComponentChunkSoA {
         Ok(())
     }
 
-    pub fn to_bytes(self, schema: &BrdbSchema) -> Result<Vec<u8>, BrdbSchemaError> {
+    /// Reorder the parallel component arrays so all instances of a given type
+    /// are contiguous, collapsing `component_type_counters` to a single run per
+    /// type. The game's reader consumes each counter run's data as one type, so
+    /// interleaved runs (a brick carrying multiple component types, or adjacent
+    /// bricks of differing types) would otherwise desync the data stream and be
+    /// misread as obsolete. Brick indices stay paired with their data, and the
+    /// original add order (ascending brick index) is preserved within each type.
+    fn group_by_type(&mut self, schema: &BrdbSchema) {
+        let n = self.component_brick_indices.len();
+        if n == 0 {
+            return;
+        }
+
+        // Expand the run-length counters into a per-component type list.
+        let mut types = Vec::with_capacity(n);
+        for counter in &self.component_type_counters {
+            for _ in 0..counter.num_instances {
+                types.push(counter.type_index);
+            }
+        }
+
+        // Already one run per type: nothing to regroup.
+        if self.component_type_counters.len()
+            == self
+                .component_type_counters
+                .iter()
+                .map(|c| c.type_index)
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+        {
+            return;
+        }
+
+        // Only struct-bearing types contribute an entry to `unwritten_struct_data`;
+        // map each component to its data slot (if any) so data follows the reorder.
+        let has_struct: Vec<bool> = types
+            .iter()
+            .map(|&t| {
+                schema
+                    .global_data
+                    .component_type_names
+                    .get_index(t as usize)
+                    .and_then(|name| schema.global_data.get_struct_name(name))
+                    .is_some()
+            })
+            .collect();
+        let mut data_slot = vec![usize::MAX; n];
+        let mut next = 0;
+        for i in 0..n {
+            if has_struct[i] {
+                data_slot[i] = next;
+                next += 1;
+            }
+        }
+
+        // Stable sort component positions by type, grouping while keeping the
+        // ascending-brick-index order inside each type.
+        let mut order: Vec<usize> = (0..n).collect();
+        order.sort_by_key(|&i| types[i]);
+
+        let new_brick_indices = order.iter().map(|&i| self.component_brick_indices[i]).collect();
+        let mut old_data: Vec<Option<Box<dyn BrdbComponent>>> =
+            self.unwritten_struct_data.drain(..).map(Some).collect();
+        let mut new_data = Vec::with_capacity(old_data.len());
+        let mut new_counters: Vec<ComponentTypeCounter> = Vec::new();
+        for &i in &order {
+            if has_struct[i] {
+                new_data.push(old_data[data_slot[i]].take().expect("data slot present"));
+            }
+            match new_counters.last_mut() {
+                Some(last) if last.type_index == types[i] => last.num_instances += 1,
+                _ => new_counters.push(ComponentTypeCounter {
+                    type_index: types[i],
+                    num_instances: 1,
+                }),
+            }
+        }
+
+        self.component_brick_indices = new_brick_indices;
+        self.unwritten_struct_data = new_data;
+        self.component_type_counters = new_counters;
+    }
+
+    pub fn to_bytes(mut self, schema: &BrdbSchema) -> Result<Vec<u8>, BrdbSchemaError> {
+        self.group_by_type(schema);
         let mut buf = schema.write_brdb(BRICK_COMPONENT_SOA, &self)?;
 
         for (i, component_data) in self.unwritten_struct_data.into_iter().enumerate() {
