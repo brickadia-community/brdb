@@ -244,6 +244,7 @@ fn test_world_embeds_prefabs_in_pending_fs() -> Result<(), Box<dyn Error>> {
     let path = outer.add_prefab(inner_bytes.clone());
     assert_eq!(path, format!("Prefabs/Uploads/{expected_hash}.brz"));
     outer.make_prefab();
+    outer.meta.screenshot = Some(vec![4, 5, 6]);
     outer.meta.thumbnail = Some(vec![1, 2, 3]);
 
     let pending = outer.to_unsaved()?.to_pending()?;
@@ -253,11 +254,16 @@ fn test_world_embeds_prefabs_in_pending_fs() -> Result<(), Box<dyn Error>> {
     let names: Vec<&str> = root.iter().map(|(n, _)| n.as_str()).collect();
     assert_eq!(names, ["Meta", "World", "Prefabs"]);
 
-    // Prefab Meta writes Bundle.json, Prefab.json, Thumbnail.png in order.
+    // Prefab Meta writes Bundle.json, Prefab.json, Screenshot.jpg, Thumbnail.png
+    // in order.
     let meta = root[0].1.clone().to_folder().unwrap();
     let meta_names: Vec<&str> = meta.iter().map(|(n, _)| n.as_str()).collect();
-    assert_eq!(meta_names, ["Bundle.json", "Prefab.json", "Thumbnail.png"]);
-    assert_eq!(meta[2].1.clone().to_file().unwrap(), vec![1, 2, 3]);
+    assert_eq!(
+        meta_names,
+        ["Bundle.json", "Prefab.json", "Screenshot.jpg", "Thumbnail.png"]
+    );
+    assert_eq!(meta[2].1.clone().to_file().unwrap(), vec![4, 5, 6]);
+    assert_eq!(meta[3].1.clone().to_file().unwrap(), vec![1, 2, 3]);
 
     // Prefabs/Uploads/<hash>.brz holds the exact bytes.
     let prefabs = root[2].1.clone().to_folder().unwrap();

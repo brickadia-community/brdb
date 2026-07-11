@@ -261,8 +261,8 @@ pub struct WorldMeta {
     /// Meta/World.json
     pub world: WorldJson,
     /// Meta/Prefab.json — written only when this is a prefab bundle.
-    /// When `Some`, the write path emits a prefab (Bundle.json + Prefab.json,
-    /// no World.json/Screenshot/Thumbnail).
+    /// When `Some`, the write path emits a prefab (Bundle.json + Prefab.json
+    /// plus the optional Screenshot/Thumbnail; no World.json).
     pub prefab: Option<PrefabJson>,
 }
 

@@ -219,8 +219,8 @@ impl World {
     /// Mark this world's metadata as a prefab: sets the bundle `type` to
     /// `"Prefab"` and fills `Meta/Prefab.json` with pivots/bounds computed from
     /// the main-grid brick bounding box (see [`World::brick_bounds`]). The
-    /// write path then emits a prefab bundle (Bundle.json + Prefab.json, no
-    /// World.json/Screenshot/Thumbnail).
+    /// write path then emits a prefab bundle (Bundle.json + Prefab.json, plus
+    /// the optional Screenshot/Thumbnail; no World.json).
     pub fn make_prefab(&mut self) {
         use crate::wrapper::{Position, PrefabJson};
         self.meta.bundle.level_type = "Prefab".to_string();

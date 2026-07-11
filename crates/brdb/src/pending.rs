@@ -203,9 +203,10 @@ impl BrPendingFs {
             worlds.push((world_id.to_string(), Folder(Some(world_dir))));
         }
 
-        // Bundle.json is always present. Prefabs additionally write
-        // Prefab.json and omit World.json/Screenshot/Thumbnail; worlds write
-        // World.json plus the (optional) Screenshot/Thumbnail.
+        // Bundle.json is always present. Prefabs additionally write Prefab.json
+        // and omit World.json; worlds write World.json. Both may carry the
+        // (optional) Screenshot/Thumbnail — the game reads a prefab's
+        // Screenshot.jpg for previews when one is present.
         let mut meta_files = vec![(
             "Bundle.json".to_owned(),
             File(Some(serde_json::to_vec(&fs.meta.bundle).about("Bundle.json")?)),
@@ -215,7 +216,10 @@ impl BrPendingFs {
                 "Prefab.json".to_owned(),
                 File(Some(serde_json::to_vec(prefab).about("Prefab.json")?)),
             ));
-            // Game-written prefabs carry a thumbnail (but no Screenshot.jpg).
+            meta_files.push((
+                "Screenshot.jpg".to_owned(),
+                File(fs.meta.screenshot.clone()),
+            ));
             meta_files.push(("Thumbnail.png".to_owned(), File(fs.meta.thumbnail.clone())));
         } else {
             meta_files.push((
