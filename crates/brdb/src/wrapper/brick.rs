@@ -153,6 +153,13 @@ impl Brick {
             BrickType::Basic(asset) if asset.as_ref() == "B_1x1_Microchip" => {
                 Position { x: 5, y: 5, z: 2 }
             }
+            // The reroute node is a small 2x2x2 node (half-extent 1,1,1). Its
+            // real size matters for prefab bounds: the generic 5,5,6 default
+            // below would push a rerouter's bounds far past the brick and, for
+            // one sitting beside a microchip, float the whole pasted prefab.
+            BrickType::Basic(asset) if asset.as_ref() == "B_1x1_Reroute_Node" => {
+                Position { x: 1, y: 1, z: 1 }
+            }
             // Other basic bricks carry no size here; assume a 1x1 brick
             // footprint rather than a zero-size point so prefab bounds are sane.
             BrickType::Basic(_) => Position { x: 5, y: 5, z: 6 },
