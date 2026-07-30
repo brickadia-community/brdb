@@ -120,6 +120,25 @@ pub trait AsBrdbValue: Send + Sync {
         ))
     }
 
+    fn as_brdb_wire_map_variant(
+        &self,
+    ) -> Result<crate::schema::value::WireMapVariant, BrdbSchemaError> {
+        Err(BrdbSchemaError::UnimplementedCast(
+            "wire map variant".to_owned(),
+            std::any::type_name::<Self>(),
+        ))
+    }
+
+    /// When this value should encode as a named member of a schema `variant`
+    /// (a tagged union whose members are structs, e.g. `BRInventoryEntryVariant`
+    /// -> `BRInventoryEntryNothing`), return the member struct's name. The
+    /// writer emits `uint(tag) + <that struct>`. `None` (the default) means
+    /// "not a struct-member variant" and the writer falls back to the wire
+    /// map/array/scalar variant paths.
+    fn as_brdb_variant_member(&self) -> Option<&str> {
+        None
+    }
+
     /// Cheap presence probe for a struct property. When this returns
     /// `false`, the schema writer takes the default/zero path directly
     /// instead of paying for a `MissingStructField` error (two `String`
@@ -397,6 +416,14 @@ impl AsBrdbValue for crate::schema::value::WireArrayVariant {
     fn as_brdb_wire_array_variant(
         &self,
     ) -> Result<crate::schema::value::WireArrayVariant, BrdbSchemaError> {
+        Ok(self.clone())
+    }
+}
+
+impl AsBrdbValue for crate::schema::value::WireMapVariant {
+    fn as_brdb_wire_map_variant(
+        &self,
+    ) -> Result<crate::schema::value::WireMapVariant, BrdbSchemaError> {
         Ok(self.clone())
     }
 }

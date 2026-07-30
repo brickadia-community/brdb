@@ -40,6 +40,14 @@ impl LiteralComponent {
 }
 
 impl AsBrdbValue for LiteralComponent {
+    /// A `LiteralComponent` written into a `variant`-typed field selects the
+    /// variant member whose struct name matches `component_name` (its data is
+    /// then written as that struct). Only consulted for variant fields; struct
+    /// fields go through the struct accessors below.
+    fn as_brdb_variant_member(&self) -> Option<&str> {
+        Some(self.component_name.as_ref())
+    }
+
     fn has_brdb_struct_prop(
         &self,
         schema: &crate::schema::BrdbSchema,

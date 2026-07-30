@@ -345,6 +345,188 @@ impl WireArrayVariant {
     }
 }
 
+/// Key type of a `WireGraphMapVariant`. The schema nests
+/// `WireGraphMapVariant` -> `WireGraphMapKeyWrapper_<K>` -> (per-value variant).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WireMapKey {
+    /// `int64`
+    Int64,
+    /// `FWireGraphString`
+    Str,
+    /// `FWeakObjectPtr`
+    Object,
+}
+
+/// Value type of a `WireGraphMapVariant` (the inner `WireGraphMap_<K>_<V>`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WireMapValue {
+    /// `double`
+    Number,
+    /// `int64`
+    Int64,
+    /// `bool`
+    Bool,
+    /// `FWeakObjectPtr`
+    Object,
+    /// `FVector`
+    Vector,
+    /// `FRotator`
+    Rotator,
+    /// `FQuat`
+    Quat,
+    /// `FWireGraphString`
+    Str,
+    /// `FLinearColor`
+    LinearColor,
+}
+
+/// Concrete key data for a populated `WireGraphMapVariant` entry.
+#[derive(Clone, Debug, PartialEq)]
+pub enum WireMapKeyData {
+    Int64(i64),
+    Str(String),
+    /// weak-object asset index (`None` = null → -1).
+    Object(Option<u32>),
+}
+
+/// Concrete value data for a populated `WireGraphMapVariant` entry.
+#[derive(Clone, Debug, PartialEq)]
+pub enum WireMapValueData {
+    Number(f64),
+    Int64(i64),
+    Bool(bool),
+    Str(String),
+    Vector(Vector3f),
+    Rotator(f64, f64, f64),
+    Quat(f64, f64, f64, f64),
+    LinearColor(f32, f32, f32, f32),
+    Object(Option<u32>),
+}
+
+// --- WireVariant <-> map key/value data ---
+//
+// The map data types are (almost) a subset of `WireVariant`, so map-data ->
+// `WireVariant` is exact and lossless. The reverse is lossy only where a
+// `WireVariant` carries a kind the target can't hold; those degenerate inputs
+// fall back (documented per arm) rather than failing, so these stay infallible
+// `From` conversions.
+
+impl From<WireVariant> for WireMapValueData {
+    fn from(v: WireVariant) -> Self {
+        match v {
+            WireVariant::Number(f) => WireMapValueData::Number(f),
+            WireVariant::Int(i) => WireMapValueData::Int64(i),
+            WireVariant::Bool(b) => WireMapValueData::Bool(b),
+            WireVariant::Str(s) => WireMapValueData::Str(s),
+            WireVariant::Object(o) => WireMapValueData::Object(o.map(|i| i as u32)),
+            WireVariant::Vector(vec) => WireMapValueData::Vector(vec),
+            WireVariant::Rotator { pitch, yaw, roll } => {
+                WireMapValueData::Rotator(pitch, yaw, roll)
+            }
+            WireVariant::Quat { x, y, z, w } => WireMapValueData::Quat(x, y, z, w),
+            WireVariant::LinearColor { r, g, b, a } => WireMapValueData::LinearColor(r, g, b, a),
+            // A map value is never `Exec`; fall back to a zero number.
+            WireVariant::Exec => WireMapValueData::Number(0.0),
+        }
+    }
+}
+
+impl From<WireMapValueData> for WireVariant {
+    fn from(v: WireMapValueData) -> Self {
+        match v {
+            WireMapValueData::Number(f) => WireVariant::Number(f),
+            WireMapValueData::Int64(i) => WireVariant::Int(i),
+            WireMapValueData::Bool(b) => WireVariant::Bool(b),
+            WireMapValueData::Str(s) => WireVariant::Str(s),
+            WireMapValueData::Vector(vec) => WireVariant::Vector(vec),
+            WireMapValueData::Rotator(pitch, yaw, roll) => {
+                WireVariant::Rotator { pitch, yaw, roll }
+            }
+            WireMapValueData::Quat(x, y, z, w) => WireVariant::Quat { x, y, z, w },
+            WireMapValueData::LinearColor(r, g, b, a) => WireVariant::LinearColor { r, g, b, a },
+            WireMapValueData::Object(o) => WireVariant::Object(o.map(|i| i as usize)),
+        }
+    }
+}
+
+impl From<WireVariant> for WireMapKeyData {
+    fn from(v: WireVariant) -> Self {
+        match v {
+            WireVariant::Int(i) => WireMapKeyData::Int64(i),
+            WireVariant::Str(s) => WireMapKeyData::Str(s),
+            WireVariant::Object(o) => WireMapKeyData::Object(o.map(|i| i as u32)),
+            // Only int64/str/object are valid map keys. Numeric kinds coerce to
+            // an int64 key; the rest have no key form and fall back to Int64(0).
+            WireVariant::Number(f) => WireMapKeyData::Int64(f as i64),
+            WireVariant::Bool(b) => WireMapKeyData::Int64(b as i64),
+            WireVariant::Vector(_)
+            | WireVariant::Rotator { .. }
+            | WireVariant::Quat { .. }
+            | WireVariant::LinearColor { .. }
+            | WireVariant::Exec => WireMapKeyData::Int64(0),
+        }
+    }
+}
+
+impl From<WireMapKeyData> for WireVariant {
+    fn from(k: WireMapKeyData) -> Self {
+        match k {
+            WireMapKeyData::Int64(i) => WireVariant::Int(i),
+            WireMapKeyData::Str(s) => WireVariant::Str(s),
+            WireMapKeyData::Object(o) => WireVariant::Object(o.map(|i| i as usize)),
+        }
+    }
+}
+
+/// A `WireGraphMapVariant` value. `key`/`value` pick the nested `KeyWrapper_<K>`
+/// / `Map_<K>_<V>` members; `entries` are the concrete pairs (empty = an empty
+/// map, the at-rest state of a fresh `MapVar` brick).
+#[derive(Clone, Debug, PartialEq)]
+pub struct WireMapVariant {
+    pub key: WireMapKey,
+    pub value: WireMapValue,
+    pub entries: Vec<(WireMapKeyData, WireMapValueData)>,
+}
+
+impl WireMapVariant {
+    /// The `WireGraphMapKeyWrapper_<K>` member of `WireGraphMapVariant`.
+    pub fn key_wrapper(&self) -> &'static str {
+        match self.key {
+            WireMapKey::Int64 => "WireGraphMapKeyWrapper_int64",
+            WireMapKey::Str => "WireGraphMapKeyWrapper_FWireGraphString",
+            WireMapKey::Object => "WireGraphMapKeyWrapper_FWeakObjectPtr",
+        }
+    }
+    /// The inner `WireGraphMapVariant_<K>` variant name.
+    pub fn inner_variant(&self) -> &'static str {
+        match self.key {
+            WireMapKey::Int64 => "WireGraphMapVariant_int64",
+            WireMapKey::Str => "WireGraphMapVariant_FWireGraphString",
+            WireMapKey::Object => "WireGraphMapVariant_FWeakObjectPtr",
+        }
+    }
+    /// The `WireGraphMap_<K>_<V>` struct name (the concrete keyed map).
+    pub fn map_struct(&self) -> String {
+        let k = match self.key {
+            WireMapKey::Int64 => "int64",
+            WireMapKey::Str => "FWireGraphString",
+            WireMapKey::Object => "FWeakObjectPtr",
+        };
+        let v = match self.value {
+            WireMapValue::Number => "double",
+            WireMapValue::Int64 => "int64",
+            WireMapValue::Bool => "bool",
+            WireMapValue::Object => "FWeakObjectPtr",
+            WireMapValue::Vector => "FVector",
+            WireMapValue::Rotator => "FRotator",
+            WireMapValue::Quat => "FQuat",
+            WireMapValue::Str => "FWireGraphString",
+            WireMapValue::LinearColor => "FLinearColor",
+        };
+        format!("WireGraphMap_{k}_{v}")
+    }
+}
+
 impl From<Vec<f64>> for WireArrayVariant {
     fn from(v: Vec<f64>) -> Self {
         WireArrayVariant::DoubleArray(v)
@@ -870,3 +1052,60 @@ try_from_impl!(as_brdb_i32 @ i32);
 try_from_impl!(as_brdb_i64 @ i64);
 try_from_impl!(as_brdb_f32 @ f32);
 try_from_impl!(as_brdb_f64 @ f64);
+
+#[cfg(test)]
+mod wire_map_conversion_tests {
+    use super::*;
+
+    #[test]
+    fn map_value_data_round_trips_through_wire_variant() {
+        let cases = [
+            WireMapValueData::Number(1.5),
+            WireMapValueData::Int64(-7),
+            WireMapValueData::Bool(true),
+            WireMapValueData::Str("hi".into()),
+            WireMapValueData::Vector(Vector3f { x: 1.0, y: 2.0, z: 3.0 }),
+            WireMapValueData::Rotator(10.0, 20.0, 30.0),
+            WireMapValueData::Quat(0.0, 0.0, 0.0, 1.0),
+            WireMapValueData::LinearColor(0.1, 0.2, 0.3, 1.0),
+            WireMapValueData::Object(Some(5)),
+            WireMapValueData::Object(None),
+        ];
+        for v in cases {
+            let round: WireMapValueData = WireVariant::from(v.clone()).into();
+            assert_eq!(round, v);
+        }
+    }
+
+    #[test]
+    fn map_key_data_round_trips_through_wire_variant() {
+        let cases = [
+            WireMapKeyData::Int64(42),
+            WireMapKeyData::Str("k".into()),
+            WireMapKeyData::Object(Some(3)),
+            WireMapKeyData::Object(None),
+        ];
+        for k in cases {
+            let round: WireMapKeyData = WireVariant::from(k.clone()).into();
+            assert_eq!(round, k);
+        }
+    }
+
+    #[test]
+    fn wire_variant_forward_conversions_and_fallbacks() {
+        // Exact forward conversions.
+        assert_eq!(WireMapValueData::from(WireVariant::Int(9)), WireMapValueData::Int64(9));
+        assert_eq!(
+            WireMapKeyData::from(WireVariant::Str("s".into())),
+            WireMapKeyData::Str("s".into())
+        );
+        // Documented degenerate fallbacks.
+        assert_eq!(WireMapValueData::from(WireVariant::Exec), WireMapValueData::Number(0.0));
+        assert_eq!(WireMapKeyData::from(WireVariant::Number(3.9)), WireMapKeyData::Int64(3));
+        assert_eq!(WireMapKeyData::from(WireVariant::Bool(true)), WireMapKeyData::Int64(1));
+        assert_eq!(
+            WireMapKeyData::from(WireVariant::Vector(Vector3f { x: 0.0, y: 0.0, z: 0.0 })),
+            WireMapKeyData::Int64(0)
+        );
+    }
+}

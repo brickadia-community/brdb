@@ -160,9 +160,13 @@ impl Brick {
             BrickType::Basic(asset) if asset.as_ref() == "B_1x1_Reroute_Node" => {
                 Position { x: 1, y: 1, z: 1 }
             }
-            // Other basic bricks carry no size here; assume a 1x1 brick
-            // footprint rather than a zero-size point so prefab bounds are sane.
-            BrickType::Basic(_) => Position { x: 5, y: 5, z: 6 },
+            // Other basic bricks: use the asset's authored half-extent from the
+            // dump-derived table, falling back to a 1x1 brick footprint (rather
+            // than a zero-size point) so prefab bounds stay sane for anything
+            // the table doesn't cover.
+            BrickType::Basic(asset) => crate::assets::brick_sizes::brick_half_extent(asset.as_ref())
+                .map(|[x, y, z]| Position { x, y, z })
+                .unwrap_or(Position { x: 5, y: 5, z: 6 }),
         };
         (self.position - half, self.position + half)
     }

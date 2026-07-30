@@ -5,7 +5,9 @@ use crate::{
     schema::{
         BrdbEnum, BrdbInterned, BrdbSchema, BrdbSchemaEnum, BrdbSchemaStruct,
         BrdbSchemaStructProperty, BrdbStruct, BrdbValue, WireArrayVariant, WireVariant,
-        as_brdb::AsBrdbValue, read::flat_type_size,
+        as_brdb::AsBrdbValue,
+        read::flat_type_size,
+        value::{WireMapKeyData, WireMapValueData, WireMapVariant},
     },
 };
 
@@ -210,6 +212,80 @@ fn write_named_wire_variant(
 /// `WireGraphArrayVariant`) as `uint(tag) + array`. Each member is a
 /// `WireGraph*Array` struct holding a single `Values` array, which (having one
 /// field) encodes as just that array.
+/// Write a `WireGraphMapVariant` as the nested
+/// `uint(key_tag) + uint(value_tag) + {K:V} map`: pick the `KeyWrapper_<K>`
+/// member, then the inner `Map_<K>_<V>` member, then the `Values` map entries.
+fn write_named_map_variant(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    variant_ty: &str,
+    m: &WireMapVariant,
+) -> Result<(), BrdbSchemaError> {
+    let key_tag = variant_member_tag(schema, variant_ty, m.key_wrapper())?;
+    write_uint(buf, key_tag as u64)?;
+    let value_tag = variant_member_tag(schema, m.inner_variant(), &m.map_struct())?;
+    write_uint(buf, value_tag as u64)?;
+    // The concrete `WireGraphMap_<K>_<V>` struct is normally a single
+    // `Values: {K:V}` map (empty = `map_len(0)`). EXCEPT object-keyed
+    // (`FWeakObjectPtr`) structs, which the schema defines as EMPTY (no
+    // `Values` field) — the game reads nothing after the two tags, so a map
+    // header there would be a stray byte that desyncs the SoA column. Only
+    // emit the map when the resolved struct actually has a `Values` field.
+    let has_values = schema
+        .get_struct(&m.map_struct())
+        .is_some_and(|s| s.iter().any(|(k, _)| schema.intern.lookup_ref(*k) == Some("Values")));
+    if has_values {
+        write_map_values(buf, m)?;
+    }
+    Ok(())
+}
+
+/// Write the `Values: {K:V}` msgpack map: `map_len(n)` then each key then value,
+/// using the same low-level writers the array-variant path uses per element.
+pub(crate) fn write_map_values(
+    buf: &mut impl Write,
+    m: &WireMapVariant,
+) -> Result<(), BrdbSchemaError> {
+    rmp::encode::write_map_len(buf, m.entries.len() as u32)?;
+    for (k, v) in &m.entries {
+        match k {
+            WireMapKeyData::Int64(i) => write_int(buf, *i)?,
+            WireMapKeyData::Str(s) => write_str(buf, s)?,
+            WireMapKeyData::Object(o) => write_int(buf, o.map(|i| i as i64).unwrap_or(-1))?,
+        }
+        match v {
+            WireMapValueData::Number(x) => write_float64(buf, *x)?,
+            WireMapValueData::Int64(x) => write_int(buf, *x)?,
+            WireMapValueData::Bool(x) => write_bool(buf, *x)?,
+            WireMapValueData::Str(s) => write_str(buf, s)?,
+            WireMapValueData::Vector(vec) => {
+                write_float64(buf, vec.x as f64)?;
+                write_float64(buf, vec.y as f64)?;
+                write_float64(buf, vec.z as f64)?;
+            }
+            WireMapValueData::Rotator(p, y, r) => {
+                write_float64(buf, *p)?;
+                write_float64(buf, *y)?;
+                write_float64(buf, *r)?;
+            }
+            WireMapValueData::Quat(x, y, z, w) => {
+                write_float64(buf, *x)?;
+                write_float64(buf, *y)?;
+                write_float64(buf, *z)?;
+                write_float64(buf, *w)?;
+            }
+            WireMapValueData::LinearColor(r, g, b, a) => {
+                write_float32(buf, *r)?;
+                write_float32(buf, *g)?;
+                write_float32(buf, *b)?;
+                write_float32(buf, *a)?;
+            }
+            WireMapValueData::Object(o) => write_int(buf, o.map(|i| i as i64).unwrap_or(-1))?,
+        }
+    }
+    Ok(())
+}
+
 fn write_named_array_variant(
     schema: &BrdbSchema,
     buf: &mut impl Write,
@@ -736,9 +812,17 @@ pub fn write_brdb(
             }
         }
         other if schema.get_variant(other).is_some() => {
-            // Array-valued variants (WireGraphArrayVariant) self-identify via
-            // `as_brdb_wire_array_variant`; everything else is a scalar variant.
-            if let Ok(arr) = value.as_brdb_wire_array_variant() {
+            // Struct-member variants (e.g. BRInventoryEntryVariant) self-identify
+            // by member struct name; map/array-valued variants via their
+            // dedicated accessors; everything else is a scalar variant.
+            if let Some(member) = value.as_brdb_variant_member() {
+                let tag = variant_member_tag(schema, other, member)?;
+                write_uint(buf, tag as u64)?;
+                // `value` re-encodes as its member struct (write its fields).
+                write_brdb(schema, buf, member, value)?;
+            } else if let Ok(m) = value.as_brdb_wire_map_variant() {
+                write_named_map_variant(schema, buf, other, &m)?;
+            } else if let Ok(arr) = value.as_brdb_wire_array_variant() {
                 write_named_array_variant(schema, buf, other, &arr)?;
             } else {
                 write_named_wire_variant(schema, buf, other, &value.as_brdb_wire_variant()?)?;
@@ -1045,6 +1129,29 @@ mod tests {
     }
 
     #[test]
+    fn test_map_property_reads_msgpack_map_header() {
+        use crate::schema::{BrdbSchema, BrdbValue, read::read_type};
+        use std::sync::Arc;
+
+        let schema = Arc::new(
+            BrdbSchema::new_parsed(
+                "struct Holder {
+    M: {i64: f64},
+}
+",
+            )
+            .unwrap(),
+        );
+
+        // An empty map is a msgpack map header FixMap(0) = 0x80 — what the game
+        // (and this crate's writer) emit. The reader must accept the map header,
+        // not demand a plain uint (which rejected the marker and broke reading
+        // any MapVar component, e.g. `read_components` on a real world).
+        let val = read_type(&schema, "Holder", &mut [0x80u8].as_slice()).unwrap();
+        assert!(matches!(val, BrdbValue::Struct(_)));
+    }
+
+    #[test]
     fn test_named_variant_round_trip() {
         use crate::schema::{BrdbSchema, BrdbValue, WireVariant, read::read_type};
         use std::sync::Arc;
@@ -1270,5 +1377,158 @@ struct WireGraphStringArray {
             back,
             WireArrayVariant::StringArray(vec!["a".into(), "b".into()])
         );
+    }
+}
+
+#[cfg(test)]
+mod map_variant_tests {
+    use super::write_map_values;
+    use crate::schema::value::{
+        WireMapKey, WireMapKeyData, WireMapValue, WireMapValueData, WireMapVariant,
+    };
+
+    #[test]
+    fn write_map_values_int_to_int() {
+        // One entry {1: 10}: map_len(1) then key int(1) then value int(10).
+        let m = WireMapVariant {
+            key: WireMapKey::Int64,
+            value: WireMapValue::Int64,
+            entries: vec![(WireMapKeyData::Int64(1), WireMapValueData::Int64(10))],
+        };
+        let mut buf = Vec::new();
+        write_map_values(&mut buf, &m).unwrap();
+        // msgpack: fixmap len 1 = 0x81; positive fixints 1 = 0x01, 10 = 0x0A.
+        assert_eq!(buf, vec![0x81, 0x01, 0x0A]);
+    }
+
+    #[test]
+    fn write_map_values_int_to_str() {
+        let m = WireMapVariant {
+            key: WireMapKey::Int64,
+            value: WireMapValue::Str,
+            entries: vec![(WireMapKeyData::Int64(2), WireMapValueData::Str("hi".into()))],
+        };
+        let mut buf = Vec::new();
+        write_map_values(&mut buf, &m).unwrap();
+        // 0x81 map_len(1), 0x02 key int(2), then a msgpack str "hi" (0xA2 'h' 'i').
+        assert_eq!(buf, vec![0x81, 0x02, 0xA2, b'h', b'i']);
+    }
+
+    #[test]
+    fn write_map_values_empty_is_map_len_zero() {
+        let m = WireMapVariant {
+            key: WireMapKey::Int64,
+            value: WireMapValue::Number,
+            entries: vec![],
+        };
+        let mut buf = Vec::new();
+        write_map_values(&mut buf, &m).unwrap();
+        assert_eq!(buf, vec![0x80]); // fixmap len 0
+    }
+
+    #[test]
+    fn write_map_values_int_to_vector_struct_bytes() {
+        // One entry {1: Vector(1.5, -2.5, 3.75)}: map_len(1), key int(1), then
+        // the struct's x/y/z fields — the subtlest value arm (Vector/Rotator/
+        // Quat/LinearColor all frame a struct's fields inline, not a single
+        // scalar), uncovered by the int/str/empty cases above. Non-whole
+        // components so `write_float64`'s int-optimization doesn't kick in
+        // and the msgpack f64 encoding is actually exercised.
+        use crate::wrapper::Vector3f;
+        let m = WireMapVariant {
+            key: WireMapKey::Int64,
+            value: WireMapValue::Vector,
+            entries: vec![(
+                WireMapKeyData::Int64(1),
+                WireMapValueData::Vector(Vector3f {
+                    x: 1.5,
+                    y: -2.5,
+                    z: 3.75,
+                }),
+            )],
+        };
+        let mut buf = Vec::new();
+        write_map_values(&mut buf, &m).unwrap();
+
+        // Expected: fixmap len 1 (0x81), positive fixint key 1 (0x01), then
+        // the x/y/z fields, written with the same low-level `write_float64`
+        // the Vector arm calls (x, y, z in order).
+        let mut want = vec![0x81, 0x01];
+        super::write_float64(&mut want, 1.5).unwrap();
+        super::write_float64(&mut want, -2.5).unwrap();
+        super::write_float64(&mut want, 3.75).unwrap();
+        assert_eq!(buf, want);
+    }
+
+    #[test]
+    fn write_named_map_variant_object_key_omits_values_map() {
+        // The schema's `WireGraphMap_FWeakObjectPtr_<V>` structs are EMPTY (no
+        // `Values` field), so an object-keyed map must write ONLY the two
+        // variant tags — emitting a map header there is a stray byte that
+        // desyncs the shared SoA component column.
+        let schema = crate::wrapper::schemas::bricks_components_schema_max();
+        let m = WireMapVariant {
+            key: WireMapKey::Object,
+            value: WireMapValue::Int64,
+            entries: vec![],
+        };
+        let mut buf = Vec::new();
+        super::write_named_map_variant(schema, &mut buf, "WireGraphMapVariant", &m).unwrap();
+        // key_tag + value_tag only (both small fixint uints = 1 byte each);
+        // NO `0x80` map header after.
+        assert_eq!(
+            buf.len(),
+            2,
+            "object-keyed map must not emit a Values map header; got {buf:?}"
+        );
+    }
+
+    #[test]
+    fn non_empty_map_round_trips_write_then_read() {
+        // A populated int64->int64 map must survive write -> read. Previously
+        // impossible: the reader's `Map` arm used `read_named_type`, which
+        // rejects the primitive `i64` key/value. Exercises BOTH the writer
+        // (has-`Values` int64 struct -> writes the map) and the reader fix.
+        use crate::schema::read::read_type;
+        use crate::schema::value::BrdbValue;
+        use std::sync::Arc;
+
+        let schema = Arc::new(crate::wrapper::schemas::bricks_components_schema_max().clone());
+        let m = WireMapVariant {
+            key: WireMapKey::Int64,
+            value: WireMapValue::Int64,
+            entries: vec![
+                (WireMapKeyData::Int64(1), WireMapValueData::Int64(10)),
+                (WireMapKeyData::Int64(2), WireMapValueData::Int64(20)),
+            ],
+        };
+        let mut buf = Vec::new();
+        super::write_named_map_variant(&schema, &mut buf, "WireGraphMapVariant", &m).unwrap();
+
+        let val = read_type(&schema, "WireGraphMapVariant", &mut &buf[..]).unwrap();
+        // A named variant decodes to its member value directly: the KeyWrapper
+        // struct `{ Map: <inner variant> }`, whose `Map` is the
+        // `WireGraphMap_int64_int64` struct `{ Values: {i64:i64} }`.
+        let field = |v: &BrdbValue, name: &str| -> BrdbValue {
+            match v {
+                BrdbValue::Struct(s) => s
+                    .get(name)
+                    .cloned()
+                    .unwrap_or_else(|| panic!("missing field {name}")),
+                other => panic!("expected struct for field {name}, got {other:?}"),
+            }
+        };
+        let values = field(&field(&val, "Map"), "Values");
+        let BrdbValue::Map(entries) = values else {
+            panic!("Values is not a map: {values:?}");
+        };
+        let got: Vec<(i64, i64)> = entries
+            .iter()
+            .map(|(k, v)| match (k, v) {
+                (BrdbValue::I64(k), BrdbValue::I64(v)) => (*k, *v),
+                other => panic!("non-i64 map entry: {other:?}"),
+            })
+            .collect();
+        assert_eq!(got, vec![(1, 10), (2, 20)]);
     }
 }

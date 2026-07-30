@@ -42,7 +42,6 @@ pub enum LogicGate {
     Gt,
     Geq,
 
-    Const,
     EdgeDetector,
 }
 
@@ -102,11 +101,10 @@ impl LogicGate {
     pub const COMPONENT_GEQ: BString =
         BString::str("BrickComponentType_WireGraph_Expr_CompareGreaterOrEqual");
 
-    pub const COMPONENT_CONST: BString = BString::str("BrickComponentType_WireGraphPseudo_Const");
     pub const COMPONENT_BLEND: BString =
         BString::str("BrickComponentType_WireGraph_Expr_MathBlend");
     pub const COMPONENT_EDGE_DETECTOR: BString =
-        BString::str("BrickComponent_WireGraph_Expr_EdgeDetector");
+        BString::str("BrickComponentType_WireGraph_Expr_EdgeDetector");
 
     pub const STRUCT_BOOL_BOOL_STR: &str = "BrickComponentData_WireGraph_Expr_Bool_Bool";
     pub const STRUCT_BINARY_BOOLBOOL_BOOL_STR: &str =
@@ -118,7 +116,6 @@ impl LogicGate {
     pub const STRUCT_MATH_COMPARE_STR: &str = "BrickComponentData_WireGraph_Expr_MathCompare";
     pub const STRUCT_NUMNUM_NUM_STR: &str =
         "BrickComponentData_WireGraph_Expr_PrimMathVariantPrimMathVariant_PrimMathVariant";
-    pub const STRUCT_CONSTANT_STR: &str = "BrickComponentData_WireGraphPseudo_Const";
     pub const STRUCT_BLEND_STR: &str = "BrickComponentData_WireGraph_Expr_MathBlend";
     pub const STRUCT_EDGE_DETECTOR_STR: &str = "BrickComponentData_WireGraph_Expr_EdgeDetector";
 
@@ -131,7 +128,6 @@ impl LogicGate {
     pub const STRUCT_INTINT_INT: BString = BString::str(Self::STRUCT_BINARY_INTINT_INT_STR);
     pub const STRUCT_MATH_COMPARE: BString = BString::str(Self::STRUCT_MATH_COMPARE_STR);
     pub const STRUCT_NUMNUM_NUM: BString = BString::str(Self::STRUCT_NUMNUM_NUM_STR);
-    pub const STRUCT_CONST: BString = BString::str(Self::STRUCT_CONSTANT_STR);
     pub const STRUCT_BLEND: BString = BString::str(Self::STRUCT_BLEND_STR);
     pub const STRUCT_EDGE_DETECTOR: BString = BString::str(Self::STRUCT_EDGE_DETECTOR_STR);
 
@@ -144,7 +140,6 @@ impl LogicGate {
     pub const INPUT_A: BString = BString::str("InputA");
     pub const INPUT_B: BString = BString::str("InputB");
     pub const OUTPUT: BString = BString::str("Output");
-    pub const VALUE: BString = BString::str("Value");
     pub const RISING_EDGE: BString = BString::str("bPulseOnRisingEdge");
     pub const FALLING_EDGE: BString = BString::str("bPulseOnFallingEdge");
 
@@ -184,8 +179,6 @@ impl LogicGate {
             Self::Leq => Self::COMPONENT_LEQ,
             Self::Gt => Self::COMPONENT_GT,
             Self::Geq => Self::COMPONENT_GEQ,
-
-            Self::Const => Self::COMPONENT_CONST,
         }
     }
 
@@ -235,8 +228,6 @@ impl LogicGate {
             Self::Eq | Self::Neq => Self::STRUCT_COMPARE,
             Self::Lt | Self::Leq | Self::Gt | Self::Geq => Self::STRUCT_MATH_COMPARE,
             Self::Blend => Self::STRUCT_BLEND,
-
-            Self::Const => Self::STRUCT_CONST,
         }
     }
 
@@ -255,8 +246,7 @@ impl LogicGate {
                     InputB: WireGraphPrimMathVariant
                 }"
             }
-            Self::STRUCT_CONSTANT_STR => "struct BrickComponentData_WireGraphPseudo_Const { Value: WireGraphVariant }",
-            Self::STRUCT_BLEND_STR => "struct BrickComponentData_WireGraph_Expr_MathBlend { InputA: WireGraphVariant, InputB: WireGraphVariant, Blend: f64 }",
+            Self::STRUCT_BLEND_STR => "struct BrickComponentData_WireGraph_Expr_MathBlend { Blend: f64, bClampAlpha: bool, InputA: WireGraphPrimMathVariant, InputB: WireGraphPrimMathVariant }",
             Self::STRUCT_EDGE_DETECTOR_STR => "struct BrickComponentData_WireGraph_Expr_EdgeDetector { Input: f64, bPulseOnRisingEdge: bool, bPulseOnFallingEdge: bool }",
             n => unimplemented!("unimplemented struct {n}"),
         };
@@ -287,7 +277,6 @@ impl LogicGate {
                 vec![Self::INPUT_A, Self::INPUT_B, Self::BOOL_OUTPUT]
             }
 
-            Self::Const => vec![Self::VALUE],
             Self::Blend => vec![Self::BLEND, Self::INPUT_A, Self::INPUT_B, Self::OUTPUT],
             Self::EdgeDetector => {
                 vec![Self::INPUT, Self::RISING_EDGE, Self::FALLING_EDGE]
@@ -302,7 +291,7 @@ impl LogicGate {
             "InputA" | "bInputA" => (Some(0), None),
             "InputB" | "bInputB" => (Some(1), None),
             "Blend" => (Some(2), None),
-            "Value" => (None, Some(0)),
+            "bClampAlpha" => (Some(3), None),
             "bPulseOnRisingEdge" => (None, Some(0)),
             "bPulseOnFallingEdge" => (None, Some(1)),
             _ => (None, None),
@@ -312,7 +301,6 @@ impl LogicGate {
     pub fn num_inputs(&self) -> usize {
         match self {
             Self::BoolNot | Self::BitNot | Self::Ceil | Self::Floor => 1,
-            Self::Const => 0,
             _ => 2,
         }
     }
@@ -337,11 +325,11 @@ impl LogicGate {
             Self::Eq | Self::Neq | Self::Lt | Self::Leq | Self::Gt | Self::Geq => {
                 vec![Box::new(0.0f64), Box::new(0.0f64)]
             }
-            Self::Const => vec![Box::new(WireVariant::Number(0.0))],
             Self::Blend => vec![
-                Box::new(WireVariant::Number(0.0)),
-                Box::new(WireVariant::Number(0.0)),
-                Box::new(0.5f64), // Default blend value
+                Box::new(WireVariant::Number(0.0)), // InputA (index 0)
+                Box::new(WireVariant::Number(0.0)), // InputB (index 1)
+                Box::new(0.5f64),                   // Blend  (index 2)
+                Box::new(false),                    // bClampAlpha (index 3)
             ],
             Self::EdgeDetector => vec![
                 Box::new(0.0f64), // Default input value
@@ -350,7 +338,6 @@ impl LogicGate {
     }
     pub fn default_outputs(&self) -> Vec<Box<dyn AsBrdbValue>> {
         match self {
-            Self::Const => vec![Box::new(WireVariant::Number(0.0))],
             Self::EdgeDetector => vec![
                 Box::new(false), // Default rising edge pulse
                 Box::new(false), // Default falling edge pulse
@@ -496,7 +483,6 @@ impl LogicGate {
             Self::Gt => assets::bricks::B_GATE_GREATER_THAN,
             Self::Geq => assets::bricks::B_GATE_GREATER_THAN_EQUAL,
 
-            Self::Const => assets::bricks::B_GATE_CONSTANT,
             Self::Blend => assets::bricks::B_GATE_BLEND,
             Self::EdgeDetector => assets::bricks::B_GATE_EDGE_DETECTOR,
         }

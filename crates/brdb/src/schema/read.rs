@@ -202,11 +202,20 @@ fn read_struct_property(
         }
         BrdbSchemaStructProperty::Map(k_ty, v_ty) => {
             let mut map = IndexMap::new();
-            let len = read_uint(buf)? as usize;
+            // A map is written as a msgpack map header (the count) then that
+            // many key/value pairs — matching write_map_len in the writer.
+            // (The old read_uint here rejected the map marker, breaking reads
+            // of any MapVar component.)
+            let len = rmp::decode::read_map_len(buf)? as usize;
             for _ in 0..len {
-                let key = read_named_type(schema, buf, *k_ty)
+                // Dispatch key/value through the full `read_type` (primitives,
+                // structs, enums, variants, weak_object) — NOT `read_named_type`,
+                // which only knows structs/enums and rejects primitive
+                // `i64`/`f64`/`str`/`bool` keys/values, breaking reads of any
+                // populated map (e.g. a MapVar's `WireGraphMap_int64_double`).
+                let key = read_type(schema, &lookup(*k_ty)?, buf)
                     .map_err(|e| e.wrap(k_ty.get_or(schema, "unknown map key")))?;
-                let value = read_named_type(schema, buf, *v_ty)
+                let value = read_type(schema, &lookup(*v_ty)?, buf)
                     .map_err(|e| e.wrap(k_ty.get_or(schema, "unknown map value")))?;
                 map.insert(key, value);
             }

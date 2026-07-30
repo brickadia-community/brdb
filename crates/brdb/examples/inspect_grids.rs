@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("=== Unique Grid Shapes ===");
     let mut fps: Vec<_> = fingerprints.iter().collect();
-    fps.sort_by_key(|((b, w, _), grids)| std::cmp::Reverse(*b * grids.len() as u64));
+    fps.sort_by_key(|((b, _w, _), grids)| std::cmp::Reverse(*b * grids.len() as u64));
 
     for ((bricks, wires, chunks), grids) in &fps {
         let savings = if grids.len() > 1 {

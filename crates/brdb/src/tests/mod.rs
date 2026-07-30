@@ -9,6 +9,39 @@ use crate::{
 };
 
 #[test]
+fn test_component_catalog() {
+    use assets::components::{COMPONENTS, component};
+    // Non-trivial and sorted by name (the `component` lookup binary-searches).
+    assert!(COMPONENTS.len() > 200, "catalog too small: {}", COMPONENTS.len());
+    assert!(
+        COMPONENTS.windows(2).all(|w| w[0].name < w[1].name),
+        "COMPONENTS must be sorted by name for binary search"
+    );
+    // A known gate resolves with its wired ports and host brick.
+    let branch = component("BrickComponentType_WireGraph_Exec_Branch")
+        .expect("Branch gate present");
+    assert_eq!(branch.brick(), Some("B_1x1_Gate_Exec_Branch"));
+    assert!(branch.inputs.contains(&"Exec"));
+    assert!(branch.outputs.contains(&"ExecOutA"));
+    // Unknown names resolve to None.
+    assert!(component("BrickComponentType_Nope").is_none());
+}
+
+#[test]
+fn test_brick_half_extents() {
+    use assets::brick_sizes::{BRICK_HALF_EXTENTS, brick_half_extent};
+    assert!(BRICK_HALF_EXTENTS.len() > 200);
+    assert!(
+        BRICK_HALF_EXTENTS.windows(2).all(|w| w[0].0 < w[1].0),
+        "BRICK_HALF_EXTENTS must be sorted by name for binary search"
+    );
+    // A 1x1 flat plate is 5x5x2 half-extent; the reroute node is 1x1x1.
+    assert_eq!(brick_half_extent("B_1x1F_Round"), Some([5, 5, 2]));
+    assert_eq!(brick_half_extent("B_1x1_Reroute_Node"), Some([1, 1, 1]));
+    assert_eq!(brick_half_extent("B_does_not_exist"), None);
+}
+
+#[test]
 fn test_memory_db() -> Result<(), Box<dyn std::error::Error>> {
     // Ensures the memory db can be created without errors
     let db = Brdb::new_memory()?;
