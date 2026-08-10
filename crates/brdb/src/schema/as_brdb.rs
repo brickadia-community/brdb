@@ -196,6 +196,50 @@ pub trait AsBrdbValue: Send + Sync {
 
 impl AsBrdbValue for () {}
 
+/// A nested-struct default value: `field name -> boxed value`. Emitted by the
+/// `extract_defaults` example so struct-typed component defaults (e.g. `Vector2D` `{X, Y}`,
+/// `LinearColor` `{R, G, B, A}`) survive into `STRUCT_DEFAULTS` and get written for unset
+/// struct fields instead of falling back to zeros. Answers `as_brdb_struct_prop_value` by
+/// field-name lookup, mirroring [`BrdbStruct`]. Values may themselves be nested.
+pub struct NestedStructDefault(pub Vec<(&'static str, Box<dyn AsBrdbValue>)>);
+
+impl AsBrdbValue for NestedStructDefault {
+    fn has_brdb_struct_prop(
+        &self,
+        schema: &BrdbSchema,
+        _struct_name: BrdbInterned,
+        prop_name: BrdbInterned,
+    ) -> bool {
+        schema
+            .intern
+            .lookup_ref(prop_name)
+            .is_some_and(|name| self.0.iter().any(|(k, _)| *k == name))
+    }
+
+    fn as_brdb_struct_prop_value(
+        &self,
+        schema: &BrdbSchema,
+        struct_name: BrdbInterned,
+        prop_name: BrdbInterned,
+    ) -> Result<&dyn AsBrdbValue, BrdbSchemaError> {
+        if let Some(name) = schema.intern.lookup_ref(prop_name) {
+            if let Some((_, v)) = self.0.iter().find(|(k, _)| *k == name) {
+                return Ok(v.as_ref());
+            }
+        }
+        Err(BrdbSchemaError::MissingStructField(
+            schema
+                .intern
+                .lookup(struct_name)
+                .unwrap_or_else(|| "nested struct".to_owned()),
+            schema
+                .intern
+                .lookup(prop_name)
+                .unwrap_or_else(|| "unknown property".to_owned()),
+        ))
+    }
+}
+
 macro_rules! as_brdb_fn {
     ($fn_name:ident, $ty:ty, $method:ident) => {
         fn $fn_name(&self) -> Result<$ty, BrdbSchemaError> {

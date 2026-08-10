@@ -63,7 +63,9 @@ fn format_value(
                 let r = get_u8("R"); let g = get_u8("G"); let b_ = get_u8("B"); let a = get_u8("A");
                 Some(b(format!("SavedBrickColor {{ r: {r}, g: {g}, b: {b_}, a: {a} }}")))
             } else if let Some(s_ty) = schema.get_struct(other) {
-                // Generic struct — recurse into fields
+                // Generic struct — recurse into fields and emit a NestedStructDefault so nested
+                // struct values (Vector2D {X,Y}, LinearColor {R,G,B,A}, ...) survive into
+                // STRUCT_DEFAULTS instead of being written as zeros for unset fields.
                 let s_id = schema.intern.get(other)?;
                 let mut parts = Vec::new();
                 for (field_id, prop_ty) in s_ty {
@@ -73,11 +75,25 @@ fn format_value(
                         _ => continue,
                     };
                     let prop_val = val.as_brdb_struct_prop_value(schema, s_id, *field_id).ok()?;
-                    let formatted = format_value(schema, &inner_ty, prop_val)?;
-                    parts.push(format!("(\"{field_name}\", {formatted})"));
+                    // Skip a sub-field we can't format (e.g. an object/class ref) but keep the
+                    // rest — a missing field falls back to zero at write time.
+                    let Some(formatted) = format_value(schema, &inner_ty, prop_val) else {
+                        continue;
+                    };
+                    // First field keeps the `as Box<dyn AsBrdbValue>` cast to fix the vec's
+                    // element type; the rest coerce to it.
+                    if parts.is_empty() {
+                        parts.push(format!("(\"{field_name}\", {formatted})"));
+                    } else {
+                        let short = formatted.trim_end_matches(" as Box<dyn AsBrdbValue>");
+                        parts.push(format!("(\"{field_name}\", {short})"));
+                    }
                 }
-                // Can't easily box a nested struct — skip
-                None
+                if parts.is_empty() {
+                    None
+                } else {
+                    Some(b(format!("NestedStructDefault(vec![{}])", parts.join(", "))))
+                }
             } else {
                 None
             }
@@ -195,6 +211,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     w!("#[allow(unused_imports)]");
     w!("use crate::schema::WireVariant;");
     w!("use crate::schema::as_brdb::AsBrdbValue;");
+    // NestedStructDefault carries struct-typed defaults (Vector2D/LinearColor/...); allow it
+    // to be unused so a dump without any nested-struct defaults still compiles clean.
+    w!("#[allow(unused_imports)]");
+    w!("use crate::schema::as_brdb::NestedStructDefault;");
     w!("use crate::SavedBrickColor;");
     w!();
     w!("/// Default field values for every component data struct.");

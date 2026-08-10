@@ -1075,6 +1075,8 @@ use std::sync::LazyLock;
 #[allow(unused_imports)]
 use crate::schema::WireVariant;
 use crate::schema::as_brdb::AsBrdbValue;
+#[allow(unused_imports)]
+use crate::schema::as_brdb::NestedStructDefault;
 use crate::SavedBrickColor;
 
 /// Default field values for every component data struct.
@@ -1146,6 +1148,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bActiveBot", Box::new(true)),
             ("bSpawnEnable", Box::new(true)),
             ("bDeleteBot", Box::new(false)),
+            ("MoveTarget", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("BotName", Box::new(String::from(""))),
             ("bColorsAreLinear", Box::new(true)),
             ("TeamCollisionChannel", Box::new(0u8)),
@@ -1190,6 +1193,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("ConsoleTag", Box::new(String::from(""))),
         ]),
         ("BrickComponentData_ExplosionSpawner", vec![
+            ("SpawnOffset", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("ScaleMultiplier", Box::new(1.0f64)),
             ("DamageMultiplier", Box::new(1.0f64)),
         ]),
@@ -1199,6 +1203,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Strength", Box::new(25.0f32)),
             ("Damping", Box::new(1.0f32)),
             ("MaxForce", Box::new(0.0f32)),
+            ("TargetAxis", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(1.0f64))]))),
         ]),
         ("BrickComponentData_Interact", vec![
             ("Message", Box::new(String::from(""))),
@@ -1214,7 +1219,11 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bIsLooseZone", Box::new(false)),
             ("bIsShareZone", Box::new(false)),
             ("bWater", Box::new(false)),
+            ("WaterScattering", Box::new(NestedStructDefault(vec![("X", Box::new(0.0005f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0005f64)), ("Z", Box::new(0.0005f64))]))),
+            ("WaterAbsorption", Box::new(NestedStructDefault(vec![("X", Box::new(0.0125f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.000833f64)), ("Z", Box::new(0.000357f64))]))),
             ("WaterFogIntensity", Box::new(0.0002f32)),
+            ("WaterFogScatteringColor", Box::new(NestedStructDefault(vec![("R", Box::new(0.5f32) as Box<dyn AsBrdbValue>), ("G", Box::new(1.0f32)), ("B", Box::new(0.75f32)), ("A", Box::new(1.0f32))]))),
+            ("WaterFogAmbientColor", Box::new(NestedStructDefault(vec![("R", Box::new(0.1f32) as Box<dyn AsBrdbValue>), ("G", Box::new(0.409524f32)), ("B", Box::new(0.75f32)), ("A", Box::new(1.0f32))]))),
             ("WaterFogScatteringScale", Box::new(3.0f32)),
             ("WaterFogAmbientScale", Box::new(0.25f32)),
             ("bDetectPlayers", Box::new(true)),
@@ -1252,8 +1261,10 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("DamageMultiplier", Box::new(1.0f32)),
             ("WeaponSpeedMultiplier", Box::new(1.0f32)),
             ("ItemNameOverride", Box::new(String::from(""))),
+            ("WeaponAmmoOverride", Box::new(NestedStructDefault(vec![("bOverrideStartingAmmo", Box::new(false) as Box<dyn AsBrdbValue>)]))),
             ("PickupOffsetDirection", Box::new(0u8)),
             ("PickupOffsetDistance", Box::new(5.0f32)),
+            ("PickupRotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f32) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f32)), ("Roll", Box::new(0.0f32))]))),
             ("PickupScale", Box::new(1.0f32)),
             ("bOverridePickupColors", Box::new(false)),
             ("bPickupAnimationEnabled", Box::new(true)),
@@ -1262,7 +1273,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("PickupSpinSpeed", Box::new(0.2f32)),
             ("PickupBobSpeed", Box::new(0.1f32)),
             ("PickupBobHeight", Box::new(4.0f32)),
-            ("PickupAnimationPhase", Box::new(0.16730247f32)),
+            ("PickupAnimationPhase", Box::new(0.17090365f32)),
         ]),
         ("BrickComponentData_Joint_Wheel", vec![
             ("bDiscoverable", Box::new(true)),
@@ -1347,6 +1358,9 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BrickComponentData_PrefabSpawn", vec![
             ("Prefab", Box::new(String::from(""))),
+            ("SpawnOffset", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(20.0f64))]))),
+            ("SpawnOffsetRotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
+            ("SpawnVelocity", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("bSpawnEnable", Box::new(true)),
             ("RespawnTime", Box::new(5.0f64)),
         ]),
@@ -1385,10 +1399,13 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BrickComponentData_Seat_V2", vec![
             ("bIsOccupied", Box::new(false)),
+            ("ExitOffset", Box::new(NestedStructDefault(vec![("X", Box::new(0i32) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i32)), ("Z", Box::new(0i32))]))),
             ("bRollCameraInThirdPerson", Box::new(false)),
             ("CameraOrigin", Box::new(0u8)),
+            ("CameraOriginOffset", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("bScaleCameraOriginOffsetWithZoom", Box::new(false)),
             ("ThirdPersonStartingZoom", Box::new(150.0f32)),
+            ("ThirdPersonCameraRotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
             ("SeatMode", Box::new(0u8)),
             ("bStickyPlaneThrottle", Box::new(false)),
             ("bFlyingGroundControls", Box::new(false)),
@@ -1433,6 +1450,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bEnable", Box::new(true)),
         ]),
         ("BrickComponentData_SpotLight", vec![
+            ("Rotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(270.0f32) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f32)), ("Roll", Box::new(0.0f32))]))),
             ("InnerConeAngle", Box::new(30.0f32)),
             ("OuterConeAngle", Box::new(60.0f32)),
             ("bEnabled", Box::new(true)),
@@ -1460,6 +1478,8 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("LineHeight", Box::new(10.0f32)),
             ("WidthScale", Box::new(1.0f32)),
             ("LineOffset", Box::new(0.0f32)),
+            ("Anchor", Box::new(NestedStructDefault(vec![("X", Box::new(0.5f32) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.5f32))]))),
+            ("Offset", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f32) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f32)), ("Z", Box::new(0.0f32))]))),
             ("Color", Box::new(SavedBrickColor { r: 255, g: 255, b: 255, a: 255 })),
             ("MaterialSlider", Box::new(10i32)),
             ("ShadingWidth", Box::new(2.0f32)),
@@ -1502,6 +1522,8 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BrickComponentData_WeightBrick", vec![
             ("Mass", Box::new(1.0f32)),
+            ("MassSize", Box::new(NestedStructDefault(vec![("X", Box::new(10i32) as Box<dyn AsBrdbValue>), ("Y", Box::new(10i32)), ("Z", Box::new(4i32))]))),
+            ("MassOffset", Box::new(NestedStructDefault(vec![("X", Box::new(0i32) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i32)), ("Z", Box::new(0i32))]))),
         ]),
         ("BrickComponentData_WheelEngine_V2", vec![
             ("bEnabled", Box::new(true)),
@@ -1583,6 +1605,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BrickComponentData_WireGraphPseudo_Dampen", vec![
             ("SmoothTime", Box::new(0.3f64)),
+            ("Velocity", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(0.0f64))]))),
         ]),
         ("BrickComponentData_WireGraphPseudo_QueueSeconds", vec![
             ("SecondsToWait", Box::new(1.0f32)),
@@ -1658,11 +1681,15 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("IndexB", Box::new(0i64)),
             ("bOutOfBounds", Box::new(false)),
         ]),
+        ("BrickComponentData_WireGraph_Exec_Character_AddInventoryBrick", vec![
+            ("ProceduralSize", Box::new(NestedStructDefault(vec![("X", Box::new(5.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(5.0f64)), ("Z", Box::new(6.0f64))]))),
+        ]),
         ("BrickComponentData_WireGraph_Exec_Character_AddInventoryItemAdv", vec![
             ("DamageMultiplier", Box::new(1.0f64)),
             ("WeaponSpeedMultiplier", Box::new(1.0f64)),
             ("ItemScale", Box::new(1.0f64)),
             ("ItemNameOverride", Box::new(String::from(""))),
+            ("WeaponAmmoOverride", Box::new(NestedStructDefault(vec![("bOverrideStartingAmmo", Box::new(false) as Box<dyn AsBrdbValue>)]))),
             ("bOverrideColors", Box::new(false)),
         ]),
         ("BrickComponentData_WireGraph_Exec_Character_GetAim", vec![
@@ -1692,12 +1719,14 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BrickComponentData_WireGraph_Exec_Character_SetInventoryBrick", vec![
             ("Slot", Box::new(0i64)),
+            ("ProceduralSize", Box::new(NestedStructDefault(vec![("X", Box::new(5.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(5.0f64)), ("Z", Box::new(6.0f64))]))),
         ]),
         ("BrickComponentData_WireGraph_Exec_Character_SetInventoryEntity", vec![
             ("Slot", Box::new(0i64)),
         ]),
         ("BrickComponentData_WireGraph_Exec_Character_SetInventoryEntry", vec![
             ("Slot", Box::new(0i64)),
+            ("EntryPlan", Box::new(NestedStructDefault(vec![("Type", Box::new(0u8) as Box<dyn AsBrdbValue>), ("BrickTypeIfBrick", Box::new(NestedStructDefault(vec![("ProceduralSize", Box::new(NestedStructDefault(vec![("X", Box::new(5i32) as Box<dyn AsBrdbValue>), ("Y", Box::new(5i32)), ("Z", Box::new(6i32))])) as Box<dyn AsBrdbValue>)])))]))),
         ]),
         ("BrickComponentData_WireGraph_Exec_Character_SetInventoryItem", vec![
             ("Slot", Box::new(0i64)),
@@ -1708,6 +1737,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("WeaponSpeedMultiplier", Box::new(1.0f64)),
             ("ItemScale", Box::new(1.0f64)),
             ("ItemNameOverride", Box::new(String::from(""))),
+            ("WeaponAmmoOverride", Box::new(NestedStructDefault(vec![("bOverrideStartingAmmo", Box::new(false) as Box<dyn AsBrdbValue>)]))),
             ("bOverrideColors", Box::new(false)),
         ]),
         ("BrickComponentData_WireGraph_Exec_Character_SetTempPermission", vec![
@@ -1730,8 +1760,40 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Count", Box::new(3i64)),
             ("Value", Box::new(0i64)),
         ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_AddLocationRotation", vec![
+            ("Vector", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("Rotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_AddVelocity", vec![
+            ("Vector", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("Rotation", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_GetAngularVelocity", vec![
+            ("AngularVelocity", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_GetLinearVelocity", vec![
+            ("LinearVelocity", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_GetLocation", vec![
+            ("Vector", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_GetLocationRotation", vec![
+            ("Vector", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("Rotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_GetRotation", vec![
+            ("Rotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
+        ]),
         ("BrickComponentData_WireGraph_Exec_Entity_GetTag", vec![
             ("Tag", Box::new(String::from(""))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_GetVelocity", vec![
+            ("Vector", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("Rotation", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_GetVelocityAtPoint", vec![
+            ("Point", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("LinearVelocity", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
         ]),
         ("BrickComponentData_WireGraph_Exec_Entity_PlayAudioAt", vec![
             ("VolumeMultiplier", Box::new(1.0f64)),
@@ -1740,11 +1802,34 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("MaxDistance", Box::new(10000.0f64)),
             ("bSpatialization", Box::new(true)),
         ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_SetAngularVelocity", vec![
+            ("AngularVelocity", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
         ("BrickComponentData_WireGraph_Exec_Entity_SetFrozen", vec![
             ("bFrozen", Box::new(false)),
         ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_SetGravityDirection", vec![
+            ("Rotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_SetLinearVelocity", vec![
+            ("LinearVelocity", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_SetLocation", vec![
+            ("Vector", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_SetLocationRotation", vec![
+            ("Vector", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("Rotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_SetRotation", vec![
+            ("Rotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
+        ]),
         ("BrickComponentData_WireGraph_Exec_Entity_SetTag", vec![
             ("Tag", Box::new(String::from(""))),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_Entity_SetVelocity", vec![
+            ("Vector", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("Rotation", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
         ]),
         ("BrickComponentData_WireGraph_Exec_Gamemode_BroadcastChatMessage", vec![
             ("Message", Box::new(String::from(""))),
@@ -1799,15 +1884,23 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BrickComponentData_WireGraph_Exec_PlayerState_DisplayText", vec![
             ("Text", Box::new(String::from(""))),
             ("Typeface", Box::new(0u8)),
+            ("Anchor", Box::new(NestedStructDefault(vec![("X", Box::new(0.5f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.5f64))]))),
+            ("Position", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64))]))),
             ("Angle", Box::new(0.0f64)),
             ("ZOrder", Box::new(0i64)),
+            ("Scale", Box::new(NestedStructDefault(vec![("X", Box::new(1.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(1.0f64))]))),
+            ("Pivot", Box::new(NestedStructDefault(vec![("X", Box::new(-1.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.5f64))]))),
             ("FontSize", Box::new(16i32)),
+            ("FontColor", Box::new(NestedStructDefault(vec![("R", Box::new(1.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(1.0f32)), ("B", Box::new(1.0f32)), ("A", Box::new(1.0f32))]))),
             ("LetterSpacing", Box::new(0.0f64)),
             ("Skew", Box::new(0.0f64)),
             ("LineHeight", Box::new(1.0f64)),
             ("OutlineSize", Box::new(2i64)),
+            ("OutlineColor", Box::new(NestedStructDefault(vec![("R", Box::new(0.009134059f32) as Box<dyn AsBrdbValue>), ("G", Box::new(0.00699541f32)), ("B", Box::new(0.01850022f32)), ("A", Box::new(1.0f32))]))),
             ("bMiteredOutline", Box::new(false)),
             ("WrapWidth", Box::new(0.0f64)),
+            ("ShadowOffset", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64))]))),
+            ("ShadowColor", Box::new(NestedStructDefault(vec![("R", Box::new(0.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(0.0f32)), ("B", Box::new(0.0f32)), ("A", Box::new(0.0f32))]))),
             ("Justification", Box::new(0u8)),
             ("Transition", Box::new(0.0f64)),
             ("Easing", Box::new(0u8)),
@@ -1835,6 +1928,9 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BrickComponentData_WireGraph_Exec_PrefabSpawner", vec![
             ("Prefab", Box::new(String::from(""))),
+            ("SpawnOffset", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(20.0f64))]))),
+            ("SpawnOffsetRotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
+            ("SpawnVelocity", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("Lifetime", Box::new(5.0f64)),
             ("Limit", Box::new(5i64)),
         ]),
@@ -1842,14 +1938,18 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Text", Box::new(String::from(""))),
         ]),
         ("BrickComponentData_WireGraph_Exec_SpawnExplosion", vec![
+            ("SpawnOffset", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("ScaleMultiplier", Box::new(1.0f64)),
             ("DamageMultiplier", Box::new(1.0f64)),
         ]),
         ("BrickComponentData_WireGraph_Exec_SpawnExplosionAt", vec![
+            ("WorldPosition", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("ScaleMultiplier", Box::new(1.0f64)),
             ("DamageMultiplier", Box::new(1.0f64)),
         ]),
         ("BrickComponentData_WireGraph_Exec_Sweep", vec![
+            ("Origin", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("Direction", Box::new(NestedStructDefault(vec![("X", Box::new(1.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("Distance", Box::new(100.0f64)),
             ("Radius", Box::new(0.0f64)),
             ("CollisionChannel", Box::new(0u8)),
@@ -1863,6 +1963,8 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bDetectMap", Box::new(true)),
             ("bRelative", Box::new(false)),
             ("bIgnoreOwningGrid", Box::new(true)),
+            ("HitLocation", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("HitNormal", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(1.0f64))]))),
             ("HitDistance", Box::new(0.0f64)),
         ]),
         ("BrickComponentData_WireGraph_Exec_SweepSimple", vec![
@@ -1880,6 +1982,8 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bOnlyHitPlayerBodyParts", Box::new(false)),
             ("bDetectPhysics", Box::new(true)),
             ("bDetectMap", Box::new(true)),
+            ("HitLocation", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("HitNormal", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(1.0f64))]))),
             ("HitDistance", Box::new(0.0f64)),
         ]),
         ("BrickComponentData_WireGraph_Exec_Toggle", vec![
@@ -1902,13 +2006,22 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bPulseOnChange", Box::new(false)),
         ]),
         ("BrickComponentData_WireGraph_Expr_ColorBlend", vec![
+            ("ColorA", Box::new(NestedStructDefault(vec![("R", Box::new(0.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(0.0f32)), ("B", Box::new(0.0f32)), ("A", Box::new(1.0f32))]))),
+            ("ColorB", Box::new(NestedStructDefault(vec![("R", Box::new(1.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(1.0f32)), ("B", Box::new(1.0f32)), ("A", Box::new(1.0f32))]))),
             ("Alpha", Box::new(0.5f64)),
             ("BlendSpace", Box::new(0u8)),
             ("bClampAlpha", Box::new(true)),
         ]),
         ("BrickComponentData_WireGraph_Expr_ColorConvert", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("R", Box::new(1.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(1.0f32)), ("B", Box::new(1.0f32)), ("A", Box::new(1.0f32))]))),
             ("FromSpace", Box::new(0u8)),
             ("ToSpace", Box::new(0u8)),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_ColorToHex", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("R", Box::new(1.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(1.0f32)), ("B", Box::new(1.0f32)), ("A", Box::new(1.0f32))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_DirectionToRotation", vec![
+            ("Direction", Box::new(NestedStructDefault(vec![("X", Box::new(1.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
         ]),
         ("BrickComponentData_WireGraph_Expr_EdgeDetector", vec![
             ("Input", Box::new(0.0f64)),
@@ -1931,6 +2044,9 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BrickComponentData_WireGraph_Expr_IntegerToEnum", vec![
             ("Input", Box::new(0i64)),
             ("bWrap", Box::new(false)),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_InvertRotation", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
         ]),
         ("BrickComponentData_WireGraph_Expr_MakeColor", vec![
             ("R", Box::new(1.0f64)),
@@ -1987,13 +2103,31 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BrickComponentData_WireGraph_Expr_NearlyEqual", vec![
             ("Tolerance", Box::new(9.999999747378752e-5f64)),
         ]),
+        ("BrickComponentData_WireGraph_Expr_QuatAngleBetween", vec![
+            ("InputA", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
+            ("InputB", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_QuatBetween", vec![
+            ("From", Box::new(NestedStructDefault(vec![("X", Box::new(1.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("To", Box::new(NestedStructDefault(vec![("X", Box::new(1.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_QuatDotProduct", vec![
+            ("InputA", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
+            ("InputB", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
+        ]),
         ("BrickComponentData_WireGraph_Expr_QuatFromAxisAngle", vec![
+            ("Axis", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(1.0f64))]))),
             ("Angle", Box::new(0.0f64)),
         ]),
         ("BrickComponentData_WireGraph_Expr_QuatSlerp", vec![
+            ("InputA", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
+            ("InputB", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
             ("Alpha", Box::new(0.0f64)),
             ("bShortestPath", Box::new(true)),
             ("bClampAlpha", Box::new(true)),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_QuatToAxisAngle", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
         ]),
         ("BrickComponentData_WireGraph_Expr_Remap", vec![
             ("Value", Box::new(0.0f64)),
@@ -2004,8 +2138,30 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Function", Box::new(0u8)),
             ("Direction", Box::new(0u8)),
         ]),
+        ("BrickComponentData_WireGraph_Expr_RotateVector", vec![
+            ("Rotation", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
+            ("Vector", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_RotationToDirection", vec![
+            ("Rotation", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
+        ]),
         ("BrickComponentData_WireGraph_Expr_Select", vec![
             ("bSelectB", Box::new(false)),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_SplitColor", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("R", Box::new(1.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(1.0f32)), ("B", Box::new(1.0f32)), ("A", Box::new(1.0f32))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_SplitColorSRGB", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("R", Box::new(1.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(1.0f32)), ("B", Box::new(1.0f32)), ("A", Box::new(1.0f32))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_SplitQuaternion", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_SplitRotation", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_SplitVector", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
         ]),
         ("BrickComponentData_WireGraph_Expr_String_CharacterToCodepoint", vec![
             ("Character", Box::new(String::from(""))),
@@ -2083,7 +2239,22 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bSwap", Box::new(false)),
         ]),
         ("BrickComponentData_WireGraph_Expr_VecFloat_Vec", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("Scalar", Box::new(0.0f64)),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_VecVec_Float", vec![
+            ("InputA", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("InputB", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_VecVec_Vec", vec![
+            ("InputA", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("InputB", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_Vec_Float", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BrickComponentData_WireGraph_Expr_Vec_Vec", vec![
+            ("Input", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
         ]),
         ("BrickComponentData_WireGraph_Fake_RoundEvent", vec![
             ("RoundNumber", Box::new(0i32)),
