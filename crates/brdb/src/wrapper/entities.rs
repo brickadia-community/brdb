@@ -323,10 +323,20 @@ impl TryFrom<&BrdbValue> for EntityChunkSoA {
             },
             locations: value.prop("Locations")?.try_into()?,
             rotations: value.prop("Rotations")?.try_into()?,
-            weld_parent_flags: value.prop("WeldParentFlags")?.try_into()?,
+            // Default to empty when the embedded schema omits these fields (never consumed
+            // when building the public Entity — BitFlags::get is false on an empty set).
+            weld_parent_flags: if value.contains_key("WeldParentFlags") {
+                value.prop("WeldParentFlags")?.try_into()?
+            } else {
+                Default::default()
+            },
             physics_locked_flags: value.prop("PhysicsLockedFlags")?.try_into()?,
             physics_sleeping_flags: value.prop("PhysicsSleepingFlags")?.try_into()?,
-            weld_parent_indices: value.prop("WeldParentIndices")?.try_into()?,
+            weld_parent_indices: if value.contains_key("WeldParentIndices") {
+                value.prop("WeldParentIndices")?.try_into()?
+            } else {
+                Vec::new()
+            },
             linear_velocities: value.prop("LinearVelocities")?.try_into()?,
             angular_velocities: value.prop("AngularVelocities")?.try_into()?,
             colors_and_alphas: {

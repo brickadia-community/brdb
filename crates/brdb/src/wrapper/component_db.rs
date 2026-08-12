@@ -170,6 +170,8 @@ pub static COMPONENT_TYPE_STRUCT_PAIRS: &[(&str, &str)] = &[
     ("BrickComponentType_WireGraph_Exec_Var_Get", "BrickComponentData_WireGraph_Exec_Var_Get"),
     ("BrickComponentType_WireGraph_Exec_Var_Increment", "BrickComponentData_WireGraph_Exec_Var_EditOrGet"),
     ("BrickComponentType_WireGraph_Exec_Var_Set", "BrickComponentData_WireGraph_Exec_Var_EditOrGet"),
+    ("BrickComponentType_WireGraph_Exec_WholeGridInteracted", "BrickComponentData_WireGraph_Exec_WholeGridInteracted"),
+    ("BrickComponentType_WireGraph_Exec_WholeGridTargeted", "BrickComponentData_WireGraph_Exec_WholeGridTargeted"),
     ("BrickComponentType_WireGraph_Exec_Zone_GetEntities", "BrickComponentData_WireGraph_Exec_Zone_GetEntities"),
     ("BrickComponentType_WireGraph_Exec_Zone_GetPlayers", "BrickComponentData_WireGraph_Exec_Zone_GetPlayers"),
     ("BrickComponentType_WireGraph_Expr_BitwiseAND", "BrickComponentData_WireGraph_Expr_IntInt_Int"),
@@ -843,6 +845,7 @@ pub static WIRE_PORT_NAMES: &[&str] = &[
     "TargetAxis.Z",
     "TargetEntity",
     "TargetPosition",
+    "Targeted",
     "Team",
     "TeamCollisionChannel",
     "TeamName",
@@ -1273,7 +1276,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("PickupSpinSpeed", Box::new(0.2f32)),
             ("PickupBobSpeed", Box::new(0.1f32)),
             ("PickupBobHeight", Box::new(4.0f32)),
-            ("PickupAnimationPhase", Box::new(0.17090365f32)),
+            ("PickupAnimationPhase", Box::new(0.33140048f32)),
         ]),
         ("BrickComponentData_Joint_Wheel", vec![
             ("bDiscoverable", Box::new(true)),
@@ -1988,6 +1991,11 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BrickComponentData_WireGraph_Exec_Toggle", vec![
             ("Value", Box::new(false)),
+        ]),
+        ("BrickComponentData_WireGraph_Exec_WholeGridInteracted", vec![
+            ("bAllowNearbyInteraction", Box::new(true)),
+            ("bHiddenInteraction", Box::new(false)),
+            ("PromptCustomLabel", Box::new(String::from(""))),
         ]),
         ("BrickComponentData_WireGraph_Exec_Zone_GetEntities", vec![
             ("TagFilter", Box::new(String::from(""))),

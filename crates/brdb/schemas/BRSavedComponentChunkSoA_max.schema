@@ -925,6 +925,13 @@ struct BrickComponentData_WireGraph_Exec_Var_EditOrGet {
 struct BrickComponentData_WireGraph_Exec_Var_Get {
     Value: WireGraphVariant,
 }
+struct BrickComponentData_WireGraph_Exec_WholeGridInteracted {
+    bAllowNearbyInteraction: bool,
+    bHiddenInteraction: bool,
+    PromptCustomLabel: str,
+}
+struct BrickComponentData_WireGraph_Exec_WholeGridTargeted {
+}
 struct BrickComponentData_WireGraph_Exec_Zone_GetEntities {
     TagFilter: str,
 }

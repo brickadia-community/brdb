@@ -195,6 +195,8 @@ pub static COMPONENTS: &[ComponentInfo] = &[
     ComponentInfo { name: "BrickComponentType_WireGraph_Exec_Var_Get", bricks: &["B_1x1_Gate_Exec_Var_Get"], inputs: &["Exec", "VarRef"], outputs: &["ExecOut", "Value"] },
     ComponentInfo { name: "BrickComponentType_WireGraph_Exec_Var_Increment", bricks: &["B_1x1_Gate_Exec_Var_Increment"], inputs: &["Exec", "Value", "VarRef"], outputs: &["ExecOut"] },
     ComponentInfo { name: "BrickComponentType_WireGraph_Exec_Var_Set", bricks: &["B_1x1_Gate_Exec_Var_Set"], inputs: &["Exec", "Value", "VarRef"], outputs: &["ExecOut"] },
+    ComponentInfo { name: "BrickComponentType_WireGraph_Exec_WholeGridInteracted", bricks: &[], inputs: &[], outputs: &["Character", "bHeld"] },
+    ComponentInfo { name: "BrickComponentType_WireGraph_Exec_WholeGridTargeted", bricks: &[], inputs: &[], outputs: &["CharacterThatJustHit", "Damage", "Targeted", "WeaponNameThatJustHit", "WeaponThatJustHit"] },
     ComponentInfo { name: "BrickComponentType_WireGraph_Exec_Zone_GetEntities", bricks: &["B_1x1_Gate_Exec_Zone_GetEntities"], inputs: &["ArrayVarRef", "Exec", "TagFilter", "Zone"], outputs: &["ExecOut"] },
     ComponentInfo { name: "BrickComponentType_WireGraph_Exec_Zone_GetPlayers", bricks: &["B_1x1_Gate_Exec_Zone_GetPlayers"], inputs: &["ArrayVarRef", "Exec", "TagFilter", "Zone"], outputs: &["ExecOut"] },
     ComponentInfo { name: "BrickComponentType_WireGraph_Expr_BitwiseAND", bricks: &["B_1x1_Gate_Expr_BitwiseAND"], inputs: &["InputA", "InputB"], outputs: &["Output"] },

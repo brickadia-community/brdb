@@ -59,7 +59,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let brick_types = bsoa.brick_type_indices;
 
             if chunk.num_components > 0 {
-                let (csoa, components) = db.component_chunk_soa(gid, chunk.index)?;
+                // component_chunk's Vec<BrdbStruct> only contains STRUCT-BEARING components
+                // (it skips whole counters whose type has no data struct, e.g. some
+                // Component_Internal_* gates), so its len() < the per-instance total. Looping
+                // `0..components.len()` truncated the per-instance type/brick arrays, dropping
+                // the host brick of any component in the tail (e.g. Component_Internal_InputSplitter).
+                // Iterate the FULL per-instance count instead, matching brs-js's reader.
+                let (csoa, _components) = db.component_chunk_soa(gid, chunk.index)?;
                 let brick_indices = csoa.component_brick_indices;
                 // Expand run-length (type_index, num_instances) into a flat
                 // per-instance list of component type indices.
@@ -71,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         (0..v.num_instances).map(move |_| ti)
                     })
                     .collect::<Vec<_>>();
-                for i in 0..components.len() {
+                for i in 0..type_indices.len() {
                     let comp_ty = type_indices[i];
                     // ensure every placed component is present even with no wires
                     inputs.entry(comp_ty).or_default();
