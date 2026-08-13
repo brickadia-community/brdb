@@ -808,6 +808,9 @@ struct BrickComponentData_WireGraph_Exec_Gamemode_BroadcastStatusMessage {
     Message: str,
     bFlashIfUnchanged: bool,
 }
+struct BrickComponentData_WireGraph_Exec_Gamemode_FillArrayFromPlayers {
+    bIncludeBuilderMode: bool,
+}
 struct BrickComponentData_WireGraph_Exec_Gamemode_FillArrayFromTeamMembers {
 }
 struct BrickComponentData_WireGraph_Exec_Gamemode_GetCurrentRound {
