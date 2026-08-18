@@ -847,6 +847,8 @@ struct BrickComponentData_WireGraph_Exec_Gamemode_TeamLeaderboardValue {
 }
 struct BrickComponentData_WireGraph_Exec_Gamemode_TeamWins {
 }
+struct BrickComponentData_WireGraph_Exec_GetInputs {
+}
 struct BrickComponentData_WireGraph_Exec_GetOwnTransform {
 }
 struct BrickComponentData_WireGraph_Exec_MapVar_ArrayDest {

@@ -133,6 +133,7 @@ pub static COMPONENT_TYPE_STRUCT_PAIRS: &[(&str, &str)] = &[
     ("BrickComponentType_WireGraph_Exec_Gamemode_SetTeamLeaderboardValue", "BrickComponentData_WireGraph_Exec_Gamemode_TeamLeaderboardValue"),
     ("BrickComponentType_WireGraph_Exec_Gamemode_SetTeamPinned", "BrickComponentData_WireGraph_Exec_Gamemode_SetTeamPinned"),
     ("BrickComponentType_WireGraph_Exec_Gamemode_TeamWins", "BrickComponentData_WireGraph_Exec_Gamemode_TeamWins"),
+    ("BrickComponentType_WireGraph_Exec_GetInputs", "BrickComponentData_WireGraph_Exec_GetInputs"),
     ("BrickComponentType_WireGraph_Exec_GetOwnTransform", "BrickComponentData_WireGraph_Exec_GetOwnTransform"),
     ("BrickComponentType_WireGraph_Exec_MapVar_Clear", "BrickComponentData_WireGraph_Exec_MapVar_Base"),
     ("BrickComponentType_WireGraph_Exec_MapVar_CopyFrom", "BrickComponentData_WireGraph_Exec_MapVar_CopyFrom"),
@@ -1257,7 +1258,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("PickupSpinSpeed", Box::new(0.2f32)),
             ("PickupBobSpeed", Box::new(0.1f32)),
             ("PickupBobHeight", Box::new(4.0f32)),
-            ("PickupAnimationPhase", Box::new(0.8315073f32)),
+            ("PickupAnimationPhase", Box::new(0.29441205f32)),
         ]),
         ("BrickComponentData_Joint_Wheel", vec![
             ("bDiscoverable", Box::new(true)),
