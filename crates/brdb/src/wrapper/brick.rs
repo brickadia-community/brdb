@@ -148,25 +148,13 @@ impl Brick {
                 y: size.y as i32,
                 z: size.z as i32,
             },
-            // The collapsed microchip shell is a 1x1 plate footprint (matches
-            // what the game writes for a microchip prefab: half-extent 5,5,2).
-            BrickType::Basic(asset) if asset.as_ref() == "B_1x1_Microchip" => {
-                Position { x: 5, y: 5, z: 2 }
+            // Use the asset's authored half-extent from the
+            // dump-derived table, falling back to a 1x1 brick footprint
+            BrickType::Basic(asset) => {
+                crate::assets::brick_sizes::brick_half_extent(asset.as_ref())
+                    .map(|[x, y, z]| Position { x, y, z })
+                    .unwrap_or(Position { x: 5, y: 5, z: 6 })
             }
-            // The reroute node is a small 2x2x2 node (half-extent 1,1,1). Its
-            // real size matters for prefab bounds: the generic 5,5,6 default
-            // below would push a rerouter's bounds far past the brick and, for
-            // one sitting beside a microchip, float the whole pasted prefab.
-            BrickType::Basic(asset) if asset.as_ref() == "B_1x1_Reroute_Node" => {
-                Position { x: 1, y: 1, z: 1 }
-            }
-            // Other basic bricks: use the asset's authored half-extent from the
-            // dump-derived table, falling back to a 1x1 brick footprint (rather
-            // than a zero-size point) so prefab bounds stay sane for anything
-            // the table doesn't cover.
-            BrickType::Basic(asset) => crate::assets::brick_sizes::brick_half_extent(asset.as_ref())
-                .map(|[x, y, z]| Position { x, y, z })
-                .unwrap_or(Position { x: 5, y: 5, z: 6 }),
         };
         (self.position - half, self.position + half)
     }
@@ -1034,10 +1022,7 @@ impl BrickChunkSoA {
                     },
                     visible: self.visibility_flags.get(i),
                     owner_index: Some(self.owner_indices[i] as usize),
-                    original_owner_index: self
-                        .original_owner_indices
-                        .get(i)
-                        .map(|v| *v as usize),
+                    original_owner_index: self.original_owner_indices.get(i).map(|v| *v as usize),
                     color: color.color(),
                     material: global_data
                         .material_asset_by_index(self.material_indices[i] as usize)?,
@@ -1140,8 +1125,7 @@ impl TryFrom<&BrdbValue> for BrickChunkSoA {
             visibility_flags: value.prop("VisibilityFlags")?.try_into()?,
             material_indices: value.prop("MaterialIndices")?.try_into()?,
             colors_and_alphas: {
-                let mut colors: Vec<SavedBrickColor> =
-                    value.prop("ColorsAndAlphas")?.try_into()?;
+                let mut colors: Vec<SavedBrickColor> = value.prop("ColorsAndAlphas")?.try_into()?;
                 // Older saves (and any missing the field) store linear colors;
                 // default true and convert to sRGB so in-memory colors are
                 // always sRGB. New saves store sRGB (bColorsAreLinear = false).

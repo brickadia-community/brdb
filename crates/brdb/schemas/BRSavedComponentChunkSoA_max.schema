@@ -1292,6 +1292,7 @@ struct BrickComponentData_WireGraphPseudo_Tween {
     StartValue: WireGraphVariant,
     Duration: f64,
     Elapsed: f64,
+    bRunning: bool,
     Function: EBREasingFunction,
     Direction: EBREasingDirection,
 }

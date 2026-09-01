@@ -1258,7 +1258,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("PickupSpinSpeed", Box::new(0.2f32)),
             ("PickupBobSpeed", Box::new(0.1f32)),
             ("PickupBobHeight", Box::new(4.0f32)),
-            ("PickupAnimationPhase", Box::new(0.29441205f32)),
+            ("PickupAnimationPhase", Box::new(0.991699f32)),
         ]),
         ("BrickComponentData_Joint_Wheel", vec![
             ("bDiscoverable", Box::new(true)),
@@ -1609,6 +1609,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BrickComponentData_WireGraphPseudo_Tween", vec![
             ("Duration", Box::new(1.0f64)),
             ("Elapsed", Box::new(0.0f64)),
+            ("bRunning", Box::new(false)),
             ("Function", Box::new(0u8)),
             ("Direction", Box::new(0u8)),
         ]),
