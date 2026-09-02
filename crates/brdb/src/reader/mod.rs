@@ -357,7 +357,7 @@ impl<T> BrReader<T> {
                 .as_array()?
                 .into_iter()
                 .map(|s| Ok(s.as_str()?.to_owned()))
-                .collect::<Result<IndexSet<String>, BrdbSchemaError>>()
+                .collect::<Result<IndexSet<String, rustc_hash::FxBuildHasher>, BrdbSchemaError>>()
         };
         let str_vec = |prop| {
             mps_struct
@@ -381,7 +381,7 @@ impl<T> BrReader<T> {
                 external_asset_types.insert(asset_type.to_owned());
                 Ok((asset_type.to_owned(), asset_name.to_owned()))
             })
-            .collect::<Result<IndexSet<_>, BrdbSchemaError>>()?;
+            .collect::<Result<IndexSet<_, rustc_hash::FxBuildHasher>, BrdbSchemaError>>()?;
 
         let entity_type_names = str_set("EntityTypeNames")?;
 

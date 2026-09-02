@@ -181,6 +181,61 @@ impl TryFrom<&BrdbValue> for WireChunkSoA {
 }
 
 impl WireChunkSoA {
+    /// Serialize the wire SoA. Uses a specialized writer when `schema` still
+    /// has the crate's known wire-chunk shape (verified structurally), and
+    /// the generic schema writer otherwise. Both produce identical bytes.
+    pub fn to_bytes(
+        &self,
+        schema: &crate::schema::BrdbSchema,
+    ) -> Result<Vec<u8>, BrdbSchemaError> {
+        if wire_schema_is_standard(schema) {
+            self.to_bytes_specialized()
+        } else {
+            schema.write_brdb(crate::schemas::BRICK_WIRE_SOA, self)
+        }
+    }
+
+    fn to_bytes_specialized(&self) -> Result<Vec<u8>, BrdbSchemaError> {
+        use crate::schema::write::{write_int, write_uint};
+        let n_local = self.local_wire_sources.len();
+        let n_remote = self.remote_wire_sources.len();
+        let mut buf = Vec::with_capacity(16 * n_local + 32 * n_remote + 64);
+        rmp::encode::write_array_len(&mut buf, n_remote as u32)?;
+        for s in &self.remote_wire_sources {
+            write_uint(&mut buf, s.grid_persistent_index as u64)?;
+            write_int(&mut buf, s.chunk_index.x as i64)?;
+            write_int(&mut buf, s.chunk_index.y as i64)?;
+            write_int(&mut buf, s.chunk_index.z as i64)?;
+            write_uint(&mut buf, s.brick_index_in_chunk as u64)?;
+            write_uint(&mut buf, s.component_type_index as u64)?;
+            write_uint(&mut buf, s.port_index as u64)?;
+        }
+        rmp::encode::write_array_len(&mut buf, n_local as u32)?;
+        for s in &self.local_wire_sources {
+            write_uint(&mut buf, s.brick_index_in_chunk as u64)?;
+            write_uint(&mut buf, s.component_type_index as u64)?;
+            write_uint(&mut buf, s.port_index as u64)?;
+        }
+        rmp::encode::write_array_len(&mut buf, self.remote_wire_targets.len() as u32)?;
+        for t in &self.remote_wire_targets {
+            write_uint(&mut buf, t.brick_index_in_chunk as u64)?;
+            write_uint(&mut buf, t.component_type_index as u64)?;
+            write_uint(&mut buf, t.port_index as u64)?;
+        }
+        rmp::encode::write_array_len(&mut buf, self.local_wire_targets.len() as u32)?;
+        for t in &self.local_wire_targets {
+            write_uint(&mut buf, t.brick_index_in_chunk as u64)?;
+            write_uint(&mut buf, t.component_type_index as u64)?;
+            write_uint(&mut buf, t.port_index as u64)?;
+        }
+        // The BRSavedBitFlags struct is a single u8[flat]: a bin header
+        // followed by the raw backing bytes.
+        let flags = self.pending_propagation_flags.as_raw_bytes();
+        rmp::encode::write_bin_len(&mut buf, flags.len() as u32)?;
+        buf.extend_from_slice(flags);
+        Ok(buf)
+    }
+
     pub fn add_local_wire(&mut self, source: LocalWirePortSource, target: WirePortTarget) {
         self.local_wire_sources.push(source);
         self.local_wire_targets.push(target);
@@ -190,6 +245,53 @@ impl WireChunkSoA {
         self.remote_wire_sources.push(source);
         self.remote_wire_targets.push(target);
     }
+}
+
+/// Structural check that `schema` matches the wire-chunk shape the
+/// specialized writer hardcodes.
+pub(crate) fn wire_schema_is_standard(schema: &crate::schema::BrdbSchema) -> bool {
+    use crate::schema::write::{ShapeProp::*, struct_shape_matches};
+    struct_shape_matches(
+        schema,
+        "BRSavedWireChunkSoA",
+        &[
+            ("RemoteWireSources", Arr("BRSavedRemoteWirePortSource")),
+            ("LocalWireSources", Arr("BRSavedLocalWirePortSource")),
+            ("RemoteWireTargets", Arr("BRSavedWirePortTarget")),
+            ("LocalWireTargets", Arr("BRSavedWirePortTarget")),
+            ("PendingPropagationFlags", Ty("BRSavedBitFlags")),
+        ],
+    ) && struct_shape_matches(
+        schema,
+        "BRSavedRemoteWirePortSource",
+        &[
+            ("GridPersistentIndex", Ty("u32")),
+            ("ChunkIndex", Ty("BRSavedChunk3DIndex")),
+            ("BrickIndexInChunk", Ty("u32")),
+            ("ComponentTypeIndex", Ty("u16")),
+            ("PortIndex", Ty("u16")),
+        ],
+    ) && struct_shape_matches(
+        schema,
+        "BRSavedLocalWirePortSource",
+        &[
+            ("BrickIndexInChunk", Ty("u32")),
+            ("ComponentTypeIndex", Ty("u16")),
+            ("PortIndex", Ty("u16")),
+        ],
+    ) && struct_shape_matches(
+        schema,
+        "BRSavedWirePortTarget",
+        &[
+            ("BrickIndexInChunk", Ty("u32")),
+            ("ComponentTypeIndex", Ty("u16")),
+            ("PortIndex", Ty("u16")),
+        ],
+    ) && struct_shape_matches(
+        schema,
+        "BRSavedChunk3DIndex",
+        &[("X", Ty("i16")), ("Y", Ty("i16")), ("Z", Ty("i16"))],
+    ) && struct_shape_matches(schema, "BRSavedBitFlags", &[("Flags", Flat("u8"))])
 }
 
 #[derive(Debug, Clone)]

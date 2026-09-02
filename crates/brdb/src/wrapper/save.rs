@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 use crate::{
     Wrap,
     errors::{BrError, BrdbWorldError},
     pending::BrPendingFs,
     schema::{BrdbSchema, BrdbSchemaGlobalData},
-    schemas::{BRICK_CHUNK_INDEX_SOA, BRICK_CHUNK_SOA, BRICK_WIRE_SOA},
+    schemas::BRICK_CHUNK_INDEX_SOA,
     wrapper::{
         Brick, BrickChunkIndexSoA, BrickChunkSoA, CHUNK_HALF, CHUNK_SIZE, ChunkIndex,
         ComponentChunkSoA, Entity, EntityChunkIndexSoA, EntityChunkSoA, LocalWirePortSource,
@@ -19,7 +19,7 @@ pub struct UnsavedFs {
     /// Meta/
     pub meta: WorldMeta,
     /// World/
-    pub worlds: HashMap<usize, UnsavedWorld>,
+    pub worlds: FxHashMap<usize, UnsavedWorld>,
     /// Prefabs/ - embedded prefab archives, root-relative path → raw bytes.
     pub prefabs: indexmap::IndexMap<String, Vec<u8>>,
 }
@@ -38,9 +38,9 @@ pub struct UnsavedWorld {
     /// World/N/Bricks/Grids/ComponentsShared.mps
     pub component_schema: BrdbSchema,
     /// World/N/Bricks/Grids/[key.0]/
-    pub grids: HashMap<usize, UnsavedGrid>,
+    pub grids: FxHashMap<usize, UnsavedGrid>,
     /// World/N/Bricks/Entities/Chunks/[key].mps
-    pub entity_chunks: HashMap<ChunkIndex, EntityChunkSoA>,
+    pub entity_chunks: FxHashMap<ChunkIndex, EntityChunkSoA>,
     /// World/N/Bricks/Entities/ChunksShared.schema
     pub entity_schema: BrdbSchema,
     /// World/N/Bricks/Entities/ChunkIndex.mps
@@ -54,9 +54,9 @@ pub struct UnsavedWorld {
     /// Internal map of brick id to (grid_id, chunk_index, brick_index_in_chunk)
     /// This is used to connect wires
     /// and is not saved to the world file.
-    brick_id_map: HashMap<usize, (usize, ChunkIndex, usize)>,
+    brick_id_map: FxHashMap<usize, (usize, ChunkIndex, usize)>,
     // Maps entity internal id to persistent index
-    entity_index_map: HashMap<usize, u32>,
+    entity_index_map: FxHashMap<usize, u32>,
 }
 
 impl Default for UnsavedWorld {
@@ -291,15 +291,15 @@ pub struct UnsavedGrid {
     /// World/N/Bricks/Grids/I/ChunkIndex.mps
     pub chunk_index: BrickChunkIndexSoA,
     /// World/N/Bricks/Grids/I/Chunks/[key].mps
-    pub bricks: HashMap<ChunkIndex, BrickChunkSoA>,
+    pub bricks: FxHashMap<ChunkIndex, BrickChunkSoA>,
     /// World/N/Bricks/Grids/I/Components/[key].mps
-    pub components: HashMap<ChunkIndex, ComponentChunkSoA>,
+    pub components: FxHashMap<ChunkIndex, ComponentChunkSoA>,
     /// World/N/Bricks/Grids/I/Wires/[key].mps
-    pub wires: HashMap<ChunkIndex, WireChunkSoA>,
+    pub wires: FxHashMap<ChunkIndex, WireChunkSoA>,
 
     /// Map of 3d chunk index to serial index in the `chunk_index` array
     /// Used to quickly find the index of a chunk in the `chunk_index` array
-    chunk_index_map: HashMap<ChunkIndex, usize>,
+    chunk_index_map: FxHashMap<ChunkIndex, usize>,
 }
 
 impl UnsavedGrid {
@@ -426,8 +426,8 @@ impl UnsavedGrid {
                 Ok((
                     format!("{chunk}.mps"),
                     File(Some(
-                        brick_chunk_schema
-                            .write_brdb(BRICK_CHUNK_SOA, &bricks)
+                        bricks
+                            .to_bytes(brick_chunk_schema)
                             .about_f(|| format!("Chunks/{chunk}.mps"))?,
                     )),
                 ))
@@ -451,8 +451,8 @@ impl UnsavedGrid {
                 Ok((
                     format!("{chunk}.mps"),
                     File(Some(
-                        wires_schema
-                            .write_brdb(BRICK_WIRE_SOA, wires)
+                        wires
+                            .to_bytes(wires_schema)
                             .about_f(|| format!("Wires/{chunk}.mps"))?,
                     )),
                 ))

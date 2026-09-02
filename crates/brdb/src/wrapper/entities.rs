@@ -7,7 +7,7 @@ use crate::{
     schema::{
         BrdbSchema, BrdbSchemaGlobalData, BrdbValue,
         as_brdb::{AsBrdbIter, AsBrdbValue, BrdbArrayIter},
-        write::write_brdb,
+        write::{PlanCache, TopLevelMemo, write_brdb_cached, write_brdb_memoized},
     },
     schemas::ENTITY_CHUNK_SOA,
     wrapper::{BString, BitFlags, BrdbComponent, ChunkIndex, Quat4f, Vector3f},
@@ -253,14 +253,24 @@ impl EntityChunkSoA {
     }
 
     pub fn to_bytes(self, schema: &BrdbSchema) -> Result<Vec<u8>, BrdbSchemaError> {
-        let mut buf = schema.write_brdb(ENTITY_CHUNK_SOA, &self)?;
+        let mut cache = PlanCache::new(schema);
+        let mut buf = Vec::new();
+        write_brdb_cached(schema, &mut cache, &mut buf, ENTITY_CHUNK_SOA, &self)?;
 
+        let mut memo = TopLevelMemo::default();
         for (i, entity_data) in self.unwritten_struct_data.into_iter().enumerate() {
-            let struct_ty = entity_data
-                .component_type()
-                .and_then(|ty| schema.global_data.get_entity_class_name(ty.as_ref()));
+            let owned_ty;
+            let ty: &str = match entity_data.component_type_ref() {
+                Some(s) => s,
+                None => {
+                    owned_ty = entity_data.component_type();
+                    let Some(b) = owned_ty.as_ref() else { continue };
+                    b.as_ref()
+                }
+            };
+            let struct_ty = schema.global_data.get_entity_class_name(ty);
             let Some(struct_ty) = struct_ty else { continue };
-            write_brdb(&schema, &mut buf, struct_ty, &**entity_data)
+            write_brdb_memoized(schema, &mut cache, &mut memo, &mut buf, struct_ty, &**entity_data)
                 .map_err(|e| e.wrap(format!("entity data {i}: {struct_ty}")))?;
         }
         Ok(buf)

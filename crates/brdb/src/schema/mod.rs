@@ -7,6 +7,7 @@ use std::{
 use indexmap::IndexMap;
 use lalrpop_util::lalrpop_mod;
 use rmp::{Marker, decode::RmpRead};
+use rustc_hash::FxBuildHasher;
 
 mod global_data;
 mod intern;
@@ -39,8 +40,8 @@ pub enum BrdbSchemaStructProperty {
     FlatArray(BrdbInterned),
     Map(BrdbInterned, BrdbInterned),
 }
-pub type BrdbSchemaStruct = IndexMap<BrdbInterned, BrdbSchemaStructProperty>;
-pub type BrdbSchemaEnum = IndexMap<BrdbInterned, i32>;
+pub type BrdbSchemaStruct = IndexMap<BrdbInterned, BrdbSchemaStructProperty, FxBuildHasher>;
+pub type BrdbSchemaEnum = IndexMap<BrdbInterned, i32, FxBuildHasher>;
 
 pub type BrdbSchemaMetaEnum = (String, Vec<(String, i32)>);
 pub type BrdbSchemaMetaStruct = (String, Vec<(String, BrdbStructPropRaw)>);
@@ -96,11 +97,11 @@ impl BrdbSchemaStructProperty {
 pub struct BrdbSchema {
     pub intern: BrdbIntern,
     pub(crate) global_data: Arc<BrdbSchemaGlobalData>,
-    pub enums: IndexMap<BrdbInterned, BrdbSchemaEnum>,
-    pub structs: IndexMap<BrdbInterned, BrdbSchemaStruct>,
+    pub enums: IndexMap<BrdbInterned, BrdbSchemaEnum, FxBuildHasher>,
+    pub structs: IndexMap<BrdbInterned, BrdbSchemaStruct, FxBuildHasher>,
     /// Tagged-union/variant definitions: name -> ordered member types. Only
     /// populated by newer (3-element) binary schemas; empty otherwise.
-    pub variants: IndexMap<BrdbInterned, Vec<BrdbInterned>>,
+    pub variants: IndexMap<BrdbInterned, Vec<BrdbInterned>, FxBuildHasher>,
 }
 
 impl Display for BrdbSchema {
@@ -683,7 +684,8 @@ impl BrdbSchema {
         value: &impl AsBrdbValue,
     ) -> Result<Vec<u8>, BrdbSchemaError> {
         let mut buf = Vec::new();
-        write::write_brdb(self, &mut buf, ty, value)?;
+        let mut cache = write::PlanCache::new(self);
+        write::write_brdb_cached(self, &mut cache, &mut buf, ty, value)?;
         Ok(buf)
     }
 }

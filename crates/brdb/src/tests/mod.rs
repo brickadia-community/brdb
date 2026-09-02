@@ -441,3 +441,205 @@ fn unregistered_component_type_errors_cleanly() {
         "expected UnregisteredComponentType error"
     );
 }
+
+/// A world exercising the shapes the fast paths care about: several bricks in
+/// one chunk, components with and without set data, and a wire connection.
+fn differential_world() -> World {
+    let mut world = World::new();
+    world.register_all_components();
+    let (a, a_id) = Brick {
+        position: (0, 0, 1).into(),
+        color: (255, 0, 0).into(),
+        asset: assets::bricks::B_REROUTE,
+        ..Default::default()
+    }
+    .with_component(assets::components::Rerouter)
+    .with_id_split();
+    let (b, b_id) = Brick {
+        position: (15, 0, 1).into(),
+        color: (0, 255, 0).into(),
+        asset: assets::components::LogicGate::BoolNot.brick(),
+        ..Default::default()
+    }
+    .with_component(assets::components::LogicGate::BoolNot.component())
+    .with_id_split();
+    let plain = Brick {
+        position: (30, 0, 1).into(),
+        color: (0, 0, 255).into(),
+        ..Default::default()
+    };
+    world.add_bricks([a, b, plain]);
+    world.add_wire_connection(
+        assets::components::LogicGate::BoolNot.output_of(b_id),
+        assets::components::Rerouter::input_of(a_id),
+    );
+    world
+}
+
+/// The hand-encoded wire and brick chunk writers must produce exactly what the
+/// schema-driven writer produces. Both the specialized path and the plan-cached
+/// path are compared against `write::write_brdb`, which walks the schema with no
+/// plan and no specialization.
+#[test]
+fn test_specialized_soa_writers_match_generic() -> Result<(), Box<dyn std::error::Error>> {
+    use crate::schema::write;
+    use crate::wrapper::{brick_schema_is_standard, wire_schema_is_standard};
+    use crate::wrapper::schemas::{BRICK_CHUNK_SOA, BRICK_WIRE_SOA};
+
+    let unsaved = differential_world().to_unsaved()?;
+    let wires_schema = crate::wrapper::schemas::bricks_wires_schema();
+    let bricks_schema = crate::wrapper::schemas::bricks_chunks_schema();
+
+    // A silent fallback would make every assertion below compare the generic
+    // writer against itself, so require the fast paths to be the live ones.
+    assert!(
+        wire_schema_is_standard(wires_schema),
+        "wire fast path is not active; this test would prove nothing"
+    );
+    assert!(
+        brick_schema_is_standard(bricks_schema),
+        "brick fast path is not active; this test would prove nothing"
+    );
+
+    let mut wire_chunks = 0;
+    let mut brick_chunks = 0;
+    for world in unsaved.worlds.values() {
+        for grid in world.grids.values() {
+            for soa in grid.wires.values() {
+                let mut generic = Vec::new();
+                write::write_brdb(wires_schema, &mut generic, BRICK_WIRE_SOA, soa)?;
+                assert_eq!(soa.to_bytes(wires_schema)?, generic, "wire specialized vs generic");
+                assert_eq!(wires_schema.write_brdb(BRICK_WIRE_SOA, soa)?, generic, "wire cached vs generic");
+                wire_chunks += 1;
+            }
+            for soa in grid.bricks.values() {
+                let mut generic = Vec::new();
+                write::write_brdb(bricks_schema, &mut generic, BRICK_CHUNK_SOA, soa)?;
+                assert_eq!(soa.to_bytes(bricks_schema)?, generic, "brick specialized vs generic");
+                assert_eq!(bricks_schema.write_brdb(BRICK_CHUNK_SOA, soa)?, generic, "brick cached vs generic");
+                brick_chunks += 1;
+            }
+        }
+    }
+    assert!(wire_chunks > 0 && brick_chunks > 0, "no chunks compared: {wire_chunks} wire, {brick_chunks} brick");
+    Ok(())
+}
+
+/// A schema whose shape does not match the baked one must route through the
+/// generic writer instead of the hand-encoded one.
+#[test]
+fn test_specialized_writers_reject_foreign_schema() {
+    use crate::wrapper::{brick_schema_is_standard, wire_schema_is_standard};
+    let owners = crate::wrapper::schemas::owners_schema();
+    assert!(!wire_schema_is_standard(owners));
+    assert!(!brick_schema_is_standard(owners));
+}
+
+/// The plan cache resolves each struct once and replays it; the bytes must match
+/// the uncached schema walk for every type the save pipeline writes.
+#[test]
+fn test_plan_cache_matches_generic_for_pipeline_types() -> Result<(), Box<dyn std::error::Error>> {
+    use crate::schema::write;
+    use crate::wrapper::schemas::{
+        BRICK_CHUNK_INDEX_SOA, BRICK_CHUNK_SOA, BRICK_WIRE_SOA, GLOBAL_DATA_SOA, OWNER_TABLE_SOA,
+    };
+
+    fn cmp_paths<T: AsBrdbValue>(
+        schema: &crate::schema::BrdbSchema,
+        ty: &str,
+        v: &T,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut generic = Vec::new();
+        write::write_brdb(schema, &mut generic, ty, v)?;
+        let mut cached = Vec::new();
+        let mut cache = write::PlanCache::new(schema);
+        write::write_brdb_cached(schema, &mut cache, &mut cached, ty, v)?;
+        assert_eq!(cached, generic, "plan cache diverged for {ty}");
+        Ok(())
+    }
+
+    let unsaved = differential_world().to_unsaved()?;
+    let mut compared = 0;
+    for world in unsaved.worlds.values() {
+        cmp_paths(crate::wrapper::schemas::global_data_schema(), GLOBAL_DATA_SOA, &world.global_data)?;
+        cmp_paths(crate::wrapper::schemas::owners_schema(), OWNER_TABLE_SOA, &world.owners)?;
+        compared += 2;
+        for grid in world.grids.values() {
+            cmp_paths(crate::wrapper::schemas::bricks_chunk_index_schema(), BRICK_CHUNK_INDEX_SOA, &grid.chunk_index)?;
+            compared += 1;
+            for soa in grid.wires.values() {
+                cmp_paths(crate::wrapper::schemas::bricks_wires_schema(), BRICK_WIRE_SOA, soa)?;
+                compared += 1;
+            }
+            for soa in grid.bricks.values() {
+                cmp_paths(crate::wrapper::schemas::bricks_chunks_schema(), BRICK_CHUNK_SOA, soa)?;
+                compared += 1;
+            }
+        }
+    }
+    assert!(compared >= 5, "expected several types compared, got {compared}");
+    Ok(())
+}
+
+/// Round trip: a world written through the fast paths reads back with the same
+/// brick, component and wire content.
+#[test]
+fn test_write_then_read_round_trip() -> Result<(), Box<dyn std::error::Error>> {
+    let world = differential_world();
+    let bytes = world.to_brz_vec()?;
+    let reader = crate::Brz::read_slice(&bytes)?.into_reader();
+    let fs = reader.get_fs()?;
+    let rendered = fs.render();
+    assert!(rendered.contains("Bricks"), "no Bricks dir in round-tripped world");
+    assert!(rendered.contains("Wires"), "no Wires dir in round-tripped world");
+    Ok(())
+}
+
+/// Component struct data is where the plan cache does the most work: whole
+/// struct defaults are precomputed and replayed for a component with nothing
+/// set, and per-field defaults fill the gaps for a partially set one. Both must
+/// match the uncached schema walk for every component type in the catalog.
+#[test]
+fn test_plan_cache_matches_generic_for_component_data() -> Result<(), Box<dyn std::error::Error>> {
+    use crate::assets::LiteralComponent;
+    use crate::schema::write;
+
+    let mut world = World::new();
+    world.register_all_components();
+    let mut unsaved = world.to_unsaved()?;
+    let w = unsaved.worlds.values_mut().next().expect("one world");
+    // The pipeline attaches global data before writing; the component type to
+    // struct mapping lives there.
+    w.component_schema
+        .set_global_data(std::sync::Arc::new(w.global_data.clone()));
+    let schema = &w.component_schema;
+
+    let mut compared = 0;
+    let mut skipped = 0;
+    for info in assets::components::COMPONENTS {
+        let Some(struct_ty) = schema.global_data.get_struct_name(info.name) else {
+            skipped += 1;
+            continue;
+        };
+        let comp = LiteralComponent::new(info.name);
+        let mut generic = Vec::new();
+        write::write_brdb(schema, &mut generic, struct_ty, &comp)?;
+        let mut cached = Vec::new();
+        let mut cache = write::PlanCache::new(schema);
+        write::write_brdb_cached(schema, &mut cache, &mut cached, struct_ty, &comp)?;
+        assert_eq!(cached, generic, "plan cache diverged for component {}", info.name);
+
+        // The memoized entry point is what the real chunk writer uses.
+        let mut memoized = Vec::new();
+        let mut memo = write::TopLevelMemo::default();
+        write::write_brdb_memoized(schema, &mut cache, &mut memo, &mut memoized, struct_ty, &comp)?;
+        assert_eq!(memoized, generic, "memoized writer diverged for component {}", info.name);
+        compared += 1;
+    }
+    assert!(
+        compared > 200,
+        "expected the whole catalog compared, got {compared} ({skipped} without a struct)"
+    );
+    Ok(())
+}
+

@@ -62,6 +62,11 @@ impl BitFlags {
         }
     }
 
+    /// Raw backing bytes, as serialized into the `Flags: u8[flat]` field.
+    pub(crate) fn as_raw_bytes(&self) -> &[u8] {
+        &self.vec
+    }
+
     // Push a single bit value to the end of the vector.
     pub fn push(&mut self, val: bool) {
         if self.bits >= self.vec.len() * 8 {

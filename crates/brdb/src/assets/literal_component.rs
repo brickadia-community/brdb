@@ -39,6 +39,21 @@ impl LiteralComponent {
     }
 }
 
+impl LiteralComponent {
+    /// Key lookup tuned for the tiny maps literal components carry: a short
+    /// linear scan beats hashing below a handful of entries.
+    fn find(&self, name: &str) -> Option<&dyn AsBrdbValue> {
+        if self.data.len() <= 4 {
+            self.data
+                .iter()
+                .find(|(k, _)| k.as_ref() == name)
+                .map(|(_, v)| v.as_ref())
+        } else {
+            self.data.get(name).map(|v| v.as_ref())
+        }
+    }
+}
+
 impl AsBrdbValue for LiteralComponent {
     /// A `LiteralComponent` written into a `variant`-typed field selects the
     /// variant member whose struct name matches `component_name` (its data is
@@ -46,6 +61,10 @@ impl AsBrdbValue for LiteralComponent {
     /// fields go through the struct accessors below.
     fn as_brdb_variant_member(&self) -> Option<&str> {
         Some(self.component_name.as_ref())
+    }
+
+    fn has_brdb_struct_props(&self) -> bool {
+        !self.data.is_empty()
     }
 
     fn has_brdb_struct_prop(
@@ -56,7 +75,20 @@ impl AsBrdbValue for LiteralComponent {
     ) -> bool {
         prop_name
             .get(schema)
-            .is_some_and(|name| self.data.contains_key(name))
+            .is_some_and(|name| self.find(name).is_some())
+    }
+
+    /// Single-probe fetch: one map lookup answers both presence and value.
+    fn as_brdb_struct_prop_opt(
+        &self,
+        schema: &crate::schema::BrdbSchema,
+        _struct_name: crate::schema::BrdbInterned,
+        prop_name: crate::schema::BrdbInterned,
+    ) -> Result<Option<&dyn AsBrdbValue>, crate::errors::BrdbSchemaError> {
+        let Some(name) = prop_name.get(schema) else {
+            return Ok(None);
+        };
+        Ok(self.find(name))
     }
 
     fn as_brdb_struct_prop_value(
@@ -66,8 +98,8 @@ impl AsBrdbValue for LiteralComponent {
         prop_name: crate::schema::BrdbInterned,
     ) -> Result<&dyn AsBrdbValue, crate::errors::BrdbSchemaError> {
         let prop_name_str = prop_name.get(schema).unwrap();
-        match self.data.get(prop_name_str) {
-            Some(value) => Ok(value.as_ref()),
+        match self.find(prop_name_str) {
+            Some(value) => Ok(value),
             None => Err(BrdbSchemaError::MissingStructField(
                 self.component_name.to_string(),
                 prop_name_str.to_string(),
@@ -82,11 +114,11 @@ impl AsBrdbValue for LiteralComponent {
         prop_name: crate::schema::BrdbInterned,
     ) -> Result<crate::schema::as_brdb::BrdbArrayIter<'_>, crate::errors::BrdbSchemaError> {
         let prop_name_str = prop_name.get(schema).unwrap();
-        match self.data.get(prop_name_str) {
+        match self.find(prop_name_str) {
             // Literal gate data only carries scalars; a stored value for an
             // array-typed field can't be iterated, so keep the loud default.
             Some(_) => Err(BrdbSchemaError::UnimplementedCast(
-                "struct property array".to_owned(),
+                "struct property array",
                 std::any::type_name::<Self>(),
             )),
             // An unset array field (e.g. PrefabSpawner's SpawnedEntityIds) is
@@ -103,6 +135,10 @@ impl AsBrdbValue for LiteralComponent {
 impl BrdbComponent for LiteralComponent {
     fn component_type(&self) -> Option<BString> {
         Some(self.component_name.clone())
+    }
+
+    fn component_type_ref(&self) -> Option<&str> {
+        Some(self.component_name.as_ref())
     }
 }
 

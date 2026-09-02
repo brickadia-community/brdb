@@ -1,5 +1,10 @@
 use std::io::Write;
 
+mod cache;
+
+pub(crate) use cache::{PlanCache, TopLevelMemo};
+use cache::{FieldKind, FlatOp, PlanOp, StructPlan, VariantPlan};
+
 use crate::{
     errors::BrdbSchemaError,
     schema::{
@@ -139,9 +144,9 @@ fn variant_member_tag(
     let members = schema
         .get_variant(variant_ty)
         .ok_or_else(|| BrdbSchemaError::UnknownType(variant_ty.to_owned()))?;
-    members
-        .iter()
-        .position(|m| schema.intern.lookup_ref(*m) == Some(member_name))
+    let member_id = schema.intern.get(member_name);
+    member_id
+        .and_then(|id| members.iter().position(|m| *m == id))
         .ok_or_else(|| {
             BrdbSchemaError::ExpectedType(format!("{variant_ty} member"), member_name.to_owned())
         })
@@ -724,9 +729,9 @@ fn write_flat_f64(buf: &mut impl Write, value: f64) -> Result<(), BrdbSchemaErro
 /// O(1) lookup into the generated `STRUCT_DEFAULTS` table, replacing a
 /// linear scan over all structs (and their fields) per unset field.
 fn struct_field_default(struct_name: &str, field: &str) -> Option<&'static dyn AsBrdbValue> {
-    use std::collections::HashMap;
+    use rustc_hash::FxHashMap;
     use std::sync::LazyLock;
-    static MAP: LazyLock<HashMap<&'static str, HashMap<&'static str, &'static dyn AsBrdbValue>>> =
+    static MAP: LazyLock<FxHashMap<&'static str, FxHashMap<&'static str, &'static dyn AsBrdbValue>>> =
         LazyLock::new(|| {
             LazyLock::force(&crate::wrapper::component_db::STRUCT_DEFAULTS)
                 .iter()
@@ -759,10 +764,35 @@ fn write_struct_field_default(
     }
 }
 
-pub fn write_brdb(
+/// Resolve `ty` to a schema struct only when `write_brdb` would take the
+/// struct path for it: not a primitive/special name and not a variant.
+/// Lets array loops resolve their element type once instead of per element.
+fn resolve_plain_struct<'a>(
+    schema: &'a BrdbSchema,
+    ty: &str,
+) -> Option<(BrdbInterned, &'a BrdbSchemaStruct)> {
+    match ty {
+        "bool" | "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64"
+        | "str" | "wire_graph_variant" | "wire_graph_prim_math_variant" | "bundle_path_ref"
+        | "class" | "object" => None,
+        _ => {
+            let id = schema.intern.get(ty)?;
+            if schema.get_variant_interned(id).is_some() {
+                return None;
+            }
+            Some((id, schema.get_struct_interned(id)?))
+        }
+    }
+}
+
+/// Write the fields of a schema struct value (the struct arm of `write_brdb`,
+/// with the struct already resolved to its interned id and property table).
+fn write_brdb_struct_fields(
     schema: &BrdbSchema,
     buf: &mut impl Write,
-    ty: &str,
+    s_id: BrdbInterned,
+    s_ty: &BrdbSchemaStruct,
+    ty_name: &str,
     value: &dyn AsBrdbValue,
 ) -> Result<(), BrdbSchemaError> {
     let lookup = |ty: BrdbInterned| {
@@ -772,6 +802,103 @@ pub fn write_brdb(
             .ok_or(BrdbSchemaError::UnknownType(ty.0.to_string()))
     };
 
+    for (prop_id, prop_schema) in s_ty {
+        match prop_schema {
+            BrdbSchemaStructProperty::Type(ty_id) => {
+                let ty_str = lookup(*ty_id)?;
+                match value.as_brdb_struct_prop_opt(schema, s_id, *prop_id)? {
+                    Some(prop_value) => {
+                        write_brdb(schema, buf, ty_str, prop_value)?;
+                    }
+                    None => {
+                        write_struct_field_default(schema, buf, ty_name, lookup(*prop_id)?, ty_str)?;
+                    }
+                }
+            }
+            BrdbSchemaStructProperty::Array(ty_id) => {
+                if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
+                    rmp::encode::write_array_len(buf, 0)?;
+                    continue;
+                }
+                match value.as_brdb_struct_prop_array(schema, s_id, *prop_id) {
+                    Ok(prop_values) => {
+                        let ty = lookup(*ty_id)?;
+                        rmp::encode::write_array_len(buf, prop_values.len() as u32)?;
+                        if let Some((elem_id, elem_ty)) = resolve_plain_struct(schema, ty) {
+                            for prop_value in prop_values {
+                                write_brdb_struct_fields(
+                                    schema,
+                                    buf,
+                                    elem_id,
+                                    elem_ty,
+                                    ty,
+                                    &*prop_value,
+                                )?;
+                            }
+                        } else {
+                            for prop_value in prop_values {
+                                write_brdb(schema, buf, ty, &*prop_value)?;
+                            }
+                        }
+                    }
+                    Err(BrdbSchemaError::MissingStructField(..)) => {
+                        rmp::encode::write_array_len(buf, 0)?;
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            BrdbSchemaStructProperty::FlatArray(ty_id) => {
+                if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
+                    rmp::encode::write_bin_len(buf, 0)?;
+                    continue;
+                }
+                match value.as_brdb_struct_prop_array(schema, s_id, *prop_id) {
+                    Ok(prop_values) => {
+                        let ty = lookup(*ty_id)?;
+                        let type_size = flat_type_size(schema, ty);
+                        rmp::encode::write_bin_len(buf, (prop_values.len() * type_size) as u32)?;
+                        for prop_value in prop_values {
+                            write_brdb_flat(schema, buf, ty, &*prop_value)?;
+                        }
+                    }
+                    Err(BrdbSchemaError::MissingStructField(..)) => {
+                        rmp::encode::write_bin_len(buf, 0)?;
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            BrdbSchemaStructProperty::Map(k_ty_id, v_ty_id) => {
+                if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
+                    rmp::encode::write_map_len(buf, 0)?;
+                    continue;
+                }
+                match value.as_brdb_struct_prop_map(schema, s_id, *prop_id) {
+                    Ok(prop_values) => {
+                        let k_ty = lookup(*k_ty_id)?;
+                        let v_ty = lookup(*v_ty_id)?;
+                        rmp::encode::write_map_len(buf, prop_values.len() as u32)?;
+                        for (key, val) in prop_values {
+                            write_brdb(schema, buf, k_ty, &*key)?;
+                            write_brdb(schema, buf, v_ty, &*val)?;
+                        }
+                    }
+                    Err(BrdbSchemaError::MissingStructField(..)) => {
+                        rmp::encode::write_map_len(buf, 0)?;
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn write_brdb(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    ty: &str,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
     match ty {
         "bool" => write_bool(buf, value.as_brdb_bool()?)?,
         "u8" => write_u8(buf, value.as_brdb_u8()? as u64)?,
@@ -811,125 +938,31 @@ pub fn write_brdb(
                 write_int(buf, -1)?;
             }
         }
-        other if schema.get_variant(other).is_some() => {
-            // Struct-member variants (e.g. BRInventoryEntryVariant) self-identify
-            // by member struct name; map/array-valued variants via their
-            // dedicated accessors; everything else is a scalar variant.
-            if let Some(member) = value.as_brdb_variant_member() {
-                let tag = variant_member_tag(schema, other, member)?;
-                write_uint(buf, tag as u64)?;
-                // `value` re-encodes as its member struct (write its fields).
-                write_brdb(schema, buf, member, value)?;
-            } else if let Ok(m) = value.as_brdb_wire_map_variant() {
-                write_named_map_variant(schema, buf, other, &m)?;
-            } else if let Ok(arr) = value.as_brdb_wire_array_variant() {
-                write_named_array_variant(schema, buf, other, &arr)?;
-            } else {
-                write_named_wire_variant(schema, buf, other, &value.as_brdb_wire_variant()?)?;
-            }
-        }
         other => {
-            if let (Some(s_id), Some(s_ty)) = (schema.intern.get(other), schema.get_struct(other)) {
-                for (prop_id, prop_schema) in s_ty {
-                    match prop_schema {
-                        BrdbSchemaStructProperty::Type(ty_id) => {
-                            let ty_str = lookup(*ty_id)?;
-                            if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
-                                // Fast path: unset field, no error allocation.
-                                write_struct_field_default(
-                                    schema,
-                                    buf,
-                                    other,
-                                    lookup(*prop_id)?,
-                                    &ty_str,
-                                )?;
-                                continue;
-                            }
-                            match value.as_brdb_struct_prop_value(schema, s_id, *prop_id) {
-                                Ok(prop_value) => {
-                                    write_brdb(schema, buf, &ty_str, &*prop_value)?;
-                                }
-                                Err(BrdbSchemaError::MissingStructField(
-                                    ref _sn,
-                                    ref field_name,
-                                )) => {
-                                    write_struct_field_default(
-                                        schema,
-                                        buf,
-                                        other,
-                                        field_name.as_str(),
-                                        &ty_str,
-                                    )?;
-                                }
-                                Err(e) => return Err(e),
-                            }
-                        }
-                        BrdbSchemaStructProperty::Array(ty_id) => {
-                            if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
-                                rmp::encode::write_array_len(buf, 0)?;
-                                continue;
-                            }
-                            match value.as_brdb_struct_prop_array(schema, s_id, *prop_id) {
-                                Ok(prop_values) => {
-                                    let ty = &lookup(*ty_id)?;
-                                    rmp::encode::write_array_len(buf, prop_values.len() as u32)?;
-                                    for prop_value in prop_values {
-                                        write_brdb(schema, buf, ty, &*prop_value)?;
-                                    }
-                                }
-                                Err(BrdbSchemaError::MissingStructField(..)) => {
-                                    rmp::encode::write_array_len(buf, 0)?;
-                                }
-                                Err(e) => return Err(e),
-                            }
-                        }
-                        BrdbSchemaStructProperty::FlatArray(ty_id) => {
-                            if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
-                                rmp::encode::write_bin_len(buf, 0)?;
-                                continue;
-                            }
-                            match value.as_brdb_struct_prop_array(schema, s_id, *prop_id) {
-                                Ok(prop_values) => {
-                                    let ty = &lookup(*ty_id)?;
-                                    let type_size = flat_type_size(schema, ty);
-                                    rmp::encode::write_bin_len(
-                                        buf,
-                                        (prop_values.len() * type_size) as u32,
-                                    )?;
-                                    for prop_value in prop_values {
-                                        write_brdb_flat(schema, buf, ty, &*prop_value)?;
-                                    }
-                                }
-                                Err(BrdbSchemaError::MissingStructField(..)) => {
-                                    rmp::encode::write_bin_len(buf, 0)?;
-                                }
-                                Err(e) => return Err(e),
-                            }
-                        }
-                        BrdbSchemaStructProperty::Map(k_ty_id, v_ty_id) => {
-                            if !value.has_brdb_struct_prop(schema, s_id, *prop_id) {
-                                rmp::encode::write_map_len(buf, 0)?;
-                                continue;
-                            }
-                            match value.as_brdb_struct_prop_map(schema, s_id, *prop_id) {
-                                Ok(prop_values) => {
-                                    let k_ty = &lookup(*k_ty_id)?;
-                                    let v_ty = &lookup(*v_ty_id)?;
-                                    rmp::encode::write_map_len(buf, prop_values.len() as u32)?;
-                                    for (key, val) in prop_values {
-                                        write_brdb(schema, buf, k_ty, &*key)?;
-                                        write_brdb(schema, buf, v_ty, &*val)?;
-                                    }
-                                }
-                                Err(BrdbSchemaError::MissingStructField(..)) => {
-                                    rmp::encode::write_map_len(buf, 0)?;
-                                }
-                                Err(e) => return Err(e),
-                            }
-                        }
-                    }
+            // Resolve the type name through the interner once; variant, struct
+            // and enum tables are then probed by interned id.
+            let Some(s_id) = schema.intern.get(other) else {
+                return Err(BrdbSchemaError::UnknownType(other.to_owned()));
+            };
+            if schema.get_variant_interned(s_id).is_some() {
+                // Struct-member variants (e.g. BRInventoryEntryVariant) self-identify
+                // by member struct name; map/array-valued variants via their
+                // dedicated accessors; everything else is a scalar variant.
+                if let Some(member) = value.as_brdb_variant_member() {
+                    let tag = variant_member_tag(schema, other, member)?;
+                    write_uint(buf, tag as u64)?;
+                    // `value` re-encodes as its member struct (write its fields).
+                    write_brdb(schema, buf, member, value)?;
+                } else if let Ok(m) = value.as_brdb_wire_map_variant() {
+                    write_named_map_variant(schema, buf, other, &m)?;
+                } else if let Ok(arr) = value.as_brdb_wire_array_variant() {
+                    write_named_array_variant(schema, buf, other, &arr)?;
+                } else {
+                    write_named_wire_variant(schema, buf, other, &value.as_brdb_wire_variant()?)?;
                 }
-            } else if let Some(enum_ty) = schema.get_enum(other) {
+            } else if let Some(s_ty) = schema.get_struct_interned(s_id) {
+                write_brdb_struct_fields(schema, buf, s_id, s_ty, other, value)?;
+            } else if let Some(enum_ty) = schema.get_enum_interned(s_id) {
                 let enum_value = value.as_brdb_enum(schema, enum_ty)?;
                 if enum_value >= enum_ty.len() as i32 {
                     return Err(BrdbSchemaError::EnumIndexOutOfBounds {
@@ -1104,6 +1137,405 @@ pub fn write_brdb_zero(
         }
     }
     Ok(())
+}
+
+/// Expected shape of one struct property, for `struct_shape_matches`.
+pub(crate) enum ShapeProp {
+    Ty(&'static str),
+    Arr(&'static str),
+    Flat(&'static str),
+}
+
+/// Whether `name` resolves to a struct whose properties exactly match
+/// `expect` in order, name and shape. Specialized SoA writers use this to
+/// verify the loaded schema still has the shape they hardcode, falling back
+/// to the generic writer otherwise.
+pub(crate) fn struct_shape_matches(
+    schema: &BrdbSchema,
+    name: &str,
+    expect: &[(&str, ShapeProp)],
+) -> bool {
+    let Some(s) = schema.get_struct(name) else {
+        return false;
+    };
+    if s.len() != expect.len() {
+        return false;
+    }
+    for ((prop_id, prop), (e_name, e_shape)) in s.iter().zip(expect) {
+        if schema.intern.lookup_ref(*prop_id) != Some(*e_name) {
+            return false;
+        }
+        let ok = match (prop, e_shape) {
+            (BrdbSchemaStructProperty::Type(t), ShapeProp::Ty(en)) => {
+                schema.intern.lookup_ref(*t) == Some(*en)
+            }
+            (BrdbSchemaStructProperty::Array(t), ShapeProp::Arr(en)) => {
+                schema.intern.lookup_ref(*t) == Some(*en)
+            }
+            (BrdbSchemaStructProperty::FlatArray(t), ShapeProp::Flat(en)) => {
+                schema.intern.lookup_ref(*t) == Some(*en)
+            }
+            _ => false,
+        };
+        if !ok {
+            return false;
+        }
+    }
+    true
+}
+
+/// Plan-cached counterpart of `write_brdb`: identical bytes and errors, but
+/// per-type resolution (field types, variant tags, defaults) happens once per
+/// cache instead of per instance.
+pub(crate) fn write_brdb_cached<'a>(
+    schema: &'a BrdbSchema,
+    cache: &mut PlanCache<'a>,
+    buf: &mut impl Write,
+    ty: &str,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    match ty {
+        // Primitive and special names take the unplanned writer directly;
+        // they must be checked before the interned tables to keep
+        // `write_brdb`'s dispatch precedence.
+        "bool" | "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64"
+        | "str" | "wire_graph_variant" | "wire_graph_prim_math_variant" | "bundle_path_ref"
+        | "class" | "object" => write_brdb(schema, buf, ty, value),
+        other => {
+            let Some(s_id) = schema.intern.get(other) else {
+                return Err(BrdbSchemaError::UnknownType(other.to_owned()));
+            };
+            let Some(name) = schema.intern.lookup_ref(s_id) else {
+                return write_brdb(schema, buf, other, value);
+            };
+            let op = cache.resolve_named(s_id, name);
+            write_op(schema, cache, buf, &op, value)
+        }
+    }
+}
+
+/// `write_brdb_cached` with a one-entry memo over `ty`. Component and entity
+/// data is grouped by type, so consecutive instances resolve for free.
+pub(crate) fn write_brdb_memoized<'a>(
+    schema: &'a BrdbSchema,
+    cache: &mut PlanCache<'a>,
+    memo: &mut TopLevelMemo<'a>,
+    buf: &mut impl Write,
+    ty: &str,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    if let Some((p, l, op)) = &memo.last {
+        if *p == ty.as_ptr() && *l == ty.len() {
+            let op = op.clone();
+            return write_op(schema, cache, buf, &op, value);
+        }
+    }
+    match ty {
+        "bool" | "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64"
+        | "str" | "wire_graph_variant" | "wire_graph_prim_math_variant" | "bundle_path_ref"
+        | "class" | "object" => write_brdb(schema, buf, ty, value),
+        other => {
+            let Some(s_id) = schema.intern.get(other) else {
+                return Err(BrdbSchemaError::UnknownType(other.to_owned()));
+            };
+            let Some(name) = schema.intern.lookup_ref(s_id) else {
+                return write_brdb(schema, buf, other, value);
+            };
+            let op = cache.resolve_named(s_id, name);
+            memo.last = Some((ty.as_ptr(), ty.len(), op.clone()));
+            write_op(schema, cache, buf, &op, value)
+        }
+    }
+}
+
+fn write_op<'a>(
+    schema: &'a BrdbSchema,
+    cache: &mut PlanCache<'a>,
+    buf: &mut impl Write,
+    op: &PlanOp<'a>,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    match op {
+        PlanOp::Bool => write_bool(buf, value.as_brdb_bool()?),
+        PlanOp::U8 => write_u8(buf, value.as_brdb_u8()? as u64),
+        PlanOp::U16 => write_uint(buf, value.as_brdb_u16()? as u64),
+        PlanOp::U32 => write_uint(buf, value.as_brdb_u32()? as u64),
+        PlanOp::U64 => write_uint(buf, value.as_brdb_u64()?),
+        PlanOp::I8 => write_int(buf, value.as_brdb_i8()? as i64),
+        PlanOp::I16 => write_int(buf, value.as_brdb_i16()? as i64),
+        PlanOp::I32 => write_int(buf, value.as_brdb_i32()? as i64),
+        PlanOp::I64 => write_int(buf, value.as_brdb_i64()?),
+        PlanOp::F32 => write_float32(buf, value.as_brdb_f32()?),
+        PlanOp::F64 => write_float64(buf, value.as_brdb_f64()?),
+        PlanOp::Str => write_str(buf, value.as_brdb_str()?),
+        PlanOp::WireVariantLegacy => match value.as_brdb_wire_variant_ref() {
+            Some(v) => write_wire_var(buf, v),
+            None => write_wire_var(buf, &value.as_brdb_wire_variant()?),
+        },
+        PlanOp::WirePrimMath => {
+            let owned;
+            let v = match value.as_brdb_wire_variant_ref() {
+                Some(v) => v,
+                None => {
+                    owned = value.as_brdb_wire_variant()?;
+                    &owned
+                }
+            };
+            match v {
+                WireVariant::Number(v) => {
+                    write_uint(buf, 0)?;
+                    write_float64(buf, *v)
+                }
+                WireVariant::Int(v) => {
+                    write_uint(buf, 1)?;
+                    write_int(buf, *v)
+                }
+                other => Err(BrdbSchemaError::ExpectedType(
+                    "wire_graph_prim_math_variant".to_owned(),
+                    other.to_string(),
+                )),
+            }
+        }
+        PlanOp::BundlePathRef => write_str(buf, value.as_brdb_str().unwrap_or("")),
+        PlanOp::Asset(ty) => match value.as_brdb_asset(schema, ty)? {
+            Some(asset_index) => write_uint(buf, asset_index as u64),
+            None => write_int(buf, -1),
+        },
+        PlanOp::Enum { name, def } => {
+            let enum_value = value.as_brdb_enum(schema, def)?;
+            if enum_value >= def.len() as i32 {
+                return Err(BrdbSchemaError::EnumIndexOutOfBounds {
+                    enum_name: (*name).to_owned(),
+                    index: enum_value as u64,
+                });
+            }
+            write_uint(buf, enum_value as u64)
+        }
+        PlanOp::Struct(plan) => {
+            let plan = plan.clone();
+            write_struct_plan(schema, cache, buf, &plan, value)
+        }
+        PlanOp::Deferred(id, name) => match cache.struct_plan(*id, name) {
+            Some(plan) => write_struct_plan(schema, cache, buf, &plan, value),
+            None => write_brdb(schema, buf, name, value),
+        },
+        PlanOp::Variant(id, name) => {
+            let plan = cache.variant_plan(*id, name);
+            write_variant_plan(schema, cache, buf, &plan, value)
+        }
+        PlanOp::Fallback(ty) => write_brdb(schema, buf, ty, value),
+    }
+}
+
+fn write_struct_plan<'a>(
+    schema: &'a BrdbSchema,
+    cache: &mut PlanCache<'a>,
+    buf: &mut impl Write,
+    plan: &StructPlan<'a>,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    // An instance with no set fields writes a constant byte stream; skip the
+    // per-field probes entirely when it was precomputable.
+    if let Some(all) = &plan.all_default_bytes {
+        if !value.has_brdb_struct_props() {
+            buf.write_all(all)?;
+            return Ok(());
+        }
+    }
+    for field in &plan.fields {
+        match &field.kind {
+            FieldKind::Scalar {
+                op,
+                ty_str,
+                default_bytes,
+            } => match value.as_brdb_struct_prop_opt(schema, plan.s_id, field.prop_id)? {
+                Some(prop_value) => write_op(schema, cache, buf, op, prop_value)?,
+                None => match default_bytes {
+                    Some(bytes) => buf.write_all(bytes)?,
+                    None => write_struct_field_default(
+                        schema,
+                        buf,
+                        plan.name,
+                        field.prop_name,
+                        ty_str,
+                    )?,
+                },
+            },
+            FieldKind::Array { elem } => {
+                if !value.has_brdb_struct_prop(schema, plan.s_id, field.prop_id) {
+                    rmp::encode::write_array_len(buf, 0)?;
+                    continue;
+                }
+                match value.as_brdb_struct_prop_array(schema, plan.s_id, field.prop_id) {
+                    Ok(prop_values) => {
+                        rmp::encode::write_array_len(buf, prop_values.len() as u32)?;
+                        for prop_value in prop_values {
+                            write_op(schema, cache, buf, elem, &*prop_value)?;
+                        }
+                    }
+                    Err(BrdbSchemaError::MissingStructField(..)) => {
+                        rmp::encode::write_array_len(buf, 0)?;
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            FieldKind::FlatArray { elem, elem_size } => {
+                if !value.has_brdb_struct_prop(schema, plan.s_id, field.prop_id) {
+                    rmp::encode::write_bin_len(buf, 0)?;
+                    continue;
+                }
+                match value.as_brdb_struct_prop_array(schema, plan.s_id, field.prop_id) {
+                    Ok(prop_values) => {
+                        rmp::encode::write_bin_len(buf, (prop_values.len() * elem_size) as u32)?;
+                        for prop_value in prop_values {
+                            write_flat_op(schema, buf, elem, &*prop_value)?;
+                        }
+                    }
+                    Err(BrdbSchemaError::MissingStructField(..)) => {
+                        rmp::encode::write_bin_len(buf, 0)?;
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            FieldKind::Map { key, value: val_op } => {
+                if !value.has_brdb_struct_prop(schema, plan.s_id, field.prop_id) {
+                    rmp::encode::write_map_len(buf, 0)?;
+                    continue;
+                }
+                match value.as_brdb_struct_prop_map(schema, plan.s_id, field.prop_id) {
+                    Ok(prop_values) => {
+                        rmp::encode::write_map_len(buf, prop_values.len() as u32)?;
+                        for (k, v) in prop_values {
+                            write_op(schema, cache, buf, key, &*k)?;
+                            write_op(schema, cache, buf, val_op, &*v)?;
+                        }
+                    }
+                    Err(BrdbSchemaError::MissingStructField(..)) => {
+                        rmp::encode::write_map_len(buf, 0)?;
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn write_variant_plan<'a>(
+    schema: &'a BrdbSchema,
+    cache: &mut PlanCache<'a>,
+    buf: &mut impl Write,
+    plan: &VariantPlan<'a>,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    if let Some(member) = value.as_brdb_variant_member() {
+        let Some(tag) = plan
+            .members
+            .iter()
+            .position(|(name, _)| *name == Some(member))
+        else {
+            return Err(BrdbSchemaError::ExpectedType(
+                format!("{} member", plan.name),
+                member.to_owned(),
+            ));
+        };
+        write_uint(buf, tag as u64)?;
+        let op = plan.members[tag].1.clone();
+        write_op(schema, cache, buf, &op, value)
+    } else if let Some(v) = value.as_brdb_wire_variant_ref() {
+        write_wire_variant_planned(buf, plan, v)
+    } else if let Ok(m) = value.as_brdb_wire_map_variant() {
+        write_named_map_variant(schema, buf, plan.name, &m)
+    } else if let Ok(arr) = value.as_brdb_wire_array_variant() {
+        write_named_array_variant(schema, buf, plan.name, &arr)
+    } else {
+        write_wire_variant_planned(buf, plan, &value.as_brdb_wire_variant()?)
+    }
+}
+
+fn write_wire_variant_planned(
+    buf: &mut impl Write,
+    plan: &VariantPlan,
+    v: &WireVariant,
+) -> Result<(), BrdbSchemaError> {
+    let (tag, member_name) = match v {
+        WireVariant::Number(_) => (plan.wire.number, "f64"),
+        WireVariant::Int(_) => (plan.wire.int, "i64"),
+        WireVariant::Bool(_) => (plan.wire.boolean, "bool"),
+        WireVariant::Object(_) => (plan.wire.object, "weak_object"),
+        WireVariant::Exec => (plan.wire.exec, "WireGraphExec"),
+        WireVariant::Vector(..) => (plan.wire.vector, "Vector"),
+        WireVariant::Rotator { .. } => (plan.wire.rotator, "Rotator"),
+        WireVariant::Quat { .. } => (plan.wire.quat, "Quat"),
+        WireVariant::Str(_) => (plan.wire.string, "str"),
+        WireVariant::LinearColor { .. } => (plan.wire.linear_color, "LinearColor"),
+    };
+    let Some(tag) = tag else {
+        return Err(BrdbSchemaError::ExpectedType(
+            format!("{} member", plan.name),
+            member_name.to_owned(),
+        ));
+    };
+    write_uint(buf, tag)?;
+    match v {
+        WireVariant::Number(n) => write_float64(buf, *n)?,
+        WireVariant::Int(i) => write_int(buf, *i)?,
+        WireVariant::Bool(b) => write_bool(buf, *b)?,
+        WireVariant::Object(opt) => write_int(buf, opt.map(|i| i as i64).unwrap_or(-1))?,
+        WireVariant::Exec => {}
+        WireVariant::Vector(v) => {
+            write_float64(buf, v.x as f64)?;
+            write_float64(buf, v.y as f64)?;
+            write_float64(buf, v.z as f64)?;
+        }
+        WireVariant::Rotator { pitch, yaw, roll } => {
+            write_float64(buf, *pitch)?;
+            write_float64(buf, *yaw)?;
+            write_float64(buf, *roll)?;
+        }
+        WireVariant::Quat { x, y, z, w } => {
+            write_float64(buf, *x)?;
+            write_float64(buf, *y)?;
+            write_float64(buf, *z)?;
+            write_float64(buf, *w)?;
+        }
+        WireVariant::Str(s) => write_str(buf, s)?,
+        WireVariant::LinearColor { r, g, b, a } => {
+            write_float32(buf, *r)?;
+            write_float32(buf, *g)?;
+            write_float32(buf, *b)?;
+            write_float32(buf, *a)?;
+        }
+    }
+    Ok(())
+}
+
+fn write_flat_op(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    op: &FlatOp,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    match op {
+        FlatOp::U8 => write_flat_u8(buf, value.as_brdb_u8()?),
+        FlatOp::U16 => write_flat_u16(buf, value.as_brdb_u16()?),
+        FlatOp::U32 => write_flat_u32(buf, value.as_brdb_u32()?),
+        FlatOp::U64 => write_flat_u64(buf, value.as_brdb_u64()?),
+        FlatOp::I8 => write_flat_i8(buf, value.as_brdb_i8()?),
+        FlatOp::I16 => write_flat_i16(buf, value.as_brdb_i16()?),
+        FlatOp::I32 => write_flat_i32(buf, value.as_brdb_i32()?),
+        FlatOp::I64 => write_flat_i64(buf, value.as_brdb_i64()?),
+        FlatOp::F32 => write_flat_f32(buf, value.as_brdb_f32()?),
+        FlatOp::F64 => write_flat_f64(buf, value.as_brdb_f64()?),
+        FlatOp::Struct(plan) => {
+            for (prop_id, prop_op) in &plan.props {
+                let prop_val = value.as_brdb_struct_prop_value(schema, plan.s_id, *prop_id)?;
+                write_flat_op(schema, buf, prop_op, &*prop_val)?;
+            }
+            Ok(())
+        }
+        FlatOp::Fallback(ty) => write_brdb_flat(schema, buf, ty, value),
+    }
 }
 
 #[cfg(test)]

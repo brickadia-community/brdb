@@ -1,6 +1,6 @@
 [package]
 name = "brdb"
-version = "0.10.5"
+version = "0.11.0"
 authors = ["Isaac <gpg@reheatedcake.io>"]
 description = "A library for reading and writing Brickadia's World files."
 edition = "2024"
@@ -31,6 +31,8 @@ itertools = "0.14.0"
 lalrpop-util = { version = "0.21.0", features = ["lexer", "unicode"] }
 # msgpack-schema parsing
 rmp = "0.8.14"
+# fast non-cryptographic hasher for interner and schema tables
+rustc-hash = "2.1"
 # read/write of sqlite-backed .brdb files.
 # on wasm, rusqlite's default `ffi-sqlite-wasm-rs` feature swaps libsqlite3-sys
 # for the pure-wasm `sqlite-wasm-rs` backend, so `bundled` is a no-op there.

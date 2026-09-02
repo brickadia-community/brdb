@@ -255,16 +255,18 @@ impl BrPendingFs {
 
         use crate::{
             brz::{Brz, BrzIndexData, CompressionMethod},
-            compression::compress,
             errors::BrFsError,
+            tables::BrBlob,
         };
 
         let mut queue = VecDeque::new();
         queue.push_front((None, "Root".to_owned(), self));
 
         let mut index = BrzIndexData::default();
-        let mut blob_data = Vec::new();
-        let mut hash_to_blob_index: HashMap<[u8; 32], i32> = HashMap::new();
+        // Unique blob contents in blob-id order; compressed after the walk.
+        let mut blobs: Vec<Vec<u8>> = Vec::new();
+        let mut hash_to_blob_index: HashMap<[u8; 32], i32, BuildDigestHasher> =
+            HashMap::with_hasher(BuildDigestHasher::default());
 
         while let Some((parent_id, name, fs)) = queue.pop_front() {
             match fs {
@@ -280,7 +282,7 @@ impl BrPendingFs {
                     // Add this folder
                     index.num_folders += 1;
                     index.folder_parent_ids.push(parent_id.unwrap_or(-1));
-                    index.folder_names.push(name.clone());
+                    index.folder_names.push(name);
 
                     // Queue the folder's children
                     for (item_name, item_fs) in items {
@@ -290,11 +292,9 @@ impl BrPendingFs {
 
                 // Insert the file, and its content if it was not already inserted
                 BrPendingFs::File(Some(content)) => {
-                    use crate::tables::BrBlob;
-
                     index.num_files += 1;
                     index.file_parent_ids.push(parent_id.unwrap_or(-1));
-                    index.file_names.push(name.clone());
+                    index.file_names.push(name);
                     let hash = BrBlob::hash(&content);
 
                     let content_id = if content.is_empty() {
@@ -305,41 +305,10 @@ impl BrPendingFs {
                         let blob_id = index.num_blobs;
                         index.num_blobs += 1;
 
-                        hash_to_blob_index.insert(hash.clone(), blob_id);
+                        hash_to_blob_index.insert(hash, blob_id);
                         index.blob_hashes.push(hash);
                         index.sizes_uncompressed.push(content.len() as i32);
-
-                        let start = blob_data.len();
-
-                        // Compress the content if a zstd level is specified
-                        if let Some(zstd_level) = zstd_level {
-                            let compressed =
-                                compress(&content, zstd_level).map_err(BrFsError::Compress)?;
-
-                            if compressed.len() < content.len() {
-                                index.sizes_compressed.push(compressed.len() as i32);
-                                index
-                                    .compression_methods
-                                    .push(CompressionMethod::GenericZstd);
-                                // Update the blob ranges with compressed size
-                                blob_data.extend_from_slice(&compressed);
-                            } else {
-                                // If the compressed size is larger than the uncompressed size,
-                                // store it as uncompressed
-                                index.sizes_compressed.push(content.len() as i32);
-                                index.compression_methods.push(CompressionMethod::None);
-                                // Update blob ranges with uncompressed size
-                                blob_data.extend_from_slice(&content);
-                            }
-                        } else {
-                            index.sizes_compressed.push(content.len() as i32);
-                            index
-                                .compression_methods
-                                .push(crate::brz::CompressionMethod::None);
-                            blob_data.extend_from_slice(&content);
-                        }
-
-                        index.blob_ranges.push((start, blob_data.len()));
+                        blobs.push(content);
                         blob_id
                     };
 
@@ -349,6 +318,46 @@ impl BrPendingFs {
                     // Noop - these files are ignored.
                 }
             }
+        }
+
+        // Compress every unique blob at the same level (in parallel when the
+        // workload warrants it), then pick per blob whichever of the
+        // compressed/raw forms is smaller, exactly as the sequential loop did.
+        let compressed = match zstd_level {
+            Some(level) if !blobs.is_empty() => {
+                Some(compress_blobs(&blobs, level).map_err(BrFsError::Compress)?)
+            }
+            _ => None,
+        };
+
+        let total_size: usize = blobs
+            .iter()
+            .enumerate()
+            .map(|(i, content)| match &compressed {
+                Some(z) if z[i].len() < content.len() => z[i].len(),
+                _ => content.len(),
+            })
+            .sum();
+
+        let mut blob_data = Vec::with_capacity(total_size);
+        for (i, content) in blobs.iter().enumerate() {
+            let start = blob_data.len();
+            match &compressed {
+                Some(z) if z[i].len() < content.len() => {
+                    index.sizes_compressed.push(z[i].len() as i32);
+                    index
+                        .compression_methods
+                        .push(CompressionMethod::GenericZstd);
+                    blob_data.extend_from_slice(&z[i]);
+                }
+                // Store raw when compression is off or does not shrink the blob
+                _ => {
+                    index.sizes_compressed.push(content.len() as i32);
+                    index.compression_methods.push(CompressionMethod::None);
+                    blob_data.extend_from_slice(content);
+                }
+            }
+            index.blob_ranges.push((start, blob_data.len()));
         }
         index.blob_total_size = blob_data.len();
 
@@ -518,6 +527,93 @@ impl BrPendingFs {
 
         Ok(curr)
     }
+}
+
+/// Hasher for keys that are already uniform digests (blake3 blob hashes):
+/// the first 8 bytes of the digest become the hash value directly.
+#[cfg(feature = "brz")]
+#[derive(Default)]
+struct DigestHasher(u64);
+
+#[cfg(feature = "brz")]
+type BuildDigestHasher = std::hash::BuildHasherDefault<DigestHasher>;
+
+#[cfg(feature = "brz")]
+impl std::hash::Hasher for DigestHasher {
+    fn write(&mut self, bytes: &[u8]) {
+        let mut buf = [0u8; 8];
+        let n = bytes.len().min(8);
+        buf[..n].copy_from_slice(&bytes[..n]);
+        self.0 = u64::from_le_bytes(buf);
+    }
+
+    fn finish(&self) -> u64 {
+        self.0
+    }
+}
+
+/// Below this many total bytes the blobs are compressed on the calling
+/// thread; spawning workers costs more than it saves.
+#[cfg(feature = "brz")]
+const PARALLEL_COMPRESS_MIN_BYTES: usize = 128 * 1024;
+
+/// Compress each blob independently at the same zstd level, returning the
+/// results in input order. Output bytes are identical to compressing the
+/// blobs one by one.
+#[cfg(feature = "brz")]
+fn compress_blobs(blobs: &[Vec<u8>], level: i32) -> Result<Vec<Vec<u8>>, std::io::Error> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use crate::compression::compress;
+
+    let total: usize = blobs.iter().map(|b| b.len()).sum();
+    // available_parallelism is Err on targets without threads (e.g. wasm),
+    // which routes those to the sequential path.
+    let workers = std::thread::available_parallelism()
+        .map_or(1, |n| n.get())
+        .min(blobs.len())
+        .min(total / (32 * 1024));
+    if workers <= 1 || total < PARALLEL_COMPRESS_MIN_BYTES {
+        return blobs.iter().map(|b| compress(b, level)).collect();
+    }
+
+    // Hand out the largest blobs first so no worker is left finishing a
+    // large blob alone after the others drain the queue.
+    let mut order: Vec<usize> = (0..blobs.len()).collect();
+    order.sort_by_key(|&i| std::cmp::Reverse(blobs[i].len()));
+    let next = AtomicUsize::new(0);
+
+    let chunks = std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..workers)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut out = Vec::new();
+                    loop {
+                        let slot = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(&i) = order.get(slot) else { break };
+                        out.push((i, compress(&blobs[i], level)));
+                    }
+                    out
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| h.join().unwrap_or_else(|e| std::panic::resume_unwind(e)))
+            .collect::<Vec<_>>()
+    });
+
+    let mut results: Vec<Option<Vec<u8>>> = Vec::new();
+    results.resize_with(blobs.len(), || None);
+    for chunk in chunks {
+        for (i, res) in chunk {
+            results[i] = Some(res?);
+        }
+    }
+    Ok(results
+        .into_iter()
+        .map(|r| r.expect("every blob index is scheduled exactly once"))
+        .collect())
 }
 
 impl Display for BrPendingFs {

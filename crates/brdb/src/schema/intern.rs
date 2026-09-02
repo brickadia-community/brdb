@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use indexmap::IndexSet;
+use rustc_hash::FxBuildHasher;
 
 use crate::{errors::BrdbSchemaError, schema::BrdbSchema};
 
@@ -9,7 +10,7 @@ pub struct BrdbInterned(pub(crate) usize);
 
 #[derive(Default, Clone, Debug)]
 pub struct BrdbIntern {
-    inner: IndexSet<String>,
+    inner: IndexSet<String, FxBuildHasher>,
 }
 
 impl BrdbIntern {

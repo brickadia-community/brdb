@@ -4,7 +4,7 @@ use crate::{
     schema::{
         BrdbInterned, BrdbSchema, BrdbSchemaGlobalData, BrdbStruct, BrdbValue,
         as_brdb::{AsBrdbIter, AsBrdbValue},
-        write::write_brdb,
+        write::{PlanCache, TopLevelMemo, write_brdb_cached, write_brdb_memoized},
     },
     schemas::BRICK_COMPONENT_SOA,
     wrapper::{BString, Quat4f, Vector3f},
@@ -68,14 +68,22 @@ impl ComponentChunkSoA {
         brick_index: u32,
         component: &dyn BrdbComponent,
     ) -> Result<(), BrdbWorldError> {
-        let Some(component_ty_name) = component.component_type() else {
-            return Ok(());
+        let owned_ty;
+        let component_ty_name: &str = match component.component_type_ref() {
+            Some(s) => s,
+            None => {
+                owned_ty = component.component_type();
+                let Some(b) = owned_ty.as_ref() else {
+                    return Ok(());
+                };
+                b.as_ref()
+            }
         };
         // The type must be registered in global_data (e.g. via
         // World::register_all_components) so it resolves to a counter index.
         let Some(type_index) = global_data
             .component_type_names
-            .get_index_of(component_ty_name.as_ref())
+            .get_index_of(component_ty_name)
         else {
             return Err(BrdbWorldError::UnregisteredComponentType(
                 component_ty_name.to_string(),
@@ -95,7 +103,7 @@ impl ComponentChunkSoA {
         }
         self.component_brick_indices.push(brick_index);
 
-        if global_data.get_struct_name(component_ty_name.as_ref()).is_some() {
+        if global_data.get_struct_name(component_ty_name).is_some() {
             self.unwritten_struct_data.push(component.boxed_component());
         }
         Ok(())
@@ -123,14 +131,17 @@ impl ComponentChunkSoA {
         }
 
         // Already one run per type: nothing to regroup.
-        if self.component_type_counters.len()
-            == self
-                .component_type_counters
-                .iter()
-                .map(|c| c.type_index)
-                .collect::<std::collections::HashSet<_>>()
-                .len()
-        {
+        let num_types = schema.global_data.component_type_names.len();
+        let mut seen = vec![false; num_types];
+        let mut distinct = 0usize;
+        for c in &self.component_type_counters {
+            let t = c.type_index as usize;
+            if t < num_types && !seen[t] {
+                seen[t] = true;
+                distinct += 1;
+            }
+        }
+        if self.component_type_counters.len() == distinct {
             return;
         }
 
@@ -156,10 +167,29 @@ impl ComponentChunkSoA {
             }
         }
 
-        // Stable sort component positions by type, grouping while keeping the
-        // ascending-brick-index order inside each type.
-        let mut order: Vec<usize> = (0..n).collect();
-        order.sort_by_key(|&i| types[i]);
+        // Stable counting sort of component positions by type, grouping while
+        // keeping the ascending-brick-index order inside each type. An
+        // out-of-table index (hand-built SoA) falls back to a stable sort.
+        let order: Vec<usize> = if types.iter().all(|&t| (t as usize) < num_types) {
+            let mut starts = vec![0u32; num_types + 1];
+            for &t in &types {
+                starts[t as usize + 1] += 1;
+            }
+            for i in 1..starts.len() {
+                starts[i] += starts[i - 1];
+            }
+            let mut order = vec![0usize; n];
+            for (i, &t) in types.iter().enumerate() {
+                let slot = &mut starts[t as usize];
+                order[*slot as usize] = i;
+                *slot += 1;
+            }
+            order
+        } else {
+            let mut order: Vec<usize> = (0..n).collect();
+            order.sort_by_key(|&i| types[i]);
+            order
+        };
 
         let new_brick_indices = order.iter().map(|&i| self.component_brick_indices[i]).collect();
         let mut old_data: Vec<Option<Box<dyn BrdbComponent>>> =
@@ -186,14 +216,36 @@ impl ComponentChunkSoA {
 
     pub fn to_bytes(mut self, schema: &BrdbSchema) -> Result<Vec<u8>, BrdbSchemaError> {
         self.group_by_type(schema);
-        let mut buf = schema.write_brdb(BRICK_COMPONENT_SOA, &self)?;
+        let mut cache = PlanCache::new(schema);
+        let mut buf = Vec::new();
+        write_brdb_cached(schema, &mut cache, &mut buf, BRICK_COMPONENT_SOA, &self)?;
 
+        // Type-name refs borrowed from the schema's global data are stable
+        // for the life of the memo, as write_brdb_memoized requires. The
+        // data is grouped by type, so the type -> struct resolution is also
+        // memoized on the previous component's type name.
+        let mut memo = TopLevelMemo::default();
+        let mut last_ty: Option<(String, Option<&str>)> = None;
         for (i, component_data) in self.unwritten_struct_data.into_iter().enumerate() {
-            let struct_ty = component_data
-                .component_type()
-                .and_then(|ty| schema.global_data.get_struct_name(ty.as_ref()));
+            let owned_ty;
+            let ty: &str = match component_data.component_type_ref() {
+                Some(s) => s,
+                None => {
+                    owned_ty = component_data.component_type();
+                    let Some(b) = owned_ty.as_ref() else { continue };
+                    b.as_ref()
+                }
+            };
+            let struct_ty = match &last_ty {
+                Some((t, s)) if t == ty => *s,
+                _ => {
+                    let s = schema.global_data.get_struct_name(ty);
+                    last_ty = Some((ty.to_owned(), s));
+                    s
+                }
+            };
             let Some(struct_ty) = struct_ty else { continue };
-            write_brdb(&schema, &mut buf, struct_ty, component_data.as_ref())
+            write_brdb_memoized(schema, &mut cache, &mut memo, &mut buf, struct_ty, component_data.as_ref())
                 .map_err(|e| e.wrap(format!("component data {i}: {struct_ty}")))?;
         }
         Ok(buf)
@@ -264,6 +316,14 @@ pub trait BrdbComponent: AsBrdbValue + BoxedComponent + Send + Sync {
     /// All other metadata (struct name, schema, wire ports, external assets) is
     /// resolved from the `ComponentLibrary` on `World`.
     fn component_type(&self) -> Option<BString> {
+        None
+    }
+
+    /// Borrowed form of [`BrdbComponent::component_type`] used by hot write
+    /// paths to avoid cloning the name per instance. `None` means "not
+    /// answerable by reference" and callers fall back to `component_type`,
+    /// NOT "this component has no type".
+    fn component_type_ref(&self) -> Option<&str> {
         None
     }
 }

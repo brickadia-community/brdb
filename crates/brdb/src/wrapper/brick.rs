@@ -1077,6 +1077,136 @@ impl AsBrdbValue for BrickChunkSoA {
     }
 }
 
+impl BrickChunkSoA {
+    /// Serialize the brick SoA. Uses a specialized writer when `schema` still
+    /// has the crate's known brick-chunk shape (verified structurally), and
+    /// the generic schema writer otherwise. Both produce identical bytes.
+    pub fn to_bytes(
+        &self,
+        schema: &crate::schema::BrdbSchema,
+    ) -> Result<Vec<u8>, crate::errors::BrdbSchemaError> {
+        if brick_schema_is_standard(schema) {
+            self.to_bytes_specialized()
+        } else {
+            schema.write_brdb(crate::schemas::BRICK_CHUNK_SOA, self)
+        }
+    }
+
+    fn to_bytes_specialized(&self) -> Result<Vec<u8>, crate::errors::BrdbSchemaError> {
+        use crate::schema::write::{write_bool, write_uint};
+        let n = self.brick_type_indices.len();
+        let mut buf = Vec::with_capacity(32 * n + 256);
+        write_uint(&mut buf, self.procedural_brick_starting_index as u64)?;
+        rmp::encode::write_array_len(&mut buf, self.brick_size_counters.len() as u32)?;
+        for c in &self.brick_size_counters {
+            write_uint(&mut buf, c.asset_index as u64)?;
+            write_uint(&mut buf, c.num_sizes as u64)?;
+        }
+        rmp::encode::write_array_len(&mut buf, self.brick_sizes.len() as u32)?;
+        for sz in &self.brick_sizes {
+            write_uint(&mut buf, sz.x as u64)?;
+            write_uint(&mut buf, sz.y as u64)?;
+            write_uint(&mut buf, sz.z as u64)?;
+        }
+        rmp::encode::write_array_len(&mut buf, self.brick_type_indices.len() as u32)?;
+        for v in &self.brick_type_indices {
+            write_uint(&mut buf, *v as u64)?;
+        }
+        rmp::encode::write_array_len(&mut buf, self.owner_indices.len() as u32)?;
+        for v in &self.owner_indices {
+            write_uint(&mut buf, *v as u64)?;
+        }
+        rmp::encode::write_array_len(&mut buf, self.original_owner_indices.len() as u32)?;
+        for v in &self.original_owner_indices {
+            write_uint(&mut buf, *v as u64)?;
+        }
+        // Flat arrays: bin header + little-endian element bytes.
+        rmp::encode::write_bin_len(&mut buf, (self.relative_positions.len() * 6) as u32)?;
+        for p in &self.relative_positions {
+            buf.extend_from_slice(&p.x.to_le_bytes());
+            buf.extend_from_slice(&p.y.to_le_bytes());
+            buf.extend_from_slice(&p.z.to_le_bytes());
+        }
+        rmp::encode::write_bin_len(&mut buf, self.orientations.len() as u32)?;
+        buf.extend_from_slice(&self.orientations);
+        for flags in [
+            &self.collision_flags_player,
+            &self.collision_flags_player1,
+            &self.collision_flags_player2,
+            &self.collision_flags_player3,
+            &self.collision_flags_weapon,
+            &self.collision_flags_interaction,
+            &self.collision_flags_physics,
+            &self.visibility_flags,
+        ] {
+            let bytes = flags.as_raw_bytes();
+            rmp::encode::write_bin_len(&mut buf, bytes.len() as u32)?;
+            buf.extend_from_slice(bytes);
+        }
+        rmp::encode::write_bin_len(&mut buf, self.material_indices.len() as u32)?;
+        buf.extend_from_slice(&self.material_indices);
+        rmp::encode::write_bin_len(&mut buf, (self.colors_and_alphas.len() * 4) as u32)?;
+        for c in &self.colors_and_alphas {
+            buf.extend_from_slice(&[c.r, c.g, c.b, c.a]);
+        }
+        // New saves always store sRGB colors (see the generic accessor).
+        write_bool(&mut buf, false)?;
+        Ok(buf)
+    }
+}
+
+/// Structural check that `schema` matches the brick-chunk shape the
+/// specialized writer hardcodes.
+pub(crate) fn brick_schema_is_standard(schema: &crate::schema::BrdbSchema) -> bool {
+    use crate::schema::write::{ShapeProp::*, struct_shape_matches};
+    struct_shape_matches(
+        schema,
+        "BRSavedBrickChunkSoA",
+        &[
+            ("ProceduralBrickStartingIndex", Ty("u32")),
+            ("BrickSizeCounters", Arr("BRSavedBrickSizeCounter")),
+            ("BrickSizes", Arr("BRSavedBrickSize")),
+            ("BrickTypeIndices", Arr("u32")),
+            ("OwnerIndices", Arr("u32")),
+            ("OriginalOwnerIndices", Arr("u32")),
+            ("RelativePositions", Flat("BRSavedRelativeBrickPosition")),
+            ("Orientations", Flat("u8")),
+            ("CollisionFlags_Player", Ty("BRSavedBitFlags")),
+            ("CollisionFlags_Player1", Ty("BRSavedBitFlags")),
+            ("CollisionFlags_Player2", Ty("BRSavedBitFlags")),
+            ("CollisionFlags_Player3", Ty("BRSavedBitFlags")),
+            ("CollisionFlags_Weapon", Ty("BRSavedBitFlags")),
+            ("CollisionFlags_Interaction", Ty("BRSavedBitFlags")),
+            ("CollisionFlags_Physics", Ty("BRSavedBitFlags")),
+            ("VisibilityFlags", Ty("BRSavedBitFlags")),
+            ("MaterialIndices", Flat("u8")),
+            ("ColorsAndAlphas", Flat("BRSavedBrickColor")),
+            ("bColorsAreLinear", Ty("bool")),
+        ],
+    ) && struct_shape_matches(
+        schema,
+        "BRSavedBrickSizeCounter",
+        &[("AssetIndex", Ty("u32")), ("NumSizes", Ty("u32"))],
+    ) && struct_shape_matches(
+        schema,
+        "BRSavedBrickSize",
+        &[("X", Ty("u16")), ("Y", Ty("u16")), ("Z", Ty("u16"))],
+    ) && struct_shape_matches(
+        schema,
+        "BRSavedRelativeBrickPosition",
+        &[("X", Ty("i16")), ("Y", Ty("i16")), ("Z", Ty("i16"))],
+    ) && struct_shape_matches(
+        schema,
+        "BRSavedBrickColor",
+        &[
+            ("R", Ty("u8")),
+            ("G", Ty("u8")),
+            ("B", Ty("u8")),
+            ("A", Ty("u8")),
+        ],
+    ) && struct_shape_matches(schema, "BRSavedBitFlags", &[("Flags", Flat("u8"))])
+}
+
 impl TryFrom<&BrdbValue> for BrickChunkSoA {
     type Error = crate::errors::BrdbSchemaError;
 

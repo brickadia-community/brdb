@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use indexmap::IndexSet;
+use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -11,17 +12,17 @@ use crate::{
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BrdbSchemaGlobalData {
-    pub entity_type_names: IndexSet<String>,
-    pub entity_data_class_names: IndexSet<String>,
-    pub basic_brick_asset_names: IndexSet<String>,
-    pub procedural_brick_asset_names: IndexSet<String>,
-    pub material_asset_names: IndexSet<String>,
-    pub component_type_names: IndexSet<String>,
+    pub entity_type_names: IndexSet<String, FxBuildHasher>,
+    pub entity_data_class_names: IndexSet<String, FxBuildHasher>,
+    pub basic_brick_asset_names: IndexSet<String, FxBuildHasher>,
+    pub procedural_brick_asset_names: IndexSet<String, FxBuildHasher>,
+    pub material_asset_names: IndexSet<String, FxBuildHasher>,
+    pub component_type_names: IndexSet<String, FxBuildHasher>,
     pub component_data_struct_names: Vec<String>,
-    pub component_wire_port_names: IndexSet<String>,
+    pub component_wire_port_names: IndexSet<String, FxBuildHasher>,
     /// Internal set for type checking, not used in the BRDB.
     pub external_asset_types: HashSet<String>,
-    pub external_asset_references: IndexSet<(String, String)>,
+    pub external_asset_references: IndexSet<(String, String), FxBuildHasher>,
     /// Index into `entity_type_names` for the BP_BrickGrid_Global_C entity type,
     /// or -1 if the save has no global grid.
     pub global_grid_entity_type_index: i32,

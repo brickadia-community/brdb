@@ -202,7 +202,9 @@ impl Brz {
 
     /// Write a brz archive to a byte vector.
     pub fn to_vec(&self, zstd_level: Option<i32>) -> Result<Vec<u8>, BrzError> {
-        let mut buf = Vec::new();
+        // 45 bytes of magic + header, the index (its uncompressed size is an
+        // upper bound; a compressed index is only used when smaller), blobs.
+        let mut buf = Vec::with_capacity(45 + self.index_data.byte_len() + self.blob_data.len());
         self.write(&mut buf, zstd_level)?;
         Ok(buf)
     }
@@ -255,7 +257,7 @@ impl Brz {
 
     /// Write a brz archive to a writer.
     pub fn write(&self, w: &mut impl Write, zstd_level: Option<i32>) -> Result<(), BrzError> {
-        w.write(b"BRZ")?;
+        w.write_all(b"BRZ")?;
         let mut index_data = self.index_data.to_vec()?;
         let index_size_uncompressed = index_data.len() as i32;
         let mut index_size_compressed = index_size_uncompressed;
@@ -425,8 +427,23 @@ impl BrzIndexData {
         })
     }
 
+    /// Exact serialized size of this index in bytes.
+    fn byte_len(&self) -> usize {
+        12 + self.folder_parent_ids.len() * 4
+            + self.folder_names.len() * 2
+            + self.folder_names.iter().map(|n| n.len()).sum::<usize>()
+            + self.file_parent_ids.len() * 4
+            + self.file_content_ids.len() * 4
+            + self.file_names.len() * 2
+            + self.file_names.iter().map(|n| n.len()).sum::<usize>()
+            + self.compression_methods.len()
+            + self.sizes_uncompressed.len() * 4
+            + self.sizes_compressed.len() * 4
+            + self.blob_hashes.len() * 32
+    }
+
     pub fn to_vec(&self) -> Result<Vec<u8>, BrzError> {
-        let mut buf = Vec::new();
+        let mut buf = Vec::with_capacity(self.byte_len());
         buf.write_all(&self.num_folders.to_le_bytes())?;
         buf.write_all(&self.num_files.to_le_bytes())?;
         buf.write_all(&self.num_blobs.to_le_bytes())?;

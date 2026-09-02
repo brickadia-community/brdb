@@ -149,7 +149,7 @@ pub enum BrdbSchemaError {
     #[error("invalid data size {1}/{2} for flat type {0}")]
     InvalidFlatDataSize(String, usize, usize),
     #[error("unsupported conversion from {0} to {1}")]
-    UnimplementedCast(String, &'static str),
+    UnimplementedCast(&'static str, &'static str),
     #[error("failed to parse schema: {0}")]
     ParseError(String),
     #[error("unknown wire variant: {0}")]
