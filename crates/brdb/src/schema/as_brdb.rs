@@ -2,7 +2,10 @@ use indexmap::{IndexMap, IndexSet};
 
 use crate::{
     errors::BrdbSchemaError,
-    schema::{BrdbInterned, BrdbSchema, BrdbSchemaEnum, BrdbStruct, BrdbValue, WireVariant},
+    schema::{
+        BrdbDynamicArray, BrdbDynamicEnum, BrdbDynamicMap, BrdbInterned, BrdbSchema,
+        BrdbSchemaEnum, BrdbStruct, BrdbValue, EA3WireVariant,
+    },
 };
 
 pub type BrdbArrayIter<'a> = Box<dyn ExactSizeIterator<Item = &'a dyn AsBrdbValue> + 'a>;
@@ -104,7 +107,9 @@ pub trait AsBrdbValue: Send + Sync {
         ))
     }
 
-    fn as_brdb_wire_variant(&self) -> Result<crate::schema::value::WireVariant, BrdbSchemaError> {
+    fn as_brdb_ea3_wire_variant(
+        &self,
+    ) -> Result<crate::schema::value::EA3WireVariant, BrdbSchemaError> {
         Err(BrdbSchemaError::UnimplementedCast(
             "wire variant",
             std::any::type_name::<Self>(),
@@ -114,27 +119,43 @@ pub trait AsBrdbValue: Send + Sync {
     /// Borrowed fast path for values that ARE wire variants. Must return
     /// `Some` only when the value encodes purely as a wire variant (its
     /// member/map/array probes all decline); the writer then skips those
-    /// probes and the clone `as_brdb_wire_variant` would make.
-    fn as_brdb_wire_variant_ref(&self) -> Option<&crate::schema::value::WireVariant> {
+    /// probes and the clone `as_brdb_ea3_wire_variant` would make.
+    fn as_brdb_ea3_wire_variant_ref(&self) -> Option<&crate::schema::value::EA3WireVariant> {
         None
     }
 
-    fn as_brdb_wire_array_variant(
-        &self,
-    ) -> Result<crate::schema::value::WireArrayVariant, BrdbSchemaError> {
+    /// A `dynamic_array` value: the element type name (a `types` entry) and
+    /// the elements.
+    fn as_brdb_dynamic_array(&self) -> Result<(&str, BrdbArrayIter<'_>), BrdbSchemaError> {
         Err(BrdbSchemaError::UnimplementedCast(
-            "wire array variant",
+            "dynamic array",
             std::any::type_name::<Self>(),
         ))
     }
 
-    fn as_brdb_wire_map_variant(
-        &self,
-    ) -> Result<crate::schema::value::WireMapVariant, BrdbSchemaError> {
+    /// A `dynamic_map` value: the key and value type names (`types` entries)
+    /// and the pairs.
+    fn as_brdb_dynamic_map(&self) -> Result<(&str, &str, BrdbMapIter<'_>), BrdbSchemaError> {
         Err(BrdbSchemaError::UnimplementedCast(
-            "wire map variant",
+            "dynamic map",
             std::any::type_name::<Self>(),
         ))
+    }
+
+    /// A `dynamic_enum` value: the enum type name (a `types` entry) and the
+    /// enum value.
+    fn as_brdb_dynamic_enum(&self) -> Result<(&str, i64), BrdbSchemaError> {
+        Err(BrdbSchemaError::UnimplementedCast(
+            "dynamic enum",
+            std::any::type_name::<Self>(),
+        ))
+    }
+
+    /// The decoded value itself, for values that are a [`BrdbValue`]. Lets
+    /// the variant writer pick an alternative by the value's own type (a
+    /// round-tripped read carries its member's value, not a tag).
+    fn as_brdb_value(&self) -> Option<&BrdbValue> {
+        None
     }
 
     /// When this value should encode as a named member of a schema `variant`
@@ -343,8 +364,8 @@ impl AsBrdbValue for BrdbValue {
             ))
         }
     }
-    fn as_brdb_wire_variant(&self) -> Result<WireVariant, BrdbSchemaError> {
-        if let BrdbValue::WireVar(wire) = self {
+    fn as_brdb_ea3_wire_variant(&self) -> Result<EA3WireVariant, BrdbSchemaError> {
+        if let BrdbValue::EA3WireVar(wire) = self {
             Ok(wire.to_owned())
         } else {
             Err(BrdbSchemaError::ExpectedType(
@@ -353,8 +374,38 @@ impl AsBrdbValue for BrdbValue {
             ))
         }
     }
-    fn as_brdb_wire_variant_ref(&self) -> Option<&WireVariant> {
-        if let BrdbValue::WireVar(wire) = self {
+    fn as_brdb_value(&self) -> Option<&BrdbValue> {
+        Some(self)
+    }
+    fn as_brdb_dynamic_array(&self) -> Result<(&str, BrdbArrayIter<'_>), BrdbSchemaError> {
+        match self {
+            BrdbValue::DynamicArray(a) => a.as_brdb_dynamic_array(),
+            _ => Err(BrdbSchemaError::ExpectedType(
+                "dynamic array".to_owned(),
+                self.get_type().to_string(),
+            )),
+        }
+    }
+    fn as_brdb_dynamic_map(&self) -> Result<(&str, &str, BrdbMapIter<'_>), BrdbSchemaError> {
+        match self {
+            BrdbValue::DynamicMap(m) => m.as_brdb_dynamic_map(),
+            _ => Err(BrdbSchemaError::ExpectedType(
+                "dynamic map".to_owned(),
+                self.get_type().to_string(),
+            )),
+        }
+    }
+    fn as_brdb_dynamic_enum(&self) -> Result<(&str, i64), BrdbSchemaError> {
+        match self {
+            BrdbValue::Enum(e) => Ok((e.get_name(), e.value as i64)),
+            _ => Err(BrdbSchemaError::ExpectedType(
+                "dynamic enum".to_owned(),
+                self.get_type().to_string(),
+            )),
+        }
+    }
+    fn as_brdb_ea3_wire_variant_ref(&self) -> Option<&EA3WireVariant> {
+        if let BrdbValue::EA3WireVar(wire) = self {
             Some(wire)
         } else {
             None
@@ -416,14 +467,28 @@ impl AsBrdbValue for BrdbValue {
     }
 }
 
+impl BrdbStruct {
+    /// The property for a field id of `schema`. Fields are keyed by this
+    /// struct's own schema; when writing with another schema (e.g. a value
+    /// read from a save, written with the built-in schema), the field is
+    /// matched by name.
+    fn prop_for(&self, schema: &BrdbSchema, prop_name: BrdbInterned) -> Option<&BrdbValue> {
+        if std::ptr::eq(&*self.schema, schema) {
+            return self.properties.get(&prop_name);
+        }
+        let name = schema.intern.lookup_ref(prop_name)?;
+        self.properties.get(&self.schema.intern.get(name)?)
+    }
+}
+
 impl AsBrdbValue for BrdbStruct {
     fn has_brdb_struct_prop(
         &self,
-        _schema: &BrdbSchema,
+        schema: &BrdbSchema,
         _struct_name: BrdbInterned,
         prop_name: BrdbInterned,
     ) -> bool {
-        self.properties.contains_key(&prop_name)
+        self.prop_for(schema, prop_name).is_some()
     }
 
     fn as_brdb_struct_prop_value(
@@ -432,7 +497,7 @@ impl AsBrdbValue for BrdbStruct {
         _struct_name: BrdbInterned,
         prop_name: BrdbInterned,
     ) -> Result<&dyn AsBrdbValue, BrdbSchemaError> {
-        if let Some(prop) = self.properties.get(&prop_name) {
+        if let Some(prop) = self.prop_for(schema, prop_name) {
             Ok(prop)
         } else {
             Err(BrdbSchemaError::MissingStructField(
@@ -454,7 +519,7 @@ impl AsBrdbValue for BrdbStruct {
         _struct_name: BrdbInterned,
         prop_name: BrdbInterned,
     ) -> Result<BrdbArrayIter<'_>, BrdbSchemaError> {
-        match self.properties.get(&prop_name) {
+        match self.prop_for(schema, prop_name) {
             Some(BrdbValue::Array(vec)) | Some(BrdbValue::FlatArray(vec)) => Ok(vec.as_brdb_iter()),
             _ => Err(BrdbSchemaError::MissingStructField(
                 schema
@@ -475,7 +540,7 @@ impl AsBrdbValue for BrdbStruct {
         _struct_name: BrdbInterned,
         prop_name: BrdbInterned,
     ) -> Result<BrdbMapIter<'_>, BrdbSchemaError> {
-        if let Some(BrdbValue::Map(map)) = self.properties.get(&prop_name) {
+        if let Some(BrdbValue::Map(map)) = self.prop_for(schema, prop_name) {
             Ok(Box::new(map.iter().map(|(k, v)| {
                 (k as &dyn AsBrdbValue, v as &dyn AsBrdbValue)
             })))
@@ -494,28 +559,34 @@ impl AsBrdbValue for BrdbStruct {
     }
 }
 
-impl AsBrdbValue for WireVariant {
-    fn as_brdb_wire_variant(&self) -> Result<WireVariant, BrdbSchemaError> {
+impl AsBrdbValue for BrdbDynamicArray {
+    fn as_brdb_dynamic_array(&self) -> Result<(&str, BrdbArrayIter<'_>), BrdbSchemaError> {
+        Ok((&self.element_type, self.values.as_brdb_iter()))
+    }
+}
+
+impl AsBrdbValue for BrdbDynamicMap {
+    fn as_brdb_dynamic_map(&self) -> Result<(&str, &str, BrdbMapIter<'_>), BrdbSchemaError> {
+        Ok((
+            &self.key_type,
+            &self.value_type,
+            self.entries.as_brdb_map_iter(),
+        ))
+    }
+}
+
+impl AsBrdbValue for BrdbDynamicEnum {
+    fn as_brdb_dynamic_enum(&self) -> Result<(&str, i64), BrdbSchemaError> {
+        Ok((&self.enum_name, self.value))
+    }
+}
+
+impl AsBrdbValue for EA3WireVariant {
+    fn as_brdb_ea3_wire_variant(&self) -> Result<EA3WireVariant, BrdbSchemaError> {
         Ok(self.clone())
     }
-    fn as_brdb_wire_variant_ref(&self) -> Option<&WireVariant> {
+    fn as_brdb_ea3_wire_variant_ref(&self) -> Option<&EA3WireVariant> {
         Some(self)
-    }
-}
-
-impl AsBrdbValue for crate::schema::value::WireArrayVariant {
-    fn as_brdb_wire_array_variant(
-        &self,
-    ) -> Result<crate::schema::value::WireArrayVariant, BrdbSchemaError> {
-        Ok(self.clone())
-    }
-}
-
-impl AsBrdbValue for crate::schema::value::WireMapVariant {
-    fn as_brdb_wire_map_variant(
-        &self,
-    ) -> Result<crate::schema::value::WireMapVariant, BrdbSchemaError> {
-        Ok(self.clone())
     }
 }
 
@@ -559,9 +630,9 @@ macro_rules! as_brdb_int(
             fn as_brdb_f64(&self) -> Result<f64, BrdbSchemaError> {
                 Ok(*self as f64)
             }
-            fn as_brdb_wire_variant(
+            fn as_brdb_ea3_wire_variant(
                 &self,
-            ) -> Result<WireVariant, BrdbSchemaError> {
+            ) -> Result<EA3WireVariant, BrdbSchemaError> {
                 Ok((*self).into())
             }
             fn as_brdb_enum(
@@ -589,10 +660,10 @@ macro_rules! as_brdb_float {
             fn as_brdb_f64(&self) -> Result<f64, BrdbSchemaError> {
                 Ok(*self as f64)
             }
-            fn as_brdb_wire_variant(
+            fn as_brdb_ea3_wire_variant(
                 &self,
-            ) -> Result<WireVariant, BrdbSchemaError> {
-                Ok(WireVariant::Number(*self as f64))
+            ) -> Result<EA3WireVariant, BrdbSchemaError> {
+                Ok(EA3WireVariant::Number(*self as f64))
             }
         }
     };
@@ -603,24 +674,26 @@ impl AsBrdbValue for bool {
     fn as_brdb_bool(&self) -> Result<bool, BrdbSchemaError> {
         Ok(*self)
     }
-    fn as_brdb_wire_variant(&self) -> Result<crate::schema::value::WireVariant, BrdbSchemaError> {
-        Ok(WireVariant::Bool(*self))
+    fn as_brdb_ea3_wire_variant(
+        &self,
+    ) -> Result<crate::schema::value::EA3WireVariant, BrdbSchemaError> {
+        Ok(EA3WireVariant::Bool(*self))
     }
 }
 impl AsBrdbValue for String {
     fn as_brdb_str(&self) -> Result<&str, BrdbSchemaError> {
         Ok(self)
     }
-    fn as_brdb_wire_variant(&self) -> Result<WireVariant, BrdbSchemaError> {
-        Ok(WireVariant::Str(self.clone()))
+    fn as_brdb_ea3_wire_variant(&self) -> Result<EA3WireVariant, BrdbSchemaError> {
+        Ok(EA3WireVariant::Str(self.clone()))
     }
 }
 impl AsBrdbValue for &str {
     fn as_brdb_str(&self) -> Result<&str, BrdbSchemaError> {
         Ok(self)
     }
-    fn as_brdb_wire_variant(&self) -> Result<WireVariant, BrdbSchemaError> {
-        Ok(WireVariant::Str(self.to_string()))
+    fn as_brdb_ea3_wire_variant(&self) -> Result<EA3WireVariant, BrdbSchemaError> {
+        Ok(EA3WireVariant::Str(self.to_string()))
     }
 }
 

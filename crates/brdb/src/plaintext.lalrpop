@@ -1,7 +1,7 @@
 use crate::{
     schema::{
-        BrdbStructPropRaw, PlaintextEnumBody as EnumBody, PlaintextStructBody as StructBody,
-        PlaintextVariantBody as VariantBody,
+        BrdbStructPropRaw, PlaintextDecl, PlaintextEnumBody as EnumBody,
+        PlaintextStructBody as StructBody, PlaintextVariantBody as VariantBody,
     },
     helpers::*
 };
@@ -18,11 +18,17 @@ struct MyStruct {
     field2: i32,
     field3: OtherStruct[],
     field4: u8[flat],
+    field5: dynamic_array,
 }
 variant MyVariant {
     f64,
     i64,
     SomeStruct,
+}
+types {
+    i64,
+    f64,
+    MyEnum,
 }
 */
 
@@ -35,37 +41,13 @@ match {
     _
 }
 
-pub Meta: (
-    Vec<(String, EnumBody)>,
-    Vec<(String, VariantBody)>,
-    Vec<(String, StructBody)>
-)
- = Decl+ => {
-    let mut enums = Vec::new();
-    let mut variants = Vec::new();
-    let mut structs = Vec::new();
-    for (e, v, s) in <> {
-        if let Some(e) = e {
-            enums.push(e);
-        }
-        if let Some(v) = v {
-            variants.push(v);
-        }
-        if let Some(s) = s {
-            structs.push(s);
-        }
-    }
-    (enums, variants, structs)
-};
+pub Meta: Vec<PlaintextDecl> = Decl+;
 
-Decl: (
-    Option<(String, EnumBody)>,
-    Option<(String, VariantBody)>,
-    Option<(String, StructBody)>
-) = {
-    Enum => (Some(<>), None, None),
-    Variant => (None, Some(<>), None),
-    Struct => (None, None, Some(<>)),
+Decl: PlaintextDecl = {
+    Enum => PlaintextDecl::Enum(<>.0, <>.1),
+    Variant => PlaintextDecl::Variant(<>.0, <>.1),
+    Struct => PlaintextDecl::Struct(<>.0, <>.1),
+    Types => PlaintextDecl::Types(<>),
 };
 
 Enum: (String, EnumBody) = "enum" <name:Ident> "{" <variants:Comma<EnumVariant>> "}" => {
@@ -76,10 +58,13 @@ EnumVariant: (String, i32) = <name:Ident> "=" <value:Integer> => {
 };
 
 // A tagged union: an ordered list of member type names. The encoded value is a
-// uint tag (the member index) followed by the value of that member type.
+// uint selector (the member index) followed by the value of that member type.
 Variant: (String, VariantBody) = "variant" <name:Ident> "{" <members:Comma<Ident>> "}" => {
     (name, members)
 };
+
+// The ordered types table that dynamic containers index into.
+Types: Vec<String> = "types" "{" <types:Comma<Ident>> "}" => types;
 
 Integer: i32 = { I32, Binary, Hex };
 I32: i32 =

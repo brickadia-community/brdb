@@ -12,14 +12,17 @@ use crate::{
 fn test_component_catalog() {
     use assets::components::{COMPONENTS, component};
     // Non-trivial and sorted by name (the `component` lookup binary-searches).
-    assert!(COMPONENTS.len() > 200, "catalog too small: {}", COMPONENTS.len());
+    assert!(
+        COMPONENTS.len() > 200,
+        "catalog too small: {}",
+        COMPONENTS.len()
+    );
     assert!(
         COMPONENTS.windows(2).all(|w| w[0].name < w[1].name),
         "COMPONENTS must be sorted by name for binary search"
     );
     // A known gate resolves with its wired ports and host brick.
-    let branch = component("BrickComponentType_WireGraph_Exec_Branch")
-        .expect("Branch gate present");
+    let branch = component("BrickComponentType_Exec_Branch").expect("Branch gate present");
     assert_eq!(branch.brick(), Some("B_1x1_Gate_Exec_Branch"));
     assert!(branch.inputs.contains(&"Exec"));
     assert!(branch.outputs.contains(&"ExecOutA"));
@@ -39,6 +42,50 @@ fn test_brick_half_extents() {
     assert_eq!(brick_half_extent("B_1x1F_Round"), Some([5, 5, 2]));
     assert_eq!(brick_half_extent("B_1x1_Reroute_Node"), Some([1, 1, 1]));
     assert_eq!(brick_half_extent("B_does_not_exist"), None);
+}
+
+#[test]
+fn test_procedural_gate_variants() {
+    use assets::components::{
+        PROCEDURAL_GATES, component, procedural_gate, procedural_gate_for_component,
+    };
+    assert!(
+        PROCEDURAL_GATES.windows(2).all(|w| w[0].asset < w[1].asset),
+        "PROCEDURAL_GATES must be sorted by asset for binary search"
+    );
+    for g in PROCEDURAL_GATES {
+        assert!(!g.variants.is_empty(), "{} has no variants", g.asset);
+        // Every gate brick is a host brick of its component in the catalog.
+        let info =
+            component(g.component).unwrap_or_else(|| panic!("{} not in COMPONENTS", g.component));
+        assert!(
+            info.bricks.contains(&g.asset),
+            "{} not a host of {}",
+            g.asset,
+            g.component
+        );
+        // Physical ports are a subset of the component's logical ports.
+        for v in g.variants {
+            for p in v.ports {
+                assert!(
+                    info.inputs.contains(p) || info.outputs.contains(p),
+                    "{}: unknown port {p}",
+                    g.asset
+                );
+            }
+        }
+    }
+    let q = procedural_gate("PB_Gate_QueueTicks").unwrap();
+    assert_eq!(q.component, "BrickComponentType_QueueTicks");
+    assert_eq!(
+        procedural_gate_for_component("BrickComponentType_QueueTicks"),
+        Some(q)
+    );
+    assert_eq!(q.variant([5, 5, 2]).map(|v| v.ports.len()), Some(8));
+    assert_eq!(q.variant([4, 5, 2]), None);
+    let v = q.smallest_with_ports(&["DataIn5"]).unwrap();
+    assert_eq!(v.half_size, [7, 5, 2]);
+    assert_eq!(procedural_gate("B_1x1_Gate_QueueTicks"), None);
 }
 
 #[test]
@@ -185,6 +232,25 @@ fn test_write_wire_save() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Writing EA3 worlds is not supported; asking for it fails instead of
+/// writing a world no game build can load.
+#[test]
+fn test_write_ea3_world_is_rejected() {
+    use crate::schema::BrdbSchemaFormat;
+    let mut world = World::new();
+    world.schema_format = BrdbSchemaFormat::EA3;
+    world.register_all_components();
+    world.bricks.push(Brick::default());
+    let err = world.to_unsaved().err().expect("EA3 worlds are not written");
+    assert!(
+        matches!(
+            err,
+            crate::BrError::World(crate::BrdbWorldError::Ea3WriteUnsupported)
+        ),
+        "{err}"
+    );
+}
+
 /// Writes a world with one brick to test.brdb
 #[test]
 fn test_write_entity_save() -> Result<(), Box<dyn std::error::Error>> {
@@ -216,6 +282,43 @@ fn test_write_entity_save() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{}", db.get_fs()?.render());
 
+    Ok(())
+}
+
+/// An authored dynamic grid with no explicit data gets the game's fresh-grid
+/// values, not zeros (which save an invisible, massless, gravity-free grid).
+#[test]
+fn test_dynamic_grid_entity_defaults_visible() -> Result<(), Box<dyn std::error::Error>> {
+    let db = Brdb::new_memory()?;
+    let mut world = World::new();
+    world.register_all_components();
+    world.add_brick_grid(
+        Entity::default(),
+        [Brick {
+            position: (0, 0, 3).into(),
+            ..Default::default()
+        }],
+    );
+    db.save("visible grid", &world)?;
+
+    let db = db.into_reader();
+    let schema = db.entities_schema()?;
+    let chunk = db.entity_chunk_index()?.into_iter().next().unwrap();
+    let buf = db.read_file(format!("World/0/Entities/Chunks/{chunk}.mps"))?;
+    let buf = &mut buf.as_slice();
+    buf.read_brdb(&schema, ENTITY_CHUNK_SOA)?;
+    let data = buf.read_brdb(&schema, "BrickGridDynamicActor")?;
+    for field in [
+        "bVisible",
+        "bEnableGravity",
+        "bUseNewMassCalculation",
+        "bReceivesDecals",
+    ] {
+        assert!(data.prop(field)?.as_brdb_bool()?, "{field}");
+    }
+    assert_eq!(data.prop("MassScale")?.as_brdb_f32()?, 1.0);
+    assert_eq!(data.prop("BouyancyScale")?.as_brdb_f32()?, 0.2);
+    assert!(!data.prop("bDetectableByAnyone")?.as_brdb_bool()?);
     Ok(())
 }
 
@@ -364,12 +467,10 @@ fn spawner_prefab_round_trip() -> Result<(), Box<dyn std::error::Error>> {
             ..Default::default()
         }
         .with_component(
-            assets::LiteralComponent::new("BrickComponentType_WireGraph_Exec_PrefabSpawner")
-                .with_data([(
-                    "Prefab",
-                    Box::new(prefab_path.clone())
-                        as Box<dyn crate::schema::as_brdb::AsBrdbValue>,
-                )]),
+            assets::LiteralComponent::new("BrickComponentType_Exec_PrefabSpawner").with_data([(
+                "Prefab",
+                Box::new(prefab_path.clone()) as Box<dyn crate::schema::as_brdb::AsBrdbValue>,
+            )]),
         ),
     );
     outer.make_prefab();
@@ -483,8 +584,8 @@ fn differential_world() -> World {
 #[test]
 fn test_specialized_soa_writers_match_generic() -> Result<(), Box<dyn std::error::Error>> {
     use crate::schema::write;
-    use crate::wrapper::{brick_schema_is_standard, wire_schema_is_standard};
     use crate::wrapper::schemas::{BRICK_CHUNK_SOA, BRICK_WIRE_SOA};
+    use crate::wrapper::{brick_schema_is_standard, wire_schema_is_standard};
 
     let unsaved = differential_world().to_unsaved()?;
     let wires_schema = crate::wrapper::schemas::bricks_wires_schema();
@@ -508,20 +609,39 @@ fn test_specialized_soa_writers_match_generic() -> Result<(), Box<dyn std::error
             for soa in grid.wires.values() {
                 let mut generic = Vec::new();
                 write::write_brdb(wires_schema, &mut generic, BRICK_WIRE_SOA, soa)?;
-                assert_eq!(soa.to_bytes(wires_schema)?, generic, "wire specialized vs generic");
-                assert_eq!(wires_schema.write_brdb(BRICK_WIRE_SOA, soa)?, generic, "wire cached vs generic");
+                assert_eq!(
+                    soa.to_bytes(wires_schema)?,
+                    generic,
+                    "wire specialized vs generic"
+                );
+                assert_eq!(
+                    wires_schema.write_brdb(BRICK_WIRE_SOA, soa)?,
+                    generic,
+                    "wire cached vs generic"
+                );
                 wire_chunks += 1;
             }
             for soa in grid.bricks.values() {
                 let mut generic = Vec::new();
                 write::write_brdb(bricks_schema, &mut generic, BRICK_CHUNK_SOA, soa)?;
-                assert_eq!(soa.to_bytes(bricks_schema)?, generic, "brick specialized vs generic");
-                assert_eq!(bricks_schema.write_brdb(BRICK_CHUNK_SOA, soa)?, generic, "brick cached vs generic");
+                assert_eq!(
+                    soa.to_bytes(bricks_schema)?,
+                    generic,
+                    "brick specialized vs generic"
+                );
+                assert_eq!(
+                    bricks_schema.write_brdb(BRICK_CHUNK_SOA, soa)?,
+                    generic,
+                    "brick cached vs generic"
+                );
                 brick_chunks += 1;
             }
         }
     }
-    assert!(wire_chunks > 0 && brick_chunks > 0, "no chunks compared: {wire_chunks} wire, {brick_chunks} brick");
+    assert!(
+        wire_chunks > 0 && brick_chunks > 0,
+        "no chunks compared: {wire_chunks} wire, {brick_chunks} brick"
+    );
     Ok(())
 }
 
@@ -561,23 +681,46 @@ fn test_plan_cache_matches_generic_for_pipeline_types() -> Result<(), Box<dyn st
     let unsaved = differential_world().to_unsaved()?;
     let mut compared = 0;
     for world in unsaved.worlds.values() {
-        cmp_paths(crate::wrapper::schemas::global_data_schema(), GLOBAL_DATA_SOA, &world.global_data)?;
-        cmp_paths(crate::wrapper::schemas::owners_schema(), OWNER_TABLE_SOA, &world.owners)?;
+        cmp_paths(
+            crate::wrapper::schemas::global_data_schema(),
+            GLOBAL_DATA_SOA,
+            &world.global_data,
+        )?;
+        cmp_paths(
+            crate::wrapper::schemas::owners_schema(),
+            OWNER_TABLE_SOA,
+            &world.owners,
+        )?;
         compared += 2;
         for grid in world.grids.values() {
-            cmp_paths(crate::wrapper::schemas::bricks_chunk_index_schema(), BRICK_CHUNK_INDEX_SOA, &grid.chunk_index)?;
+            cmp_paths(
+                crate::wrapper::schemas::bricks_chunk_index_schema(),
+                BRICK_CHUNK_INDEX_SOA,
+                &grid.chunk_index,
+            )?;
             compared += 1;
             for soa in grid.wires.values() {
-                cmp_paths(crate::wrapper::schemas::bricks_wires_schema(), BRICK_WIRE_SOA, soa)?;
+                cmp_paths(
+                    crate::wrapper::schemas::bricks_wires_schema(),
+                    BRICK_WIRE_SOA,
+                    soa,
+                )?;
                 compared += 1;
             }
             for soa in grid.bricks.values() {
-                cmp_paths(crate::wrapper::schemas::bricks_chunks_schema(), BRICK_CHUNK_SOA, soa)?;
+                cmp_paths(
+                    crate::wrapper::schemas::bricks_chunks_schema(),
+                    BRICK_CHUNK_SOA,
+                    soa,
+                )?;
                 compared += 1;
             }
         }
     }
-    assert!(compared >= 5, "expected several types compared, got {compared}");
+    assert!(
+        compared >= 5,
+        "expected several types compared, got {compared}"
+    );
     Ok(())
 }
 
@@ -590,8 +733,14 @@ fn test_write_then_read_round_trip() -> Result<(), Box<dyn std::error::Error>> {
     let reader = crate::Brz::read_slice(&bytes)?.into_reader();
     let fs = reader.get_fs()?;
     let rendered = fs.render();
-    assert!(rendered.contains("Bricks"), "no Bricks dir in round-tripped world");
-    assert!(rendered.contains("Wires"), "no Wires dir in round-tripped world");
+    assert!(
+        rendered.contains("Bricks"),
+        "no Bricks dir in round-tripped world"
+    );
+    assert!(
+        rendered.contains("Wires"),
+        "no Wires dir in round-tripped world"
+    );
     Ok(())
 }
 
@@ -627,13 +776,28 @@ fn test_plan_cache_matches_generic_for_component_data() -> Result<(), Box<dyn st
         let mut cached = Vec::new();
         let mut cache = write::PlanCache::new(schema);
         write::write_brdb_cached(schema, &mut cache, &mut cached, struct_ty, &comp)?;
-        assert_eq!(cached, generic, "plan cache diverged for component {}", info.name);
+        assert_eq!(
+            cached, generic,
+            "plan cache diverged for component {}",
+            info.name
+        );
 
         // The memoized entry point is what the real chunk writer uses.
         let mut memoized = Vec::new();
         let mut memo = write::TopLevelMemo::default();
-        write::write_brdb_memoized(schema, &mut cache, &mut memo, &mut memoized, struct_ty, &comp)?;
-        assert_eq!(memoized, generic, "memoized writer diverged for component {}", info.name);
+        write::write_brdb_memoized(
+            schema,
+            &mut cache,
+            &mut memo,
+            &mut memoized,
+            struct_ty,
+            &comp,
+        )?;
+        assert_eq!(
+            memoized, generic,
+            "memoized writer diverged for component {}",
+            info.name
+        );
         compared += 1;
     }
     assert!(
@@ -642,4 +806,3 @@ fn test_plan_cache_matches_generic_for_component_data() -> Result<(), Box<dyn st
     );
     Ok(())
 }
-

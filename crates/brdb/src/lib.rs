@@ -5,6 +5,7 @@ pub mod compression;
 mod errors;
 pub use errors::*;
 pub mod fs;
+pub mod migrate;
 pub mod pending;
 #[cfg(test)]
 mod pending_tests;

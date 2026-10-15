@@ -1,5 +1,5 @@
 use crate::{
-    schema::{BrdbValue, WireVariant, as_brdb::AsBrdbValue},
+    schema::{BrdbValue, EA3WireVariant, as_brdb::AsBrdbValue},
     wrapper::CHUNK_SIZE,
 };
 
@@ -35,8 +35,8 @@ impl AsBrdbValue for Vector3f {
             n => unimplemented!("unimplemented struct field {n}"),
         }
     }
-    fn as_brdb_wire_variant(&self) -> Result<WireVariant, crate::errors::BrdbSchemaError> {
-        Ok(WireVariant::Vector(*self))
+    fn as_brdb_ea3_wire_variant(&self) -> Result<EA3WireVariant, crate::errors::BrdbSchemaError> {
+        Ok(EA3WireVariant::Vector(*self))
     }
 }
 impl std::ops::Neg for Vector3f {

@@ -3,8 +3,11 @@ use std::rc::Rc;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::schema::{
-    BrdbInterned, BrdbSchema, BrdbSchemaEnum, BrdbSchemaStructProperty, as_brdb::AsBrdbValue,
-    read::flat_type_size,
+    BrdbInterned, BrdbSchema, BrdbSchemaEnum, BrdbSchemaStructProperty, DYNAMIC_ARRAY, DYNAMIC_MAP,
+    EA3_WIRE_GRAPH_PRIM_MATH_VARIANT, EA3_WIRE_GRAPH_VARIANT,
+    as_brdb::AsBrdbValue,
+    builtin_alias,
+    read::{FlatKind, flat_layout, flat_type_size},
 };
 
 /// A compiled per-type "write plan": one schema struct's field list with
@@ -80,8 +83,10 @@ pub(crate) enum PlanOp<'a> {
     F32,
     F64,
     Str,
-    WireVariantLegacy,
-    WirePrimMath,
+    /// `nil`: no payload.
+    Nil,
+    EA3WireGraphVariant,
+    EA3WireGraphPrimMathVariant,
     BundlePathRef,
     Asset(&'a str),
     Enum {
@@ -118,13 +123,16 @@ pub(crate) enum FlatOp<'a> {
 
 pub(crate) struct FlatStructPlan<'a> {
     pub(crate) s_id: BrdbInterned,
-    pub(crate) props: Vec<(BrdbInterned, FlatOp<'a>)>,
+    /// Field, its op, and the zero padding written before it.
+    pub(crate) props: Vec<(BrdbInterned, FlatOp<'a>, usize)>,
+    /// Zero padding after the last field, up to the struct size.
+    pub(crate) tail_pad: usize,
 }
 
-/// Tags of the wire-variant members within one named variant type, resolved
+/// Tags of the EA3 wire-variant members within one named variant type, resolved
 /// once per variant. `None` = the variant has no such member; the unplanned
 /// writer's `ExpectedType` error is reproduced at write time.
-pub(crate) struct WireTags {
+pub(crate) struct EA3WireTags {
     pub(crate) number: Option<u64>,
     pub(crate) int: Option<u64>,
     pub(crate) boolean: Option<u64>,
@@ -142,7 +150,7 @@ pub(crate) struct VariantPlan<'a> {
     /// Ordered members (tag = index): member type name (`None` when the
     /// interned id cannot be resolved) and its write op.
     pub(crate) members: Vec<(Option<&'a str>, PlanOp<'a>)>,
-    pub(crate) wire: WireTags,
+    pub(crate) ea3_wire: EA3WireTags,
 }
 
 pub(crate) struct PlanCache<'a> {
@@ -179,10 +187,12 @@ impl<'a> PlanCache<'a> {
             "f32" => PlanOp::F32,
             "f64" => PlanOp::F64,
             "str" => PlanOp::Str,
-            "wire_graph_variant" => PlanOp::WireVariantLegacy,
-            "wire_graph_prim_math_variant" => PlanOp::WirePrimMath,
+            "nil" => PlanOp::Nil,
+            EA3_WIRE_GRAPH_VARIANT => PlanOp::EA3WireGraphVariant,
+            EA3_WIRE_GRAPH_PRIM_MATH_VARIANT => PlanOp::EA3WireGraphPrimMathVariant,
             "bundle_path_ref" => PlanOp::BundlePathRef,
-            "class" | "object" => PlanOp::Asset(ty),
+            "class" | "object" | "weak_object" => PlanOp::Asset(ty),
+            DYNAMIC_ARRAY | DYNAMIC_MAP => PlanOp::Fallback(ty),
             other => match self.schema.intern.get(other) {
                 Some(id) => self.resolve_named(id, other),
                 None => PlanOp::Fallback(other),
@@ -204,6 +214,8 @@ impl<'a> PlanCache<'a> {
             }
         } else if let Some(def) = schema.get_enum_interned(id) {
             PlanOp::Enum { name, def }
+        } else if let Some(alias) = builtin_alias(name) {
+            self.resolve_op(alias)
         } else {
             PlanOp::Fallback(name)
         }
@@ -212,7 +224,11 @@ impl<'a> PlanCache<'a> {
     /// Build (or fetch) the plan for a schema struct. `None`: unplannable
     /// (an interned name failed to resolve); callers fall back to the
     /// unplanned writer for the whole struct.
-    pub(crate) fn struct_plan(&mut self, s_id: BrdbInterned, name: &'a str) -> Option<Rc<StructPlan<'a>>> {
+    pub(crate) fn struct_plan(
+        &mut self,
+        s_id: BrdbInterned,
+        name: &'a str,
+    ) -> Option<Rc<StructPlan<'a>>> {
         if let Some(cached) = self.structs.get(&s_id) {
             return cached.clone();
         }
@@ -243,10 +259,11 @@ impl<'a> PlanCache<'a> {
                     let ty_str = schema.intern.lookup_ref(*ty_id)?;
                     let op = self.resolve_op(ty_str);
                     let mut dbuf = Vec::new();
-                    let default_bytes =
-                        super::write_struct_field_default(schema, &mut dbuf, name, prop_name, ty_str)
-                            .ok()
-                            .map(|_| dbuf.into_boxed_slice());
+                    let default_bytes = super::write_struct_field_default(
+                        schema, &mut dbuf, name, prop_name, ty_str,
+                    )
+                    .ok()
+                    .map(|_| dbuf.into_boxed_slice());
                     FieldKind::Scalar {
                         op,
                         ty_str,
@@ -320,18 +337,32 @@ impl<'a> PlanCache<'a> {
         let schema = self.schema;
         let s_id = schema.intern.get(name)?;
         let s_ty = schema.get_struct_interned(s_id)?;
+        let layout = flat_layout(schema, name)?;
+        let FlatKind::Struct(_, fields) = &layout.kind else {
+            return None;
+        };
         let mut props = Vec::with_capacity(s_ty.len());
-        for (prop_id, prop_schema) in s_ty {
+        let mut pos = 0;
+        for ((prop_id, prop_schema), (_, offset, field)) in s_ty.iter().zip(fields) {
             let BrdbSchemaStructProperty::Type(prop_ty_id) = prop_schema else {
                 return None;
             };
             let prop_ty = schema.intern.lookup_ref(*prop_ty_id)?;
-            props.push((*prop_id, self.resolve_flat_op(prop_ty)));
+            props.push((*prop_id, self.resolve_flat_op(prop_ty), offset - pos));
+            pos = offset + field.size;
         }
-        Some(FlatStructPlan { s_id, props })
+        Some(FlatStructPlan {
+            s_id,
+            props,
+            tail_pad: layout.size - pos,
+        })
     }
 
-    pub(crate) fn variant_plan(&mut self, v_id: BrdbInterned, name: &'a str) -> Rc<VariantPlan<'a>> {
+    pub(crate) fn variant_plan(
+        &mut self,
+        v_id: BrdbInterned,
+        name: &'a str,
+    ) -> Rc<VariantPlan<'a>> {
         if let Some(plan) = self.variants.get(&v_id) {
             return plan.clone();
         }
@@ -356,28 +387,27 @@ impl<'a> PlanCache<'a> {
                 .position(|(m, _)| *m == Some(n))
                 .map(|i| i as u64)
         };
-        let wire = WireTags {
+        let ea3_wire = EA3WireTags {
             number: find("f64"),
             int: find("i64"),
-            boolean: find("bool"),
+            boolean: find("bool").or_else(|| find("Bool")),
             object: find("weak_object"),
             exec: find("WireGraphExec"),
             vector: find("Vector"),
             rotator: find("Rotator"),
             quat: find("Quat"),
-            string: find("str"),
+            string: find("str").or_else(|| find("Str")),
             linear_color: find("LinearColor"),
         };
         let plan = Rc::new(VariantPlan {
             name,
             members,
-            wire,
+            ea3_wire,
         });
         self.variants.insert(v_id, plan.clone());
         plan
     }
 }
-
 
 /// One-entry memo for consecutive `write_brdb_cached` calls with the same
 /// type-name reference, keyed by the `&str`'s address and length. Sound only
@@ -388,4 +418,3 @@ impl<'a> PlanCache<'a> {
 pub(crate) struct TopLevelMemo<'a> {
     pub(crate) last: Option<(*const u8, usize, PlanOp<'a>)>,
 }
-

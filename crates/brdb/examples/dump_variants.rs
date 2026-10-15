@@ -13,7 +13,7 @@ fn run<T: BrFsReader>(db: &BrReader<T>) -> Result<(), Box<dyn std::error::Error>
     });
 
     for (name, bytes) in &schemas {
-        let (_enums, variants, _structs) = BrdbSchema::read_to_meta(bytes.as_slice())?;
+        let (_enums, variants, _structs, _types) = BrdbSchema::read_to_meta(bytes.as_slice())?;
         if variants.is_empty() {
             continue;
         }

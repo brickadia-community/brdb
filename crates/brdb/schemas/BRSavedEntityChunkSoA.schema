@@ -1,10 +1,267 @@
+enum EBRColorSpace {
+    EBRColorSpace::Linear = 0,
+    EBRColorSpace::Srgb = 1,
+    EBRColorSpace::Oklab = 2,
+    EBRColorSpace::Hsv = 3,
+    EBRColorSpace::EBRColorSpace_MAX = 4,
+}
+enum EBRDisplayTextEasing {
+    EBRDisplayTextEasing::Linear = 0,
+    EBRDisplayTextEasing::EaseIn = 1,
+    EBRDisplayTextEasing::EaseOut = 2,
+    EBRDisplayTextEasing::EaseInOut = 3,
+    EBRDisplayTextEasing::EBRDisplayTextEasing_MAX = 4,
+}
+enum EBRDisplayTextJustification {
+    EBRDisplayTextJustification::Left = 0,
+    EBRDisplayTextJustification::Center = 1,
+    EBRDisplayTextJustification::Right = 2,
+    EBRDisplayTextJustification::EBRDisplayTextJustification_MAX = 3,
+}
+enum EBREasingDirection {
+    EBREasingDirection::In = 0,
+    EBREasingDirection::Out = 1,
+    EBREasingDirection::InOut = 2,
+    EBREasingDirection::EBREasingDirection_MAX = 3,
+}
+enum EBREasingFunction {
+    EBREasingFunction::Linear = 0,
+    EBREasingFunction::Sine = 1,
+    EBREasingFunction::Quad = 2,
+    EBREasingFunction::Cubic = 3,
+    EBREasingFunction::Quart = 4,
+    EBREasingFunction::Quint = 5,
+    EBREasingFunction::Expo = 6,
+    EBREasingFunction::Circ = 7,
+    EBREasingFunction::Back = 8,
+    EBREasingFunction::Elastic = 9,
+    EBREasingFunction::Bounce = 10,
+    EBREasingFunction::EBREasingFunction_MAX = 11,
+}
+enum EBRGridCollisionQuality {
+    EBRGridCollisionQuality::Coarse = 0,
+    EBRGridCollisionQuality::Fine = 1,
+    EBRGridCollisionQuality::EBRGridCollisionQuality_MAX = 2,
+}
+enum EBrickAerodynamicForceApplication {
+    EBrickAerodynamicForceApplication::Stabilized = 0,
+    EBrickAerodynamicForceApplication::AtSurface = 1,
+    EBrickAerodynamicForceApplication::LongitudinallyStabilized = 2,
+    EBrickAerodynamicForceApplication::EBrickAerodynamicForceApplication_MAX = 3,
+}
+enum EBrickAerodynamicSurfaceRole {
+    EBrickAerodynamicSurfaceRole::Auto = 0,
+    EBrickAerodynamicSurfaceRole::Fixed = 1,
+    EBrickAerodynamicSurfaceRole::Pitch = 2,
+    EBrickAerodynamicSurfaceRole::Roll = 3,
+    EBrickAerodynamicSurfaceRole::Yaw = 4,
+    EBrickAerodynamicSurfaceRole::EBrickAerodynamicSurfaceRole_MAX = 5,
+}
+enum EBrickAxis {
+    EBrickAxis::X = 0,
+    EBrickAxis::Y = 1,
+    EBrickAxis::Z = 2,
+    EBrickAxis::MAX = 3,
+}
+enum EBrickDirection {
+    EBrickDirection::X_Positive = 0,
+    EBrickDirection::X_Negative = 1,
+    EBrickDirection::Y_Positive = 2,
+    EBrickDirection::Y_Negative = 3,
+    EBrickDirection::Z_Positive = 4,
+    EBrickDirection::Z_Negative = 5,
+    EBrickDirection::MAX = 6,
+}
+enum EBrickLightRayTracingVisibility {
+    EBrickLightRayTracingVisibility::Both = 0,
+    EBrickLightRayTracingVisibility::HWRTOnly = 1,
+    EBrickLightRayTracingVisibility::NonHWRTOnly = 2,
+    EBrickLightRayTracingVisibility::EBrickLightRayTracingVisibility_MAX = 3,
+}
+enum EBrickMaterial {
+    EBrickMaterial::Plastic = 0,
+    EBrickMaterial::Glass = 1,
+    EBrickMaterial::TranslucentPlastic = 2,
+    EBrickMaterial::Glow = 3,
+    EBrickMaterial::Metal = 4,
+    EBrickMaterial::Hologram = 5,
+    EBrickMaterial::EBrickMaterial_MAX = 6,
+}
+enum EBrickRigidJointInterpMode {
+    EBrickRigidJointInterpMode::Snap = 0,
+    EBrickRigidJointInterpMode::Linear = 1,
+    EBrickRigidJointInterpMode::Smooth = 2,
+    EBrickRigidJointInterpMode::EBrickRigidJointInterpMode_MAX = 3,
+}
+enum EBrickSeatAirStrafeControl {
+    EBrickSeatAirStrafeControl::Roll = 0,
+    EBrickSeatAirStrafeControl::Yaw = 1,
+    EBrickSeatAirStrafeControl::EBrickSeatAirStrafeControl_MAX = 2,
+}
+enum EBrickSeatCameraOrigin {
+    EBrickSeatCameraOrigin::Seat = 0,
+    EBrickSeatCameraOrigin::GridCenter = 1,
+    EBrickSeatCameraOrigin::EBrickSeatCameraOrigin_MAX = 2,
+}
+enum EBrickSeatFlightInvertOverride {
+    EBrickSeatFlightInvertOverride::UsePlayerSetting = 0,
+    EBrickSeatFlightInvertOverride::NotInverted = 1,
+    EBrickSeatFlightInvertOverride::Inverted = 2,
+    EBrickSeatFlightInvertOverride::EBrickSeatFlightInvertOverride_MAX = 3,
+}
+enum EBrickSeatMode {
+    EBrickSeatMode::Auto = 0,
+    EBrickSeatMode::Ground = 1,
+    EBrickSeatMode::GroundUnlocked = 2,
+    EBrickSeatMode::Air = 3,
+    EBrickSeatMode::EBrickSeatMode_MAX = 4,
+}
+enum EBrickThrusterForceApplication {
+    EBrickThrusterForceApplication::CenterOfMass = 0,
+    EBrickThrusterForceApplication::AtThruster = 1,
+    EBrickThrusterForceApplication::EBrickThrusterForceApplication_MAX = 2,
+}
+enum EBrickVehicleFlightHandling {
+    EBrickVehicleFlightHandling::Physical = 0,
+    EBrickVehicleFlightHandling::Arcade = 1,
+    EBrickVehicleFlightHandling::EBrickVehicleFlightHandling_MAX = 2,
+}
+enum EBrickVehicleMassDistribution {
+    EBrickVehicleMassDistribution::Compact = 0,
+    EBrickVehicleMassDistribution::VehicleBounds = 1,
+    EBrickVehicleMassDistribution::EBrickVehicleMassDistribution_MAX = 2,
+}
+enum EBRPawnCollisionChannel {
+    EBRPawnCollisionChannel::Channel1 = 0,
+    EBRPawnCollisionChannel::Channel2 = 1,
+    EBRPawnCollisionChannel::Channel3 = 2,
+    EBRPawnCollisionChannel::Channel4 = 3,
+    EBRPawnCollisionChannel::EBRPawnCollisionChannel_MAX = 4,
+}
+enum EBRReverbEffect {
+    EBRReverbEffect::Default = 0,
+    EBRReverbEffect::SmallRoom = 1,
+    EBRReverbEffect::LongHallway = 2,
+    EBRReverbEffect::ExteriorEcho = 3,
+    EBRReverbEffect::EBRReverbEffect_MAX = 4,
+}
+enum EBRSweepCollisionChannel {
+    EBRSweepCollisionChannel::Physics = 0,
+    EBRSweepCollisionChannel::Weapon = 1,
+    EBRSweepCollisionChannel::Interaction = 2,
+    EBRSweepCollisionChannel::Tool = 3,
+    EBRSweepCollisionChannel::Player1 = 4,
+    EBRSweepCollisionChannel::Player2 = 5,
+    EBRSweepCollisionChannel::Player3 = 6,
+    EBRSweepCollisionChannel::Player4 = 7,
+    EBRSweepCollisionChannel::NoAdditionalRestriction = 8,
+    EBRSweepCollisionChannel::EBRSweepCollisionChannel_MAX = 9,
+}
+enum EBRTextFacing {
+    EBRTextFacing::None = 0,
+    EBRTextFacing::Full = 1,
+    EBRTextFacing::InPlane = 2,
+    EBRTextFacing::EBRTextFacing_MAX = 3,
+}
+enum EBRTextMaterial {
+    EBRTextMaterial::Unlit = 0,
+    EBRTextMaterial::Graffiti = 1,
+    EBRTextMaterial::Plastic = 2,
+    EBRTextMaterial::Metallic = 3,
+    EBRTextMaterial::Glow = 4,
+    EBRTextMaterial::TranslucentPlastic = 5,
+    EBRTextMaterial::Glass = 6,
+    EBRTextMaterial::EBRTextMaterial_MAX = 7,
+}
+enum EBRTextOutline {
+    EBRTextOutline::None = 0,
+    EBRTextOutline::Inlined = 1,
+    EBRTextOutline::Outlined = 2,
+    EBRTextOutline::HollowInlined = 3,
+    EBRTextOutline::HollowOutlined = 4,
+    EBRTextOutline::EBRTextOutline_MAX = 5,
+}
+enum EBRTextShading {
+    EBRTextShading::None = 0,
+    EBRTextShading::Chamfer = 1,
+    EBRTextShading::Fillet = 2,
+    EBRTextShading::DoubleChamfer = 3,
+    EBRTextShading::DoubleFillet = 4,
+    EBRTextShading::Rounded = 5,
+    EBRTextShading::EBRTextShading_MAX = 6,
+}
+enum EBRTextTypeface {
+    EBRTextTypeface::Regular = 0,
+    EBRTextTypeface::Bold = 1,
+    EBRTextTypeface::Italic = 2,
+    EBRTextTypeface::BoldItalic = 3,
+    EBRTextTypeface::EBRTextTypeface_MAX = 4,
+}
+enum EProjectileSpawnLocation {
+    EProjectileSpawnLocation::FaceCenter = 0,
+    EProjectileSpawnLocation::RandomPointInFace = 1,
+    EProjectileSpawnLocation::EProjectileSpawnLocation_MAX = 2,
+}
+enum EWireKind {
+    EWireKind::Bool = 0,
+    EWireKind::Integer = 1,
+    EWireKind::Double = 2,
+    EWireKind::Color = 3,
+    EWireKind::Vector = 4,
+    EWireKind::Rotator = 5,
+    EWireKind::Quat = 6,
+    EWireKind::String = 7,
+    EWireKind::Enum = 8,
+    EWireKind::Object = 9,
+    EWireKind::Brick = 10,
+    EWireKind::Component = 11,
+    EWireKind::Exec = 12,
+    EWireKind::Float = 13,
+    EWireKind::Int8 = 14,
+    EWireKind::Int16 = 15,
+    EWireKind::Int32 = 16,
+    EWireKind::UInt8 = 17,
+    EWireKind::UInt16 = 18,
+    EWireKind::UInt32 = 19,
+    EWireKind::UInt64 = 20,
+    EWireKind::Vector2f = 21,
+    EWireKind::Vector3f = 22,
+    EWireKind::Rotator3f = 23,
+    EWireKind::Quat4f = 24,
+    EWireKind::ByteColor = 25,
+    EWireKind::EnumProperty = 26,
+    EWireKind::StrongObject = 27,
+    EWireKind::WireValue = 28,
+    EWireKind::None = 29,
+    EWireKind::EWireKind_MAX = 30,
+}
+variant WireValue {
+    Bool,
+    i64,
+    f64,
+    LinearColor,
+    Vector,
+    Rotator,
+    Quat,
+    str,
+    dynamic_enum,
+    weak_object,
+    BRSavedBrickRef,
+    BRSavedComponentRef,
+    WireGraphExec,
+}
 struct BrickGridDynamicActor {
     BouyancyScale: f32,
     MassScale: f32,
     bEnableGravity: bool,
     bUseNewMassCalculation: bool,
     bReceivesDecals: bool,
+    bVisible: bool,
+    CollisionQuality: EBRGridCollisionQuality,
     EntityTag: str,
+    CustomProperties: {str: WireValue},
+    GameModeTeamName: str,
+    bDetectableByAnyone: bool,
 }
 struct BRSavedBitFlags {
     Flags: u8[flat],
@@ -15,6 +272,11 @@ struct BRSavedBrickColor {
     B: u8,
     A: u8,
 }
+struct BRSavedChunk3DIndex {
+    X: i16,
+    Y: i16,
+    Z: i16,
+}
 struct BRSavedEntityTypeCounter {
     TypeIndex: u32,
     NumEntities: u32,
@@ -24,21 +286,51 @@ struct IntVector {
     Y: i32,
     Z: i32,
 }
+struct LinearColor {
+    R: f32,
+    G: f32,
+    B: f32,
+    A: f32,
+}
+struct Quat {
+    X: f64,
+    Y: f64,
+    Z: f64,
+    W: f64,
+}
 struct Quat4f {
     X: f32,
     Y: f32,
     Z: f32,
     W: f32,
 }
+struct Rotator {
+    Pitch: f64,
+    Yaw: f64,
+    Roll: f64,
+}
+struct Vector {
+    X: f64,
+    Y: f64,
+    Z: f64,
+}
 struct Vector3f {
     X: f32,
     Y: f32,
     Z: f32,
 }
+struct WireGraphExec {
+}
 struct BP_MicrochipBrickGridDynamicActor_C {
     bCollapsed: bool,
+    bLegacyIOSlotOrder: bool,
     PlaneCenter: IntVector,
     PlaneExtent: IntVector,
+}
+struct BRSavedBrickRef {
+    GridPersistentIndex: u32,
+    ChunkIndex: BRSavedChunk3DIndex,
+    BrickIndexInChunk: u32,
 }
 struct BRSavedEntityColors {
     Color0: BRSavedBrickColor,
@@ -50,20 +342,54 @@ struct BRSavedEntityColors {
     Color6: BRSavedBrickColor,
     Color7: BRSavedBrickColor,
 }
+struct BRSavedComponentRef {
+    Brick: BRSavedBrickRef,
+    ComponentTypeIndex: u16,
+}
 struct BRSavedEntityChunkSoA {
     TypeCounters: BRSavedEntityTypeCounter[],
     PersistentIndices: u32[],
+    PrefabSpawnInstanceIndices: u32[],
     OwnerIndices: u32[],
     OriginalOwnerIndices: u32[],
     Locations: Vector3f[flat],
     Rotations: Quat4f[flat],
-    WeldParentFlags: BRSavedBitFlags,
     PhysicsLockedFlags: BRSavedBitFlags,
     PhysicsSleepingFlags: BRSavedBitFlags,
-    WeldParentIndices: u32[],
     LinearVelocities: Vector3f[flat],
     AngularVelocities: Vector3f[flat],
     ColorsAndAlphas: BRSavedEntityColors[flat],
     RemainingLifeSpans: f32[flat],
     bColorsAreLinear: bool,
+}
+types {
+    EBrickDirection,
+    EBrickAxis,
+    EBRPawnCollisionChannel,
+    EBRTextShading,
+    EBRTextOutline,
+    EBRTextMaterial,
+    EBRTextTypeface,
+    EBRTextFacing,
+    EBREasingFunction,
+    EBREasingDirection,
+    EBRColorSpace,
+    EProjectileSpawnLocation,
+    EBrickRigidJointInterpMode,
+    EBRDisplayTextJustification,
+    EBRDisplayTextEasing,
+    EBrickMaterial,
+    EBrickLightRayTracingVisibility,
+    EBrickSeatMode,
+    EBrickSeatCameraOrigin,
+    EBrickSeatFlightInvertOverride,
+    EBrickSeatAirStrafeControl,
+    EBrickAerodynamicSurfaceRole,
+    EBrickAerodynamicForceApplication,
+    EBrickThrusterForceApplication,
+    EBrickVehicleFlightHandling,
+    EBrickVehicleMassDistribution,
+    EBRSweepCollisionChannel,
+    EBRReverbEffect,
+    EWireKind,
 }

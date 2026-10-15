@@ -407,9 +407,27 @@ impl<T> BrReader<T> {
             // Added alongside the microchip schema work. Older saves won't
             // have this field; default to -1 (no global grid registered).
             global_grid_entity_type_index: if mps_struct.contains_key("GlobalGridEntityTypeIndex") {
-                mps_struct.prop("GlobalGridEntityTypeIndex")?.as_brdb_i32()?
+                mps_struct
+                    .prop("GlobalGridEntityTypeIndex")?
+                    .as_brdb_i32()?
             } else {
                 -1
+            },
+            // Latest saves only.
+            prefab_spawn_instance_indices: if mps_struct.contains_key("PrefabSpawnInstanceIndices")
+            {
+                mps_struct.prop("PrefabSpawnInstanceIndices")?.try_into()?
+            } else {
+                Vec::new()
+            },
+            prefab_spawn_instance_parent_indices: if mps_struct
+                .contains_key("PrefabSpawnInstanceParentIndices")
+            {
+                mps_struct
+                    .prop("PrefabSpawnInstanceParentIndices")?
+                    .try_into()?
+            } else {
+                Vec::new()
             },
         }))
     }
@@ -824,12 +842,13 @@ impl<T> BrReader<T> {
                     let value = buf.read_brdb(&schema, struct_name).map_err(|e| {
                         e.wrap(format!("Read entity {i} {type_name}/{struct_name}"))
                     })?;
-                    let hm: std::collections::HashMap<crate::BString, Box<dyn crate::AsBrdbValue>> = value
-                        .as_struct()?
-                        .as_hashmap()?
-                        .into_iter()
-                        .map(|(k, v)| (crate::BString::from(k), v))
-                        .collect();
+                    let hm: std::collections::HashMap<crate::BString, Box<dyn crate::AsBrdbValue>> =
+                        value
+                            .as_struct()?
+                            .as_hashmap()?
+                            .into_iter()
+                            .map(|(k, v)| (crate::BString::from(k), v))
+                            .collect();
                     let component = LiteralComponent::new_from_data(type_name, Arc::new(hm));
                     Arc::new(Box::new(component))
                 } else {

@@ -175,15 +175,100 @@ pub enum BrdbValue {
     Array(Vec<BrdbValue>),
     FlatArray(Vec<BrdbValue>),
     Map(IndexMap<BrdbValue, BrdbValue>),
-    WireVar(WireVariant),
+    EA3WireVar(EA3WireVariant),
+    /// A `dynamic_array` field: the element type selected for this instance
+    /// plus the elements.
+    DynamicArray(BrdbDynamicArray),
+    /// A `dynamic_map` field: the key and value types selected for this
+    /// instance plus the pairs.
+    DynamicMap(BrdbDynamicMap),
 }
 
-/// A wire graph variant value. The members mirror the engine's
-/// `WireGraphVariant` union (`f64`, `i64`, `bool`, `weak_object`,
-/// `WireGraphExec`, `Vector`, `Rotator`, `Quat`, `str`, `LinearColor`);
-/// `WireGraphPrimMathVariant` uses the numeric/spatial subset.
+/// The value of a `dynamic_array` field. `element_type` names an entry of the
+/// schema's `types` table; it is written even when `values` is empty.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BrdbDynamicArray {
+    pub element_type: String,
+    pub values: Vec<BrdbValue>,
+}
+
+impl BrdbDynamicArray {
+    pub fn new(element_type: impl Into<String>, values: Vec<BrdbValue>) -> Self {
+        Self {
+            element_type: element_type.into(),
+            values,
+        }
+    }
+
+    pub fn empty(element_type: impl Into<String>) -> Self {
+        Self::new(element_type, Vec::new())
+    }
+}
+
+/// The value of a `dynamic_map` field. `key_type`/`value_type` name entries of
+/// the schema's `types` table; they are written even when `entries` is empty.
+/// A later duplicate key replaces the earlier value, as the spec requires.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BrdbDynamicMap {
+    pub key_type: String,
+    pub value_type: String,
+    pub entries: IndexMap<BrdbValue, BrdbValue>,
+}
+
+impl BrdbDynamicMap {
+    pub fn new(
+        key_type: impl Into<String>,
+        value_type: impl Into<String>,
+        entries: IndexMap<BrdbValue, BrdbValue>,
+    ) -> Self {
+        Self {
+            key_type: key_type.into(),
+            value_type: value_type.into(),
+            entries,
+        }
+    }
+
+    pub fn empty(key_type: impl Into<String>, value_type: impl Into<String>) -> Self {
+        Self::new(key_type, value_type, IndexMap::new())
+    }
+}
+
+impl Hash for BrdbDynamicMap {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key_type.hash(state);
+        self.value_type.hash(state);
+        for (k, v) in &self.entries {
+            k.hash(state);
+            v.hash(state);
+        }
+    }
+}
+
+/// An enum value tagged with its enum type, for writing `dynamic_enum`
+/// fields. `enum_name` must appear in the schema's `types` table. Reading a
+/// `dynamic_enum` produces a [`BrdbValue::Enum`] carrying the same pair.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BrdbDynamicEnum {
+    pub enum_name: String,
+    pub value: i64,
+}
+
+impl BrdbDynamicEnum {
+    pub fn new(enum_name: impl Into<String>, value: i64) -> Self {
+        Self {
+            enum_name: enum_name.into(),
+            value,
+        }
+    }
+}
+
+/// An EA3 wire graph value. The members mirror EA3's `WireGraphVariant`
+/// union (`f64`, `i64`, `bool`, `weak_object`, `WireGraphExec`, `Vector`,
+/// `Rotator`, `Quat`, `str`, `LinearColor`) and the `wire_graph_variant`
+/// field type; `WireGraphPrimMathVariant` / `wire_graph_prim_math_variant`
+/// use the numeric/spatial subset. `Latest` saves use [`crate::schema::WireValue`].
 #[derive(Clone, Debug)]
-pub enum WireVariant {
+pub enum EA3WireVariant {
     Number(f64),
     Int(i64),
     Bool(bool),
@@ -194,56 +279,70 @@ pub enum WireVariant {
     /// `Vector` member (X, Y, Z).
     Vector(Vector3f),
     /// `Rotator` member (Pitch, Yaw, Roll — f64 degrees).
-    Rotator { pitch: f64, yaw: f64, roll: f64 },
+    Rotator {
+        pitch: f64,
+        yaw: f64,
+        roll: f64,
+    },
     /// `Quat` member (X, Y, Z, W — f64).
-    Quat { x: f64, y: f64, z: f64, w: f64 },
+    Quat {
+        x: f64,
+        y: f64,
+        z: f64,
+        w: f64,
+    },
     /// `str` member: a string value.
     Str(String),
     /// `LinearColor` member (R, G, B, A — f32, linear 0–1).
-    LinearColor { r: f32, g: f32, b: f32, a: f32 },
+    LinearColor {
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    },
 }
-impl Default for WireVariant {
+impl Default for EA3WireVariant {
     fn default() -> Self {
-        WireVariant::Number(0.0)
+        EA3WireVariant::Number(0.0)
     }
 }
-impl Display for WireVariant {
+impl Display for EA3WireVariant {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WireVariant::Number(n) => write!(f, "{n}"),
-            WireVariant::Int(i) => write!(f, "{i}"),
-            WireVariant::Bool(b) => write!(f, "{b}"),
-            WireVariant::Object(Some(i)) => write!(f, "obj#{i}"),
-            WireVariant::Object(None) => write!(f, "obj#null"),
-            WireVariant::Exec => write!(f, "exec"),
-            WireVariant::Vector(v) => write!(f, "({}, {}, {})", v.x, v.y, v.z),
-            WireVariant::Rotator { pitch, yaw, roll } => {
+            EA3WireVariant::Number(n) => write!(f, "{n}"),
+            EA3WireVariant::Int(i) => write!(f, "{i}"),
+            EA3WireVariant::Bool(b) => write!(f, "{b}"),
+            EA3WireVariant::Object(Some(i)) => write!(f, "obj#{i}"),
+            EA3WireVariant::Object(None) => write!(f, "obj#null"),
+            EA3WireVariant::Exec => write!(f, "exec"),
+            EA3WireVariant::Vector(v) => write!(f, "({}, {}, {})", v.x, v.y, v.z),
+            EA3WireVariant::Rotator { pitch, yaw, roll } => {
                 write!(f, "rot({pitch}, {yaw}, {roll})")
             }
-            WireVariant::Quat { x, y, z, w } => write!(f, "quat({x}, {y}, {z}, {w})"),
-            WireVariant::Str(s) => write!(f, "{s:?}"),
-            WireVariant::LinearColor { r, g, b, a } => {
+            EA3WireVariant::Quat { x, y, z, w } => write!(f, "quat({x}, {y}, {z}, {w})"),
+            EA3WireVariant::Str(s) => write!(f, "{s:?}"),
+            EA3WireVariant::LinearColor { r, g, b, a } => {
                 write!(f, "color({r}, {g}, {b}, {a})")
             }
         }
     }
 }
-impl From<f64> for WireVariant {
+impl From<f64> for EA3WireVariant {
     fn from(value: f64) -> Self {
-        WireVariant::Number(value)
+        EA3WireVariant::Number(value)
     }
 }
-impl From<f32> for WireVariant {
+impl From<f32> for EA3WireVariant {
     fn from(value: f32) -> Self {
-        WireVariant::Number(value as f64)
+        EA3WireVariant::Number(value as f64)
     }
 }
 
 macro_rules! wire_var_int {
     ($ty:ty) => {
-        impl From<$ty> for WireVariant {
+        impl From<$ty> for EA3WireVariant {
             fn from(value: $ty) -> Self {
-                WireVariant::Int(value as i64)
+                EA3WireVariant::Int(value as i64)
             }
         }
     };
@@ -254,44 +353,44 @@ macro_rules! wire_var_int {
 }
 wire_var_int!(i8, i16, i32, i64, u8, u16, u32, u64);
 
-impl From<bool> for WireVariant {
+impl From<bool> for EA3WireVariant {
     fn from(value: bool) -> Self {
-        WireVariant::Bool(value)
+        EA3WireVariant::Bool(value)
     }
 }
-impl From<String> for WireVariant {
+impl From<String> for EA3WireVariant {
     fn from(value: String) -> Self {
-        WireVariant::Str(value)
+        EA3WireVariant::Str(value)
     }
 }
-impl From<&str> for WireVariant {
+impl From<&str> for EA3WireVariant {
     fn from(value: &str) -> Self {
-        WireVariant::Str(value.to_string())
+        EA3WireVariant::Str(value.to_string())
     }
 }
-impl From<Vector3f> for WireVariant {
+impl From<Vector3f> for EA3WireVariant {
     fn from(value: Vector3f) -> Self {
-        WireVariant::Vector(value)
+        EA3WireVariant::Vector(value)
     }
 }
 
-/// Convert a decoded value back into a `WireVariant`. Named variants decode to
+/// Convert a decoded value back into a `EA3WireVariant`. Named variants decode to
 /// raw `BrdbValue`s (the tag is consumed on read); legacy variants decode to a
-/// `WireVar`. Both round-trip here.
-impl TryFrom<&BrdbValue> for WireVariant {
+/// `EA3WireVar`. Both round-trip here.
+impl TryFrom<&BrdbValue> for EA3WireVariant {
     type Error = BrdbSchemaError;
     fn try_from(value: &BrdbValue) -> Result<Self, Self::Error> {
         Ok(match value {
-            BrdbValue::WireVar(v) => v.clone(),
-            BrdbValue::F64(n) => WireVariant::Number(*n),
-            BrdbValue::F32(n) => WireVariant::Number(*n as f64),
-            BrdbValue::I64(i) => WireVariant::Int(*i),
-            BrdbValue::I32(i) => WireVariant::Int(*i as i64),
-            BrdbValue::Bool(b) => WireVariant::Bool(*b),
-            BrdbValue::String(s) => WireVariant::Str(s.clone()),
-            BrdbValue::Asset(opt) => WireVariant::Object(*opt),
+            BrdbValue::EA3WireVar(v) => v.clone(),
+            BrdbValue::F64(n) => EA3WireVariant::Number(*n),
+            BrdbValue::F32(n) => EA3WireVariant::Number(*n as f64),
+            BrdbValue::I64(i) => EA3WireVariant::Int(*i),
+            BrdbValue::I32(i) => EA3WireVariant::Int(*i as i64),
+            BrdbValue::Bool(b) => EA3WireVariant::Bool(*b),
+            BrdbValue::String(s) => EA3WireVariant::Str(s.clone()),
+            BrdbValue::Asset(opt) => EA3WireVariant::Object(*opt),
             BrdbValue::Struct(s) if s.get_name() == "Vector" => {
-                WireVariant::Vector(Vector3f::try_from(value)?)
+                EA3WireVariant::Vector(Vector3f::try_from(value)?)
             }
             other => {
                 return Err(BrdbSchemaError::ExpectedType(
@@ -299,339 +398,6 @@ impl TryFrom<&BrdbValue> for WireVariant {
                     other.get_type().to_owned(),
                 ));
             }
-        })
-    }
-}
-
-/// A wire graph array variant value, mirroring the engine's
-/// `WireGraphArrayVariant` union (one array member per element type). Each
-/// member is a `WireGraph*Array` struct holding a single `Values` array.
-#[derive(Clone, Debug, PartialEq)]
-pub enum WireArrayVariant {
-    /// `WireGraphDoubleArray`
-    DoubleArray(Vec<f64>),
-    /// `WireGraphInt64Array`
-    Int64Array(Vec<i64>),
-    /// `WireGraphBoolArray`
-    BoolArray(Vec<bool>),
-    /// `WireGraphObjectArray` (weak_object references, as asset indices)
-    ObjectArray(Vec<Option<usize>>),
-    /// `WireGraphVectorArray`
-    VectorArray(Vec<Vector3f>),
-    /// `WireGraphRotatorArray` — (Pitch, Yaw, Roll) f64 elements.
-    RotatorArray(Vec<(f64, f64, f64)>),
-    /// `WireGraphQuatArray` — (X, Y, Z, W) f64 elements.
-    QuatArray(Vec<(f64, f64, f64, f64)>),
-    /// `WireGraphStringArray`
-    StringArray(Vec<String>),
-    /// `WireGraphLinearColorArray` — (R, G, B, A) f32 elements, linear 0–1.
-    LinearColorArray(Vec<(f32, f32, f32, f32)>),
-}
-
-impl WireArrayVariant {
-    /// The `WireGraph*Array` struct name this array maps to.
-    pub fn member_type(&self) -> &'static str {
-        match self {
-            WireArrayVariant::DoubleArray(_) => "WireGraphDoubleArray",
-            WireArrayVariant::Int64Array(_) => "WireGraphInt64Array",
-            WireArrayVariant::BoolArray(_) => "WireGraphBoolArray",
-            WireArrayVariant::ObjectArray(_) => "WireGraphObjectArray",
-            WireArrayVariant::VectorArray(_) => "WireGraphVectorArray",
-            WireArrayVariant::RotatorArray(_) => "WireGraphRotatorArray",
-            WireArrayVariant::QuatArray(_) => "WireGraphQuatArray",
-            WireArrayVariant::StringArray(_) => "WireGraphStringArray",
-            WireArrayVariant::LinearColorArray(_) => "WireGraphLinearColorArray",
-        }
-    }
-}
-
-/// Key type of a `WireGraphMapVariant`. The schema nests
-/// `WireGraphMapVariant` -> `WireGraphMapKeyWrapper_<K>` -> (per-value variant).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WireMapKey {
-    /// `int64`
-    Int64,
-    /// `FWireGraphString`
-    Str,
-    /// `FWeakObjectPtr`
-    Object,
-}
-
-/// Value type of a `WireGraphMapVariant` (the inner `WireGraphMap_<K>_<V>`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WireMapValue {
-    /// `double`
-    Number,
-    /// `int64`
-    Int64,
-    /// `bool`
-    Bool,
-    /// `FWeakObjectPtr`
-    Object,
-    /// `FVector`
-    Vector,
-    /// `FRotator`
-    Rotator,
-    /// `FQuat`
-    Quat,
-    /// `FWireGraphString`
-    Str,
-    /// `FLinearColor`
-    LinearColor,
-}
-
-/// Concrete key data for a populated `WireGraphMapVariant` entry.
-#[derive(Clone, Debug, PartialEq)]
-pub enum WireMapKeyData {
-    Int64(i64),
-    Str(String),
-    /// weak-object asset index (`None` = null → -1).
-    Object(Option<u32>),
-}
-
-/// Concrete value data for a populated `WireGraphMapVariant` entry.
-#[derive(Clone, Debug, PartialEq)]
-pub enum WireMapValueData {
-    Number(f64),
-    Int64(i64),
-    Bool(bool),
-    Str(String),
-    Vector(Vector3f),
-    Rotator(f64, f64, f64),
-    Quat(f64, f64, f64, f64),
-    LinearColor(f32, f32, f32, f32),
-    Object(Option<u32>),
-}
-
-// --- WireVariant <-> map key/value data ---
-//
-// The map data types are (almost) a subset of `WireVariant`, so map-data ->
-// `WireVariant` is exact and lossless. The reverse is lossy only where a
-// `WireVariant` carries a kind the target can't hold; those degenerate inputs
-// fall back (documented per arm) rather than failing, so these stay infallible
-// `From` conversions.
-
-impl From<WireVariant> for WireMapValueData {
-    fn from(v: WireVariant) -> Self {
-        match v {
-            WireVariant::Number(f) => WireMapValueData::Number(f),
-            WireVariant::Int(i) => WireMapValueData::Int64(i),
-            WireVariant::Bool(b) => WireMapValueData::Bool(b),
-            WireVariant::Str(s) => WireMapValueData::Str(s),
-            WireVariant::Object(o) => WireMapValueData::Object(o.map(|i| i as u32)),
-            WireVariant::Vector(vec) => WireMapValueData::Vector(vec),
-            WireVariant::Rotator { pitch, yaw, roll } => {
-                WireMapValueData::Rotator(pitch, yaw, roll)
-            }
-            WireVariant::Quat { x, y, z, w } => WireMapValueData::Quat(x, y, z, w),
-            WireVariant::LinearColor { r, g, b, a } => WireMapValueData::LinearColor(r, g, b, a),
-            // A map value is never `Exec`; fall back to a zero number.
-            WireVariant::Exec => WireMapValueData::Number(0.0),
-        }
-    }
-}
-
-impl From<WireMapValueData> for WireVariant {
-    fn from(v: WireMapValueData) -> Self {
-        match v {
-            WireMapValueData::Number(f) => WireVariant::Number(f),
-            WireMapValueData::Int64(i) => WireVariant::Int(i),
-            WireMapValueData::Bool(b) => WireVariant::Bool(b),
-            WireMapValueData::Str(s) => WireVariant::Str(s),
-            WireMapValueData::Vector(vec) => WireVariant::Vector(vec),
-            WireMapValueData::Rotator(pitch, yaw, roll) => {
-                WireVariant::Rotator { pitch, yaw, roll }
-            }
-            WireMapValueData::Quat(x, y, z, w) => WireVariant::Quat { x, y, z, w },
-            WireMapValueData::LinearColor(r, g, b, a) => WireVariant::LinearColor { r, g, b, a },
-            WireMapValueData::Object(o) => WireVariant::Object(o.map(|i| i as usize)),
-        }
-    }
-}
-
-impl From<WireVariant> for WireMapKeyData {
-    fn from(v: WireVariant) -> Self {
-        match v {
-            WireVariant::Int(i) => WireMapKeyData::Int64(i),
-            WireVariant::Str(s) => WireMapKeyData::Str(s),
-            WireVariant::Object(o) => WireMapKeyData::Object(o.map(|i| i as u32)),
-            // Only int64/str/object are valid map keys. Numeric kinds coerce to
-            // an int64 key; the rest have no key form and fall back to Int64(0).
-            WireVariant::Number(f) => WireMapKeyData::Int64(f as i64),
-            WireVariant::Bool(b) => WireMapKeyData::Int64(b as i64),
-            WireVariant::Vector(_)
-            | WireVariant::Rotator { .. }
-            | WireVariant::Quat { .. }
-            | WireVariant::LinearColor { .. }
-            | WireVariant::Exec => WireMapKeyData::Int64(0),
-        }
-    }
-}
-
-impl From<WireMapKeyData> for WireVariant {
-    fn from(k: WireMapKeyData) -> Self {
-        match k {
-            WireMapKeyData::Int64(i) => WireVariant::Int(i),
-            WireMapKeyData::Str(s) => WireVariant::Str(s),
-            WireMapKeyData::Object(o) => WireVariant::Object(o.map(|i| i as usize)),
-        }
-    }
-}
-
-/// A `WireGraphMapVariant` value. `key`/`value` pick the nested `KeyWrapper_<K>`
-/// / `Map_<K>_<V>` members; `entries` are the concrete pairs (empty = an empty
-/// map, the at-rest state of a fresh `MapVar` brick).
-#[derive(Clone, Debug, PartialEq)]
-pub struct WireMapVariant {
-    pub key: WireMapKey,
-    pub value: WireMapValue,
-    pub entries: Vec<(WireMapKeyData, WireMapValueData)>,
-}
-
-impl WireMapVariant {
-    /// The `WireGraphMapKeyWrapper_<K>` member of `WireGraphMapVariant`.
-    pub fn key_wrapper(&self) -> &'static str {
-        match self.key {
-            WireMapKey::Int64 => "WireGraphMapKeyWrapper_int64",
-            WireMapKey::Str => "WireGraphMapKeyWrapper_FWireGraphString",
-            WireMapKey::Object => "WireGraphMapKeyWrapper_FWeakObjectPtr",
-        }
-    }
-    /// The inner `WireGraphMapVariant_<K>` variant name.
-    pub fn inner_variant(&self) -> &'static str {
-        match self.key {
-            WireMapKey::Int64 => "WireGraphMapVariant_int64",
-            WireMapKey::Str => "WireGraphMapVariant_FWireGraphString",
-            WireMapKey::Object => "WireGraphMapVariant_FWeakObjectPtr",
-        }
-    }
-    /// The `WireGraphMap_<K>_<V>` struct name (the concrete keyed map).
-    pub fn map_struct(&self) -> String {
-        let k = match self.key {
-            WireMapKey::Int64 => "int64",
-            WireMapKey::Str => "FWireGraphString",
-            WireMapKey::Object => "FWeakObjectPtr",
-        };
-        let v = match self.value {
-            WireMapValue::Number => "double",
-            WireMapValue::Int64 => "int64",
-            WireMapValue::Bool => "bool",
-            WireMapValue::Object => "FWeakObjectPtr",
-            WireMapValue::Vector => "FVector",
-            WireMapValue::Rotator => "FRotator",
-            WireMapValue::Quat => "FQuat",
-            WireMapValue::Str => "FWireGraphString",
-            WireMapValue::LinearColor => "FLinearColor",
-        };
-        format!("WireGraphMap_{k}_{v}")
-    }
-}
-
-impl From<Vec<f64>> for WireArrayVariant {
-    fn from(v: Vec<f64>) -> Self {
-        WireArrayVariant::DoubleArray(v)
-    }
-}
-impl From<Vec<i64>> for WireArrayVariant {
-    fn from(v: Vec<i64>) -> Self {
-        WireArrayVariant::Int64Array(v)
-    }
-}
-impl From<Vec<bool>> for WireArrayVariant {
-    fn from(v: Vec<bool>) -> Self {
-        WireArrayVariant::BoolArray(v)
-    }
-}
-impl From<Vec<Vector3f>> for WireArrayVariant {
-    fn from(v: Vec<Vector3f>) -> Self {
-        WireArrayVariant::VectorArray(v)
-    }
-}
-impl From<Vec<String>> for WireArrayVariant {
-    fn from(v: Vec<String>) -> Self {
-        WireArrayVariant::StringArray(v)
-    }
-}
-
-/// Convert a decoded `WireGraph*Array` struct back into a `WireArrayVariant`.
-impl TryFrom<&BrdbValue> for WireArrayVariant {
-    type Error = BrdbSchemaError;
-    fn try_from(value: &BrdbValue) -> Result<Self, Self::Error> {
-        let s = value.as_struct()?;
-        let values = s.prop("Values")?.as_array()?;
-        Ok(match s.get_name() {
-            "WireGraphDoubleArray" => WireArrayVariant::DoubleArray(
-                values.iter().map(|v| v.as_brdb_f64()).collect::<Result<_, _>>()?,
-            ),
-            "WireGraphInt64Array" => WireArrayVariant::Int64Array(
-                values.iter().map(|v| v.as_brdb_i64()).collect::<Result<_, _>>()?,
-            ),
-            "WireGraphBoolArray" => WireArrayVariant::BoolArray(
-                values.iter().map(|v| v.as_brdb_bool()).collect::<Result<_, _>>()?,
-            ),
-            "WireGraphStringArray" => WireArrayVariant::StringArray(
-                values
-                    .iter()
-                    .map(|v| v.as_brdb_str().map(str::to_owned))
-                    .collect::<Result<_, _>>()?,
-            ),
-            "WireGraphVectorArray" => WireArrayVariant::VectorArray(
-                values.iter().map(Vector3f::try_from).collect::<Result<_, _>>()?,
-            ),
-            "WireGraphRotatorArray" => WireArrayVariant::RotatorArray(
-                values
-                    .iter()
-                    .map(|v| {
-                        let s = v.as_struct()?;
-                        Ok((
-                            s.prop("Pitch")?.as_brdb_f64()?,
-                            s.prop("Yaw")?.as_brdb_f64()?,
-                            s.prop("Roll")?.as_brdb_f64()?,
-                        ))
-                    })
-                    .collect::<Result<_, BrdbSchemaError>>()?,
-            ),
-            "WireGraphQuatArray" => WireArrayVariant::QuatArray(
-                values
-                    .iter()
-                    .map(|v| {
-                        let s = v.as_struct()?;
-                        Ok((
-                            s.prop("X")?.as_brdb_f64()?,
-                            s.prop("Y")?.as_brdb_f64()?,
-                            s.prop("Z")?.as_brdb_f64()?,
-                            s.prop("W")?.as_brdb_f64()?,
-                        ))
-                    })
-                    .collect::<Result<_, BrdbSchemaError>>()?,
-            ),
-            "WireGraphLinearColorArray" => WireArrayVariant::LinearColorArray(
-                values
-                    .iter()
-                    .map(|v| {
-                        let s = v.as_struct()?;
-                        Ok((
-                            s.prop("R")?.as_brdb_f32()?,
-                            s.prop("G")?.as_brdb_f32()?,
-                            s.prop("B")?.as_brdb_f32()?,
-                            s.prop("A")?.as_brdb_f32()?,
-                        ))
-                    })
-                    .collect::<Result<_, BrdbSchemaError>>()?,
-            ),
-            "WireGraphObjectArray" => WireArrayVariant::ObjectArray(
-                values
-                    .iter()
-                    .map(|v| match v {
-                        BrdbValue::Asset(opt) => Ok(*opt),
-                        other => Err(BrdbSchemaError::ExpectedType(
-                            "weak_object".to_owned(),
-                            other.get_type().to_owned(),
-                        )),
-                    })
-                    .collect::<Result<_, _>>()?,
-            ),
-            other => return Err(BrdbSchemaError::UnknownType(other.to_owned())),
         })
     }
 }
@@ -658,7 +424,9 @@ impl BrdbValue {
             BrdbValue::Array(_) => "array",
             BrdbValue::FlatArray(_) => "flatarray",
             BrdbValue::Map(_) => "map",
-            BrdbValue::WireVar(_) => "wire_variant",
+            BrdbValue::EA3WireVar(_) => "wire_variant",
+            BrdbValue::DynamicArray(_) => "dynamic_array",
+            BrdbValue::DynamicMap(_) => "dynamic_map",
         }
     }
     pub fn as_struct(&self) -> Result<&BrdbStruct, BrdbSchemaError> {
@@ -746,19 +514,19 @@ impl BrdbValue {
             BrdbValue::I64(v) => format!("{v}i64"),
             BrdbValue::F32(v) => format!("{v}f32"),
             BrdbValue::F64(v) => format!("{v}f64"),
-            BrdbValue::WireVar(v) => match v {
-                WireVariant::Number(n) => format!("wire {n}f64"),
-                WireVariant::Int(i) => format!("wire {i}i64"),
-                WireVariant::Bool(b) => format!("wire {b}"),
-                WireVariant::Object(o) => format!("wire obj#{o:?}"),
-                WireVariant::Exec => "w exec".to_string(),
-                WireVariant::Vector(v) => format!("wire ({}, {}, {})", v.x, v.y, v.z),
-                WireVariant::Rotator { pitch, yaw, roll } => {
+            BrdbValue::EA3WireVar(v) => match v {
+                EA3WireVariant::Number(n) => format!("wire {n}f64"),
+                EA3WireVariant::Int(i) => format!("wire {i}i64"),
+                EA3WireVariant::Bool(b) => format!("wire {b}"),
+                EA3WireVariant::Object(o) => format!("wire obj#{o:?}"),
+                EA3WireVariant::Exec => "w exec".to_string(),
+                EA3WireVariant::Vector(v) => format!("wire ({}, {}, {})", v.x, v.y, v.z),
+                EA3WireVariant::Rotator { pitch, yaw, roll } => {
                     format!("wire rot({pitch}, {yaw}, {roll})")
                 }
-                WireVariant::Quat { x, y, z, w } => format!("wire quat({x}, {y}, {z}, {w})"),
-                WireVariant::Str(s) => format!("wire {s:?}"),
-                WireVariant::LinearColor { r, g, b, a } => {
+                EA3WireVariant::Quat { x, y, z, w } => format!("wire quat({x}, {y}, {z}, {w})"),
+                EA3WireVariant::Str(s) => format!("wire {s:?}"),
+                EA3WireVariant::LinearColor { r, g, b, a } => {
                     format!("wire color({r}, {g}, {b}, {a})")
                 }
             },
@@ -825,6 +593,17 @@ impl BrdbValue {
                 entries.sort();
                 format!("{{\n{}\n{pad}}}", entries.join(""))
             }
+            BrdbValue::DynamicArray(a) => format!(
+                "{}{}",
+                a.element_type,
+                BrdbValue::Array(a.values.clone()).display_inner(schema, depth)
+            ),
+            BrdbValue::DynamicMap(m) => format!(
+                "{{{}: {}}}{}",
+                m.key_type,
+                m.value_type,
+                BrdbValue::Map(m.entries.clone()).display_inner(schema, depth)
+            ),
         }
     }
 }
@@ -864,36 +643,38 @@ impl Hash for BrdbValue {
                 k.hash(state);
                 v.hash(state);
             }),
-            BrdbValue::WireVar(w) => match w {
-                WireVariant::Number(n) => n.to_bits().hash(state),
-                WireVariant::Int(i) => i.hash(state),
-                WireVariant::Bool(b) => b.hash(state),
-                WireVariant::Object(o) => o.hash(state),
-                WireVariant::Exec => {}
-                WireVariant::Vector(v) => {
+            BrdbValue::EA3WireVar(w) => match w {
+                EA3WireVariant::Number(n) => n.to_bits().hash(state),
+                EA3WireVariant::Int(i) => i.hash(state),
+                EA3WireVariant::Bool(b) => b.hash(state),
+                EA3WireVariant::Object(o) => o.hash(state),
+                EA3WireVariant::Exec => {}
+                EA3WireVariant::Vector(v) => {
                     v.x.to_bits().hash(state);
                     v.y.to_bits().hash(state);
                     v.z.to_bits().hash(state);
                 }
-                WireVariant::Rotator { pitch, yaw, roll } => {
+                EA3WireVariant::Rotator { pitch, yaw, roll } => {
                     pitch.to_bits().hash(state);
                     yaw.to_bits().hash(state);
                     roll.to_bits().hash(state);
                 }
-                WireVariant::Quat { x, y, z, w } => {
+                EA3WireVariant::Quat { x, y, z, w } => {
                     x.to_bits().hash(state);
                     y.to_bits().hash(state);
                     z.to_bits().hash(state);
                     w.to_bits().hash(state);
                 }
-                WireVariant::Str(s) => s.hash(state),
-                WireVariant::LinearColor { r, g, b, a } => {
+                EA3WireVariant::Str(s) => s.hash(state),
+                EA3WireVariant::LinearColor { r, g, b, a } => {
                     r.to_bits().hash(state);
                     g.to_bits().hash(state);
                     b.to_bits().hash(state);
                     a.to_bits().hash(state);
                 }
             },
+            BrdbValue::DynamicArray(a) => a.hash(state),
+            BrdbValue::DynamicMap(m) => m.hash(state),
         }
     }
 }
@@ -935,14 +716,16 @@ impl PartialEq for BrdbValue {
             (Self::Array(l0), Self::Array(r0)) => l0 == r0,
             (Self::FlatArray(l0), Self::FlatArray(r0)) => l0 == r0,
             (Self::Map(l0), Self::Map(r0)) => l0 == r0,
-            (Self::WireVar(l0), Self::WireVar(r0)) => match (l0, r0) {
-                (WireVariant::Number(l), WireVariant::Number(r)) => l == r,
-                (WireVariant::Int(l), WireVariant::Int(r)) => l == r,
-                (WireVariant::Bool(l), WireVariant::Bool(r)) => l == r,
-                (WireVariant::Object(l), WireVariant::Object(r)) => l == r,
-                (WireVariant::Exec, WireVariant::Exec) => false,
-                (WireVariant::Vector(l), WireVariant::Vector(r)) => l == r,
-                (WireVariant::Str(l), WireVariant::Str(r)) => l == r,
+            (Self::DynamicArray(l0), Self::DynamicArray(r0)) => l0 == r0,
+            (Self::DynamicMap(l0), Self::DynamicMap(r0)) => l0 == r0,
+            (Self::EA3WireVar(l0), Self::EA3WireVar(r0)) => match (l0, r0) {
+                (EA3WireVariant::Number(l), EA3WireVariant::Number(r)) => l == r,
+                (EA3WireVariant::Int(l), EA3WireVariant::Int(r)) => l == r,
+                (EA3WireVariant::Bool(l), EA3WireVariant::Bool(r)) => l == r,
+                (EA3WireVariant::Object(l), EA3WireVariant::Object(r)) => l == r,
+                (EA3WireVariant::Exec, EA3WireVariant::Exec) => false,
+                (EA3WireVariant::Vector(l), EA3WireVariant::Vector(r)) => l == r,
+                (EA3WireVariant::Str(l), EA3WireVariant::Str(r)) => l == r,
                 _ => false,
             },
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
@@ -1052,60 +835,3 @@ try_from_impl!(as_brdb_i32 @ i32);
 try_from_impl!(as_brdb_i64 @ i64);
 try_from_impl!(as_brdb_f32 @ f32);
 try_from_impl!(as_brdb_f64 @ f64);
-
-#[cfg(test)]
-mod wire_map_conversion_tests {
-    use super::*;
-
-    #[test]
-    fn map_value_data_round_trips_through_wire_variant() {
-        let cases = [
-            WireMapValueData::Number(1.5),
-            WireMapValueData::Int64(-7),
-            WireMapValueData::Bool(true),
-            WireMapValueData::Str("hi".into()),
-            WireMapValueData::Vector(Vector3f { x: 1.0, y: 2.0, z: 3.0 }),
-            WireMapValueData::Rotator(10.0, 20.0, 30.0),
-            WireMapValueData::Quat(0.0, 0.0, 0.0, 1.0),
-            WireMapValueData::LinearColor(0.1, 0.2, 0.3, 1.0),
-            WireMapValueData::Object(Some(5)),
-            WireMapValueData::Object(None),
-        ];
-        for v in cases {
-            let round: WireMapValueData = WireVariant::from(v.clone()).into();
-            assert_eq!(round, v);
-        }
-    }
-
-    #[test]
-    fn map_key_data_round_trips_through_wire_variant() {
-        let cases = [
-            WireMapKeyData::Int64(42),
-            WireMapKeyData::Str("k".into()),
-            WireMapKeyData::Object(Some(3)),
-            WireMapKeyData::Object(None),
-        ];
-        for k in cases {
-            let round: WireMapKeyData = WireVariant::from(k.clone()).into();
-            assert_eq!(round, k);
-        }
-    }
-
-    #[test]
-    fn wire_variant_forward_conversions_and_fallbacks() {
-        // Exact forward conversions.
-        assert_eq!(WireMapValueData::from(WireVariant::Int(9)), WireMapValueData::Int64(9));
-        assert_eq!(
-            WireMapKeyData::from(WireVariant::Str("s".into())),
-            WireMapKeyData::Str("s".into())
-        );
-        // Documented degenerate fallbacks.
-        assert_eq!(WireMapValueData::from(WireVariant::Exec), WireMapValueData::Number(0.0));
-        assert_eq!(WireMapKeyData::from(WireVariant::Number(3.9)), WireMapKeyData::Int64(3));
-        assert_eq!(WireMapKeyData::from(WireVariant::Bool(true)), WireMapKeyData::Int64(1));
-        assert_eq!(
-            WireMapKeyData::from(WireVariant::Vector(Vector3f { x: 0.0, y: 0.0, z: 0.0 })),
-            WireMapKeyData::Int64(0)
-        );
-    }
-}

@@ -26,6 +26,13 @@ pub struct BrdbSchemaGlobalData {
     /// Index into `entity_type_names` for the BP_BrickGrid_Global_C entity type,
     /// or -1 if the save has no global grid.
     pub global_grid_entity_type_index: i32,
+    /// Prefab spawn instance table (Latest saves only; empty for authored
+    /// worlds).
+    #[serde(default)]
+    pub prefab_spawn_instance_indices: Vec<u32>,
+    /// Parent of each prefab spawn instance (Latest saves only).
+    #[serde(default)]
+    pub prefab_spawn_instance_parent_indices: Vec<u32>,
 }
 
 impl Default for BrdbSchemaGlobalData {
@@ -42,6 +49,8 @@ impl Default for BrdbSchemaGlobalData {
             external_asset_types: HashSet::default(),
             external_asset_references: IndexSet::default(),
             global_grid_entity_type_index: -1,
+            prefab_spawn_instance_indices: Vec::new(),
+            prefab_spawn_instance_parent_indices: Vec::new(),
         }
     }
 }
@@ -68,16 +77,21 @@ impl BrdbSchemaGlobalData {
         }
     }
 
-
     pub fn get_struct_name(&self, type_name: &str) -> Option<&str> {
         let idx = self.component_type_names.get_index_of(type_name)?;
         let sn = self.component_data_struct_names.get(idx)?;
-        if sn == "None" { None } else { Some(sn.as_str()) }
+        if sn == "None" {
+            None
+        } else {
+            Some(sn.as_str())
+        }
     }
 
     pub fn get_entity_class_name(&self, type_name: &str) -> Option<&str> {
         let idx = self.entity_type_names.get_index_of(type_name)?;
-        self.entity_data_class_names.get_index(idx).map(|s| s.as_str())
+        self.entity_data_class_names
+            .get_index(idx)
+            .map(|s| s.as_str())
     }
 
     pub fn get_port_index(&self, port_name: &str) -> Option<u16> {
@@ -196,6 +210,10 @@ impl AsBrdbValue for BrdbSchemaGlobalData {
             "ComponentWirePortNames" => self.component_wire_port_names.as_brdb_iter(),
             // BRSavedPrimaryAssetId is automatically inferred from (&str, &str)
             "ExternalAssetReferences" => self.external_asset_references.as_brdb_iter(),
+            "PrefabSpawnInstanceIndices" => self.prefab_spawn_instance_indices.as_brdb_iter(),
+            "PrefabSpawnInstanceParentIndices" => {
+                self.prefab_spawn_instance_parent_indices.as_brdb_iter()
+            }
             n => unimplemented!("unimplemented array struct field {n}"),
         })
     }

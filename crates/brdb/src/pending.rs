@@ -60,25 +60,32 @@ impl BrPendingFs {
         use BrPendingFs::*;
         let mut worlds = vec![];
 
-        let global_data_schema = schemas::global_data_schema();
-        let owners_schema = schemas::owners_schema();
-        let brick_chunk_index_schema = schemas::bricks_chunk_index_schema();
-        let brick_chunk_schema = schemas::bricks_chunks_schema();
-        let wires_schema = schemas::bricks_wires_schema();
-        let entity_chunk_index_schema = schemas::entities_chunk_index_schema();
-
         for (world_id, mut world) in fs.worlds {
+            // An explicit format pins the value encodings of the data as well.
+            let builtin = schemas::BuiltinSchemas::get();
+            let pin = |schema: &'static crate::schema::BrdbSchema| {
+                schemas::pinned(schema, world.schema_format)
+            };
+            let global_data_schema = &*pin(builtin.global_data);
+            let owners_schema = &*pin(builtin.owners);
+            let brick_chunk_index_schema = pin(builtin.bricks_chunk_index);
+            let brick_chunk_schema = pin(builtin.bricks_chunks);
+            let wires_schema = pin(builtin.bricks_wires);
+            let entity_chunk_index_schema = &*pin(builtin.entities_chunk_index);
             let global_data = std::sync::Arc::new(world.global_data.clone());
             world.component_schema.set_global_data(global_data.clone());
             world.entity_schema.set_global_data(global_data);
             let proc_brick_starting_index = world.global_data.proc_brick_starting_index();
+            let schema_format = world.schema_format;
 
             let mut world_dir = vec![
                 // Write GlobalData
                 (
                     "GlobalData.schema".to_owned(),
                     File(Some(
-                        global_data_schema.to_bytes().about("GlobalData.schema")?,
+                        global_data_schema
+                            .to_bytes_as(schema_format)
+                            .about("GlobalData.schema")?,
                     )),
                 ),
                 (
@@ -92,7 +99,11 @@ impl BrPendingFs {
                 // Write Owners
                 (
                     "Owners.schema".to_owned(),
-                    File(Some(owners_schema.to_bytes().about("Owners.schema")?)),
+                    File(Some(
+                        owners_schema
+                            .to_bytes_as(schema_format)
+                            .about("Owners.schema")?,
+                    )),
                 ),
                 (
                     "Owners.mps".to_owned(),
@@ -117,19 +128,25 @@ impl BrPendingFs {
                     "ChunkIndexShared.schema".to_owned(),
                     File(Some(
                         brick_chunk_index_schema
-                            .to_bytes()
+                            .to_bytes_as(schema_format)
                             .about("ChunkIndexShared.schema")?,
                     )),
                 ),
                 (
                     "ChunksShared.schema".to_owned(),
                     File(Some(
-                        brick_chunk_schema.to_bytes().about("ChunksShared.schema")?,
+                        brick_chunk_schema
+                            .to_bytes_as(schema_format)
+                            .about("ChunksShared.schema")?,
                     )),
                 ),
                 (
                     "WiresShared.schema".to_owned(),
-                    File(Some(wires_schema.to_bytes().about("WiresShared.schema")?)),
+                    File(Some(
+                        wires_schema
+                            .to_bytes_as(schema_format)
+                            .about("WiresShared.schema")?,
+                    )),
                 ),
                 // Component schema
                 (
@@ -137,7 +154,7 @@ impl BrPendingFs {
                     File(Some(
                         world
                             .component_schema
-                            .to_bytes()
+                            .to_bytes_as(schema_format)
                             .about("ComponentsShared.schema")?,
                     )),
                 ),
@@ -147,8 +164,14 @@ impl BrPendingFs {
             for (grid_id, grid) in world.grids {
                 grids_dir.push((
                     grid_id.to_string(),
-                    grid.to_pending(proc_brick_starting_index, &world.component_schema)
-                        .about_f(|| format!("Grids/{grid_id}"))?,
+                    grid.to_pending_with(
+                        proc_brick_starting_index,
+                        &world.component_schema,
+                        &brick_chunk_index_schema,
+                        &brick_chunk_schema,
+                        &wires_schema,
+                    )
+                    .about_f(|| format!("Grids/{grid_id}"))?,
                 ));
             }
 
@@ -157,7 +180,7 @@ impl BrPendingFs {
                     "ChunkIndex.schema".to_owned(),
                     File(Some(
                         entity_chunk_index_schema
-                            .to_bytes()
+                            .to_bytes_as(schema_format)
                             .about("ChunkIndex.schema")?,
                     )),
                 ),
@@ -174,7 +197,7 @@ impl BrPendingFs {
                     File(Some(
                         world
                             .entity_schema
-                            .to_bytes()
+                            .to_bytes_as(schema_format)
                             .about("ChunksShared.schema")?,
                     )),
                 ),
@@ -209,7 +232,9 @@ impl BrPendingFs {
         // Screenshot.jpg for previews when one is present.
         let mut meta_files = vec![(
             "Bundle.json".to_owned(),
-            File(Some(serde_json::to_vec(&fs.meta.bundle).about("Bundle.json")?)),
+            File(Some(
+                serde_json::to_vec(&fs.meta.bundle).about("Bundle.json")?,
+            )),
         )];
         if let Some(prefab) = &fs.meta.prefab {
             meta_files.push((
@@ -229,7 +254,9 @@ impl BrPendingFs {
             meta_files.push(("Thumbnail.png".to_owned(), File(fs.meta.thumbnail.clone())));
             meta_files.push((
                 "World.json".to_owned(),
-                File(Some(serde_json::to_vec(&fs.meta.world).about("World.json")?)),
+                File(Some(
+                    serde_json::to_vec(&fs.meta.world).about("World.json")?,
+                )),
             ));
         }
 

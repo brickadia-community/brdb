@@ -4,7 +4,7 @@ use crate::{
     Wrap,
     errors::{BrError, BrdbWorldError},
     pending::BrPendingFs,
-    schema::{BrdbSchema, BrdbSchemaGlobalData},
+    schema::{BrdbSchema, BrdbSchemaFormat, BrdbSchemaGlobalData},
     schemas::BRICK_CHUNK_INDEX_SOA,
     wrapper::{
         Brick, BrickChunkIndexSoA, BrickChunkSoA, CHUNK_HALF, CHUNK_SIZE, ChunkIndex,
@@ -46,6 +46,9 @@ pub struct UnsavedWorld {
     /// World/N/Bricks/Entities/ChunkIndex.mps
     pub entity_chunk_index: EntityChunkIndexSoA,
 
+    /// Container form of the `.schema` files written for this world.
+    pub schema_format: BrdbSchemaFormat,
+
     /// World/N/Minigame.bp
     pub minigame: Option<()>, // TODO: minigames serialization
     /// World/N/Environment.bp
@@ -69,6 +72,7 @@ impl Default for UnsavedWorld {
             entity_chunks: Default::default(),
             entity_schema: schemas::entities_chunks_schema().to_owned(),
             entity_chunk_index: Default::default(),
+            schema_format: BrdbSchemaFormat::Latest,
             minigame: Default::default(),
             environment: Default::default(),
             brick_id_map: Default::default(),
@@ -404,10 +408,26 @@ impl UnsavedGrid {
         proc_brick_starting_index: u32,
         component_schema: &BrdbSchema,
     ) -> Result<BrPendingFs, BrError> {
+        self.to_pending_with(
+            proc_brick_starting_index,
+            component_schema,
+            schemas::bricks_chunk_index_schema(),
+            schemas::bricks_chunks_schema(),
+            schemas::bricks_wires_schema(),
+        )
+    }
+
+    /// [`Self::to_pending`] with explicit brick chunk index, brick chunk and
+    /// wire chunk schemas.
+    pub fn to_pending_with(
+        self,
+        proc_brick_starting_index: u32,
+        component_schema: &BrdbSchema,
+        brick_chunk_index_schema: &BrdbSchema,
+        brick_chunk_schema: &BrdbSchema,
+        wires_schema: &BrdbSchema,
+    ) -> Result<BrPendingFs, BrError> {
         use BrPendingFs::*;
-        let brick_chunk_index_schema = schemas::bricks_chunk_index_schema();
-        let brick_chunk_schema = schemas::bricks_chunks_schema();
-        let wires_schema = schemas::bricks_wires_schema();
 
         let mut grid_dir = vec![(
             "ChunkIndex.mps".to_owned(),

@@ -39,10 +39,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Grid 1 is the main grid; higher ids are microchip inner grids. Probe
     // until a grid id is missing (same convention as read_components).
-    for gid in 1..64 {
+    for gid in 1..512 {
         let chunks = match db.brick_chunk_index(gid) {
             Ok(c) => c,
-            Err(_) => break,
+            Err(_) => continue,
         };
         for chunk in &chunks {
             // brick index -> brick type index (basic-brick asset), for the
@@ -93,7 +93,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             proc_asset_by_size
                                 .get((bt - pb_start) as usize)
                                 .and_then(|&ai| {
-                                    data.procedural_brick_asset_names.get_index(ai as usize).cloned()
+                                    data.procedural_brick_asset_names
+                                        .get_index(ai as usize)
+                                        .cloned()
                                 })
                         };
                         if let Some(host) = host {
@@ -140,7 +142,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Resolve indices to names.
     let name_of = |idx: u16| data.component_type_names.get_index(idx as usize).cloned();
-    let port_of = |idx: u16| data.component_wire_port_names.get_index(idx as usize).cloned();
+    let port_of = |idx: u16| {
+        data.component_wire_port_names
+            .get_index(idx as usize)
+            .cloned()
+    };
 
     let all: BTreeSet<u16> = bricks
         .keys()
@@ -212,9 +218,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     w!("    }}");
     w!("}}");
     w!();
-    w!(
-        "/// Every component present in the zoo, sorted by `name` (binary-searchable)."
-    );
+    w!("/// Every component present in the zoo, sorted by `name` (binary-searchable).");
     w!("pub static COMPONENTS: &[ComponentInfo] = &[");
     for (name, bs, ins, outs) in &rows {
         w!(

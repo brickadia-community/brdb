@@ -154,6 +154,14 @@ pub enum BrdbSchemaError {
     ParseError(String),
     #[error("unknown wire variant: {0}")]
     UnknownWireVariant(usize),
+    #[error("type index {index} is outside the types table (length {len})")]
+    InvalidTypeIndex { index: usize, len: usize },
+    #[error("integer {1} does not fit {0}")]
+    IntegerOutOfRange(String, i128),
+    #[error(
+        "the payload encoding of {0} values is not known; only empty containers of it are supported"
+    )]
+    UnsupportedType(String),
 }
 
 impl BrdbSchemaError {
@@ -181,6 +189,14 @@ pub enum BrdbWorldError {
     UnknownPort(String),
     #[error("unknown entity id: {0}")]
     UnknownEntityId(usize),
+    #[error("writing EA3 worlds is not supported; brdb 0.11 writes them")]
+    Ea3WriteUnsupported,
+    #[error("migration renames two table entries to {0}")]
+    MigrationDuplicateName(String),
+    #[error("migration renames component type {from} to {to}, which the world already has")]
+    MigrationMergesComponentType { from: String, to: String },
+    #[error("brick size counters cover {counted} slots but the chunk has {sizes} sizes")]
+    BrickSizeCountersExceedSizes { counted: usize, sizes: usize },
 }
 
 impl BrdbWorldError {

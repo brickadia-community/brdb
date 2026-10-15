@@ -32,10 +32,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return;
         };
 
-        let Ok(schema) = BrdbSchema::read(buf.as_slice()) else {
-            eprintln!("Failed to parse schema file: {}", f.name());
-            return;
+        let schema = match BrdbSchema::read(buf.as_slice()) {
+            Ok(schema) => schema,
+            Err(e) => {
+                eprintln!("Failed to parse schema file: {}: {e}", f.name());
+                return;
+            }
         };
+        println!(
+            "  {:?} format: {} enums, {} variants, {} structs, {} types",
+            schema.format(),
+            schema.enums.len(),
+            schema.variants.len(),
+            schema.structs.len(),
+            schema.types.len()
+        );
         let soa = schema
             .structs
             .last()

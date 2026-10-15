@@ -1,3 +1,18 @@
+enum EBRBrickProperty {
+    EBRBrickProperty::Visible = 0,
+    EBRBrickProperty::Color = 1,
+    EBRBrickProperty::Material = 2,
+    EBRBrickProperty::MaterialOpacity = 3,
+    EBRBrickProperty::AllCollision = 4,
+    EBRBrickProperty::PlayerCollision = 5,
+    EBRBrickProperty::Player2Collision = 6,
+    EBRBrickProperty::Player3Collision = 7,
+    EBRBrickProperty::Player4Collision = 8,
+    EBRBrickProperty::WeaponCollision = 9,
+    EBRBrickProperty::InteractionCollision = 10,
+    EBRBrickProperty::PhysicsCollision = 11,
+    EBRBrickProperty::EBRBrickProperty_MAX = 12,
+}
 enum EBRColorSpace {
     EBRColorSpace::Linear = 0,
     EBRColorSpace::Srgb = 1,
@@ -140,6 +155,13 @@ enum EBRPawnCollisionChannel {
     EBRPawnCollisionChannel::Channel4 = 3,
     EBRPawnCollisionChannel::EBRPawnCollisionChannel_MAX = 4,
 }
+enum EBRReverbEffect {
+    EBRReverbEffect::Default = 0,
+    EBRReverbEffect::SmallRoom = 1,
+    EBRReverbEffect::LongHallway = 2,
+    EBRReverbEffect::ExteriorEcho = 3,
+    EBRReverbEffect::EBRReverbEffect_MAX = 4,
+}
 enum EBRSweepCollisionChannel {
     EBRSweepCollisionChannel::Physics = 0,
     EBRSweepCollisionChannel::Weapon = 1,
@@ -192,10 +214,48 @@ enum EBRTextTypeface {
     EBRTextTypeface::BoldItalic = 3,
     EBRTextTypeface::EBRTextTypeface_MAX = 4,
 }
+enum ECallableInputSource {
+    ECallableInputSource::DefinitionDefault = 0,
+    ECallableInputSource::Override = 1,
+    ECallableInputSource::ECallableInputSource_MAX = 2,
+}
 enum EProjectileSpawnLocation {
     EProjectileSpawnLocation::FaceCenter = 0,
     EProjectileSpawnLocation::RandomPointInFace = 1,
     EProjectileSpawnLocation::EProjectileSpawnLocation_MAX = 2,
+}
+enum EWireKind {
+    EWireKind::Bool = 0,
+    EWireKind::Integer = 1,
+    EWireKind::Double = 2,
+    EWireKind::Color = 3,
+    EWireKind::Vector = 4,
+    EWireKind::Rotator = 5,
+    EWireKind::Quat = 6,
+    EWireKind::String = 7,
+    EWireKind::Enum = 8,
+    EWireKind::Object = 9,
+    EWireKind::Brick = 10,
+    EWireKind::Component = 11,
+    EWireKind::Exec = 12,
+    EWireKind::Float = 13,
+    EWireKind::Int8 = 14,
+    EWireKind::Int16 = 15,
+    EWireKind::Int32 = 16,
+    EWireKind::UInt8 = 17,
+    EWireKind::UInt16 = 18,
+    EWireKind::UInt32 = 19,
+    EWireKind::UInt64 = 20,
+    EWireKind::Vector2f = 21,
+    EWireKind::Vector3f = 22,
+    EWireKind::Rotator3f = 23,
+    EWireKind::Quat4f = 24,
+    EWireKind::ByteColor = 25,
+    EWireKind::EnumProperty = 26,
+    EWireKind::StrongObject = 27,
+    EWireKind::WireValue = 28,
+    EWireKind::None = 29,
+    EWireKind::EWireKind_MAX = 30,
 }
 variant BRInventoryEntryVariant {
     BRInventoryEntryNothing,
@@ -203,224 +263,542 @@ variant BRInventoryEntryVariant {
     BRInventoryEntryEntity,
     BRInventoryEntryItem,
 }
-variant WireGraphArrayVariant {
-    WireGraphDoubleArray,
-    WireGraphInt64Array,
-    WireGraphBoolArray,
-    WireGraphObjectArray,
-    WireGraphVectorArray,
-    WireGraphRotatorArray,
-    WireGraphQuatArray,
-    WireGraphStringArray,
-    WireGraphLinearColorArray,
-    WireGraphEnumArrayWrapper,
-}
-variant WireGraphEnumArrayVariant {
-    WireGraphEnumArray_EBrickDirection,
-    WireGraphEnumArray_EBrickAxis,
-    WireGraphEnumArray_EBRPawnCollisionChannel,
-    WireGraphEnumArray_EBRTextShading,
-    WireGraphEnumArray_EBRTextOutline,
-    WireGraphEnumArray_EBRTextMaterial,
-    WireGraphEnumArray_EBRTextTypeface,
-    WireGraphEnumArray_EBRTextFacing,
-    WireGraphEnumArray_EBREasingFunction,
-    WireGraphEnumArray_EBREasingDirection,
-    WireGraphEnumArray_EBRColorSpace,
-    WireGraphEnumArray_EProjectileSpawnLocation,
-    WireGraphEnumArray_EBrickRigidJointInterpMode,
-    WireGraphEnumArray_EBRDisplayTextJustification,
-    WireGraphEnumArray_EBRDisplayTextEasing,
-    WireGraphEnumArray_EBrickMaterial,
-    WireGraphEnumArray_EBrickLightRayTracingVisibility,
-    WireGraphEnumArray_EBrickSeatMode,
-    WireGraphEnumArray_EBrickSeatCameraOrigin,
-    WireGraphEnumArray_EBrickSeatFlightInvertOverride,
-    WireGraphEnumArray_EBrickSeatAirStrafeControl,
-    WireGraphEnumArray_EBrickAerodynamicSurfaceRole,
-    WireGraphEnumArray_EBrickAerodynamicForceApplication,
-    WireGraphEnumArray_EBrickThrusterForceApplication,
-    WireGraphEnumArray_EBrickVehicleFlightHandling,
-    WireGraphEnumArray_EBrickVehicleMassDistribution,
-    WireGraphEnumArray_EBRSweepCollisionChannel,
-}
-variant WireGraphEnumMapVariant_FWeakObjectPtr {
-    WireGraphMap_FWeakObjectPtr_EBrickDirection,
-    WireGraphMap_FWeakObjectPtr_EBrickAxis,
-    WireGraphMap_FWeakObjectPtr_EBRPawnCollisionChannel,
-    WireGraphMap_FWeakObjectPtr_EBRTextShading,
-    WireGraphMap_FWeakObjectPtr_EBRTextOutline,
-    WireGraphMap_FWeakObjectPtr_EBRTextMaterial,
-    WireGraphMap_FWeakObjectPtr_EBRTextTypeface,
-    WireGraphMap_FWeakObjectPtr_EBRTextFacing,
-    WireGraphMap_FWeakObjectPtr_EBREasingFunction,
-    WireGraphMap_FWeakObjectPtr_EBREasingDirection,
-    WireGraphMap_FWeakObjectPtr_EBRColorSpace,
-    WireGraphMap_FWeakObjectPtr_EProjectileSpawnLocation,
-    WireGraphMap_FWeakObjectPtr_EBrickRigidJointInterpMode,
-    WireGraphMap_FWeakObjectPtr_EBRDisplayTextJustification,
-    WireGraphMap_FWeakObjectPtr_EBRDisplayTextEasing,
-    WireGraphMap_FWeakObjectPtr_EBrickMaterial,
-    WireGraphMap_FWeakObjectPtr_EBrickLightRayTracingVisibility,
-    WireGraphMap_FWeakObjectPtr_EBrickSeatMode,
-    WireGraphMap_FWeakObjectPtr_EBrickSeatCameraOrigin,
-    WireGraphMap_FWeakObjectPtr_EBrickSeatFlightInvertOverride,
-    WireGraphMap_FWeakObjectPtr_EBrickSeatAirStrafeControl,
-    WireGraphMap_FWeakObjectPtr_EBrickAerodynamicSurfaceRole,
-    WireGraphMap_FWeakObjectPtr_EBrickAerodynamicForceApplication,
-    WireGraphMap_FWeakObjectPtr_EBrickThrusterForceApplication,
-    WireGraphMap_FWeakObjectPtr_EBrickVehicleFlightHandling,
-    WireGraphMap_FWeakObjectPtr_EBrickVehicleMassDistribution,
-    WireGraphMap_FWeakObjectPtr_EBRSweepCollisionChannel,
-}
-variant WireGraphEnumMapVariant_FWireGraphString {
-    WireGraphMap_FWireGraphString_EBrickDirection,
-    WireGraphMap_FWireGraphString_EBrickAxis,
-    WireGraphMap_FWireGraphString_EBRPawnCollisionChannel,
-    WireGraphMap_FWireGraphString_EBRTextShading,
-    WireGraphMap_FWireGraphString_EBRTextOutline,
-    WireGraphMap_FWireGraphString_EBRTextMaterial,
-    WireGraphMap_FWireGraphString_EBRTextTypeface,
-    WireGraphMap_FWireGraphString_EBRTextFacing,
-    WireGraphMap_FWireGraphString_EBREasingFunction,
-    WireGraphMap_FWireGraphString_EBREasingDirection,
-    WireGraphMap_FWireGraphString_EBRColorSpace,
-    WireGraphMap_FWireGraphString_EProjectileSpawnLocation,
-    WireGraphMap_FWireGraphString_EBrickRigidJointInterpMode,
-    WireGraphMap_FWireGraphString_EBRDisplayTextJustification,
-    WireGraphMap_FWireGraphString_EBRDisplayTextEasing,
-    WireGraphMap_FWireGraphString_EBrickMaterial,
-    WireGraphMap_FWireGraphString_EBrickLightRayTracingVisibility,
-    WireGraphMap_FWireGraphString_EBrickSeatMode,
-    WireGraphMap_FWireGraphString_EBrickSeatCameraOrigin,
-    WireGraphMap_FWireGraphString_EBrickSeatFlightInvertOverride,
-    WireGraphMap_FWireGraphString_EBrickSeatAirStrafeControl,
-    WireGraphMap_FWireGraphString_EBrickAerodynamicSurfaceRole,
-    WireGraphMap_FWireGraphString_EBrickAerodynamicForceApplication,
-    WireGraphMap_FWireGraphString_EBrickThrusterForceApplication,
-    WireGraphMap_FWireGraphString_EBrickVehicleFlightHandling,
-    WireGraphMap_FWireGraphString_EBrickVehicleMassDistribution,
-    WireGraphMap_FWireGraphString_EBRSweepCollisionChannel,
-}
-variant WireGraphEnumMapVariant_int64 {
-    WireGraphMap_int64_EBrickDirection,
-    WireGraphMap_int64_EBrickAxis,
-    WireGraphMap_int64_EBRPawnCollisionChannel,
-    WireGraphMap_int64_EBRTextShading,
-    WireGraphMap_int64_EBRTextOutline,
-    WireGraphMap_int64_EBRTextMaterial,
-    WireGraphMap_int64_EBRTextTypeface,
-    WireGraphMap_int64_EBRTextFacing,
-    WireGraphMap_int64_EBREasingFunction,
-    WireGraphMap_int64_EBREasingDirection,
-    WireGraphMap_int64_EBRColorSpace,
-    WireGraphMap_int64_EProjectileSpawnLocation,
-    WireGraphMap_int64_EBrickRigidJointInterpMode,
-    WireGraphMap_int64_EBRDisplayTextJustification,
-    WireGraphMap_int64_EBRDisplayTextEasing,
-    WireGraphMap_int64_EBrickMaterial,
-    WireGraphMap_int64_EBrickLightRayTracingVisibility,
-    WireGraphMap_int64_EBrickSeatMode,
-    WireGraphMap_int64_EBrickSeatCameraOrigin,
-    WireGraphMap_int64_EBrickSeatFlightInvertOverride,
-    WireGraphMap_int64_EBrickSeatAirStrafeControl,
-    WireGraphMap_int64_EBrickAerodynamicSurfaceRole,
-    WireGraphMap_int64_EBrickAerodynamicForceApplication,
-    WireGraphMap_int64_EBrickThrusterForceApplication,
-    WireGraphMap_int64_EBrickVehicleFlightHandling,
-    WireGraphMap_int64_EBrickVehicleMassDistribution,
-    WireGraphMap_int64_EBRSweepCollisionChannel,
-}
-variant WireGraphEnumVariant {
-    EBrickDirection,
-    EBrickAxis,
-    EBrickMaterial,
-    EBRPawnCollisionChannel,
-    EBRTextShading,
-    EBRTextOutline,
-    EBRTextMaterial,
-    EBRTextTypeface,
-    EBRTextFacing,
-    EBREasingFunction,
-    EBREasingDirection,
-    EBRColorSpace,
-    EProjectileSpawnLocation,
-    EBrickRigidJointInterpMode,
-    EBRDisplayTextJustification,
-    EBRDisplayTextEasing,
-    EBrickLightRayTracingVisibility,
-    EBrickSeatMode,
-    EBrickSeatCameraOrigin,
-    EBrickSeatFlightInvertOverride,
-    EBrickSeatAirStrafeControl,
-    EBrickAerodynamicSurfaceRole,
-    EBrickAerodynamicForceApplication,
-    EBrickThrusterForceApplication,
-    EBrickVehicleFlightHandling,
-    EBrickVehicleMassDistribution,
-    EBRSweepCollisionChannel,
-}
-variant WireGraphMapVariant {
-    WireGraphMapKeyWrapper_int64,
-    WireGraphMapKeyWrapper_FWireGraphString,
-    WireGraphMapKeyWrapper_FWeakObjectPtr,
-}
-variant WireGraphMapVariant_FWeakObjectPtr {
-    WireGraphMap_FWeakObjectPtr_double,
-    WireGraphMap_FWeakObjectPtr_int64,
-    WireGraphMap_FWeakObjectPtr_bool,
-    WireGraphMap_FWeakObjectPtr_FWeakObjectPtr,
-    WireGraphMap_FWeakObjectPtr_FVector,
-    WireGraphMap_FWeakObjectPtr_FRotator,
-    WireGraphMap_FWeakObjectPtr_FQuat,
-    WireGraphMap_FWeakObjectPtr_FWireGraphString,
-    WireGraphMap_FWeakObjectPtr_FLinearColor,
-    WireGraphEnumMapWrapper_FWeakObjectPtr,
-}
-variant WireGraphMapVariant_FWireGraphString {
-    WireGraphMap_FWireGraphString_double,
-    WireGraphMap_FWireGraphString_int64,
-    WireGraphMap_FWireGraphString_bool,
-    WireGraphMap_FWireGraphString_FWeakObjectPtr,
-    WireGraphMap_FWireGraphString_FVector,
-    WireGraphMap_FWireGraphString_FRotator,
-    WireGraphMap_FWireGraphString_FQuat,
-    WireGraphMap_FWireGraphString_FWireGraphString,
-    WireGraphMap_FWireGraphString_FLinearColor,
-    WireGraphEnumMapWrapper_FWireGraphString,
-}
-variant WireGraphMapVariant_int64 {
-    WireGraphMap_int64_double,
-    WireGraphMap_int64_int64,
-    WireGraphMap_int64_bool,
-    WireGraphMap_int64_FWeakObjectPtr,
-    WireGraphMap_int64_FVector,
-    WireGraphMap_int64_FRotator,
-    WireGraphMap_int64_FQuat,
-    WireGraphMap_int64_FWireGraphString,
-    WireGraphMap_int64_FLinearColor,
-    WireGraphEnumMapWrapper_int64,
-}
-variant WireGraphPrimMathVariant {
-    f64,
+variant WireValue {
+    Bool,
     i64,
-    Vector,
-    Rotator,
-    Quat,
+    f64,
     LinearColor,
-}
-variant WireGraphVariant {
-    f64,
-    i64,
-    bool,
-    weak_object,
-    WireGraphExec,
     Vector,
     Rotator,
     Quat,
     str,
-    LinearColor,
-    WireGraphEnumWrapper,
+    dynamic_enum,
+    weak_object,
+    BRSavedBrickRef,
+    BRSavedComponentRef,
+    WireGraphExec,
+}
+struct BCSComponentDataBase {
+}
+struct BCSComponentVertex_Exec_Branch {
+    bCond: bool,
+}
+struct BCSComponentVertex_Exec_CallableBreak {
+}
+struct BCSComponentVertex_Exec_Character_AddInventoryEntity {
+    EntityType: class,
+}
+struct BCSComponentVertex_Exec_Character_AddInventoryItem {
+    Item: class,
+}
+struct BCSComponentVertex_Exec_Character_GetAim {
+    bLocalAim: bool,
+}
+struct BCSComponentVertex_Exec_Character_GetAmmo {
+    Resource: object,
+}
+struct BCSComponentVertex_Exec_Character_GetCurrentInventorySlot {
+}
+struct BCSComponentVertex_Exec_Character_GetDamage {
+}
+struct BCSComponentVertex_Exec_Character_GetFromController {
+}
+struct BCSComponentVertex_Exec_Character_GetInventoryEntry {
+    Slot: i64,
+}
+struct BCSComponentVertex_Exec_Character_GetWeaponChamberAmmo {
+    Slot: i64,
+    Resource: object,
+}
+struct BCSComponentVertex_Exec_Character_GrantAmmo {
+    Resource: object,
+    Amount: i64,
+}
+struct BCSComponentVertex_Exec_Character_IncDamage {
+    Amount: f64,
+}
+struct BCSComponentVertex_Exec_Character_IncWeaponChamberAmmo {
+    Slot: i64,
+    Resource: object,
+    Amount: i64,
+}
+struct BCSComponentVertex_Exec_Character_SetAmmo {
+    Resource: object,
+    Amount: i64,
+}
+struct BCSComponentVertex_Exec_Character_SetDamage {
+    Damage: f64,
+}
+struct BCSComponentVertex_Exec_Character_SetInventoryEntity {
+    Slot: i64,
+    EntityType: class,
+}
+struct BCSComponentVertex_Exec_Character_SetInventoryItem {
+    Slot: i64,
+    Item: class,
+}
+struct BCSComponentVertex_Exec_Character_SetTempPermission {
+    PermissionTagStr: str,
+    bPermissionEnable: bool,
+}
+struct BCSComponentVertex_Exec_Character_SetWeaponChamberAmmo {
+    Slot: i64,
+    Resource: object,
+    Amount: i64,
+}
+struct BCSComponentVertex_Exec_Character_ShowHint {
+    HintTitle: str,
+    HintText: str,
+}
+struct BCSComponentVertex_Exec_Cycle {
+    Count: i64,
+    Value: i64,
+}
+struct BCSComponentVertex_Exec_Entity_CopyCustomProperties {
+}
+struct BCSComponentVertex_Exec_Entity_DestroySpawned {
+}
+struct BCSComponentVertex_Exec_Entity_DestroySpawnedPrefab {
+}
+struct BCSComponentVertex_Exec_Entity_GetCustomProperty {
+    Key: str,
+    Value: WireValue,
+    bFound: bool,
+}
+struct BCSComponentVertex_Exec_Entity_GetSpeed {
+}
+struct BCSComponentVertex_Exec_Entity_GetTag {
+    Tag: str,
+}
+struct BCSComponentVertex_Exec_Entity_GetTeam {
+}
+struct BCSComponentVertex_Exec_Entity_IsFrozen {
+}
+struct BCSComponentVertex_Exec_Entity_PlayAudioAt {
+    AudioDescriptor: object,
+    VolumeMultiplier: f64,
+    PitchMultiplier: f64,
+    InnerRadius: f64,
+    MaxDistance: f64,
+    bSpatialization: bool,
+}
+struct BCSComponentVertex_Exec_Entity_RemoveCustomProperty {
+    Key: str,
+    bFound: bool,
+}
+struct BCSComponentVertex_Exec_Entity_SetCustomProperty {
+    Key: str,
+    Value: WireValue,
+}
+struct BCSComponentVertex_Exec_Entity_SetFrozen {
+    bFrozen: bool,
+}
+struct BCSComponentVertex_Exec_Entity_SetTag {
+    Tag: str,
+}
+struct BCSComponentVertex_Exec_Entity_SetTeam {
+}
+struct BCSComponentVertex_Exec_Entity_SetVisible {
+    bVisible: bool,
+}
+struct BCSComponentVertex_Exec_FindPlayer {
+    Query: str,
+}
+struct BCSComponentVertex_Exec_Gamemode_BroadcastChatMessage {
+    Message: str,
+}
+struct BCSComponentVertex_Exec_Gamemode_BroadcastStatusMessage {
+    Message: str,
+    bFlashIfUnchanged: bool,
+}
+struct BCSComponentVertex_Exec_Gamemode_GetCurrentRound {
+}
+struct BCSComponentVertex_Exec_Gamemode_GetLeaderboardValue {
+    Key: str,
+}
+struct BCSComponentVertex_Exec_Gamemode_GetTeam {
+}
+struct BCSComponentVertex_Exec_Gamemode_GetTeamByName {
+    TeamName: str,
+}
+struct BCSComponentVertex_Exec_Gamemode_GetTeamLeaderboardValue {
+    Key: str,
+}
+struct BCSComponentVertex_Exec_Gamemode_GetTeamName {
+}
+struct BCSComponentVertex_Exec_Gamemode_LeaderboardValue {
+    Key: str,
+    Value: i64,
+}
+struct BCSComponentVertex_Exec_Gamemode_PlayerWins {
+    bTeamWinsInstead: bool,
+}
+struct BCSComponentVertex_Exec_Gamemode_SetTeam {
+    bPinPlayerToTeam: bool,
+}
+struct BCSComponentVertex_Exec_Gamemode_SetTeamPinned {
+    bPinned: bool,
+}
+struct BCSComponentVertex_Exec_Gamemode_TeamLeaderboardValue {
+    Key: str,
+    Value: i64,
+}
+struct BCSComponentVertex_Exec_Gamemode_TeamWins {
+}
+struct BCSComponentVertex_Exec_GetEnvironmentProperty {
+    Environment: str,
+    PropertyName: str,
+}
+struct BCSComponentVertex_Exec_GetInputs {
+}
+struct BCSComponentVertex_Exec_GetOwnTransform {
+}
+struct BCSComponentVertex_Exec_PlayClientAudio {
+    AudioDescriptor: object,
+    VolumeMultiplier: f64,
+    PitchMultiplier: f64,
+}
+struct BCSComponentVertex_Exec_PlayerState_ForceRespawn {
+}
+struct BCSComponentVertex_Exec_PlayerState_GetDisplayName {
+}
+struct BCSComponentVertex_Exec_PlayerState_GetFromEntity {
+}
+struct BCSComponentVertex_Exec_PlayerState_GetUserId {
+}
+struct BCSComponentVertex_Exec_PlayerState_GetUserName {
+}
+struct BCSComponentVertex_Exec_PlayerState_HasPermission {
+    PermissionName: str,
+}
+struct BCSComponentVertex_Exec_PlayerState_HasRole {
+    RoleName: str,
+}
+struct BCSComponentVertex_Exec_PlayerState_IsTrustedByBrickOwner {
+}
+struct BCSComponentVertex_Exec_PlayerState_SetCanRespawn {
+    bCanRespawn: bool,
+}
+struct BCSComponentVertex_Exec_PlayerState_ShowChatMessage {
+    Message: str,
+}
+struct BCSComponentVertex_Exec_PlayerState_ShowMessageBox {
+    Title: str,
+    Message: str,
+}
+struct BCSComponentVertex_Exec_PlayerState_ShowOkCancelBox {
+    Title: str,
+    Message: str,
+}
+struct BCSComponentVertex_Exec_PlayerState_ShowStatusMessage {
+    Message: str,
+}
+struct BCSComponentVertex_Exec_PlayerState_ShowTextInputBox {
+    Title: str,
+    Message: str,
+}
+struct BCSComponentVertex_Exec_PlayerState_ShowYesNoBox {
+    Title: str,
+    Message: str,
+}
+struct BCSComponentVertex_Exec_PlayGlobalAudio {
+    AudioDescriptor: object,
+    VolumeMultiplier: f64,
+    PitchMultiplier: f64,
+}
+struct BCSComponentVertex_Exec_PrintToConsole {
+    Text: str,
+}
+struct BCSComponentVertex_Exec_Random {
+    Min: WireValue,
+    Max: WireValue,
+}
+struct BCSComponentVertex_Exec_SendCustomEvent {
+    EventName: str,
+    DataIn1: WireValue,
+    DataIn2: WireValue,
+    DataIn3: WireValue,
+    DataIn4: WireValue,
+    DataIn5: WireValue,
+    DataIn6: WireValue,
+    DataIn7: WireValue,
+    DataIn8: WireValue,
+}
+struct BCSComponentVertex_Exec_SetEnvironmentProperty {
+    Value: WireValue,
+    Environment: str,
+    PropertyName: str,
+}
+struct BCSComponentVertex_Exec_Toggle {
+    Value: bool,
+}
+struct BCSComponentVertex_Exec_Union {
+}
+struct BCSComponentVertex_Expr_Arithmetic_Value {
+    Input: WireValue,
+}
+struct BCSComponentVertex_Expr_ArithmeticArithmetic_Value {
+    InputA: WireValue,
+    InputB: WireValue,
+}
+struct BCSComponentVertex_Expr_Bool_Bool {
+    bInput: bool,
+}
+struct BCSComponentVertex_Expr_BoolBool_Bool {
+    bInputA: bool,
+    bInputB: bool,
+}
+struct BCSComponentVertex_Expr_ChangeDetector {
+    Input: WireValue,
+    bPulseOnChange: bool,
+}
+struct BCSComponentVertex_Expr_ChangeDetectorExec {
+    Input: WireValue,
+}
+struct BCSComponentVertex_Expr_Compare {
+    InputA: WireValue,
+    InputB: WireValue,
+}
+struct BCSComponentVertex_Expr_Convert {
+    Input: WireValue,
+    Output: WireValue,
+    TargetType: WireValue,
+}
+struct BCSComponentVertex_Expr_DeltaTime {
+}
+struct BCSComponentVertex_Expr_EdgeDetector {
+    Input: f64,
+    bPulseOnRisingEdge: bool,
+    bPulseOnFallingEdge: bool,
+}
+struct BCSComponentVertex_Expr_EdgeDetectorExec {
+    Input: f64,
+}
+struct BCSComponentVertex_Expr_EnumToInteger {
+    Input: WireValue,
+    Output: WireValue,
+}
+struct BCSComponentVertex_Expr_Float_Float {
+    Input: f64,
+}
+struct BCSComponentVertex_Expr_FormatDate {
+    UnixEpoch: i64,
+    Format: str,
+    bUseUTC: bool,
+}
+struct BCSComponentVertex_Expr_Gamemode_TeamPredicate {
+}
+struct BCSComponentVertex_Expr_GetUnixEpoch {
+}
+struct BCSComponentVertex_Expr_GetValueType {
+    Input: WireValue,
+}
+struct BCSComponentVertex_Expr_Int_Int {
+    Input: i64,
+}
+struct BCSComponentVertex_Expr_IntegerToEnum {
+    Input: i64,
+    bWrap: bool,
+    TargetType: dynamic_enum,
+    Output: WireValue,
+}
+struct BCSComponentVertex_Expr_IntInt_Int {
+    InputA: i64,
+    InputB: i64,
+}
+struct BCSComponentVertex_Expr_ItemToPickup {
+}
+struct BCSComponentVertex_Expr_MakeColor {
+    R: f64,
+    G: f64,
+    B: f64,
+    A: f64,
+}
+struct BCSComponentVertex_Expr_MakeColorHex {
+    Hex: str,
+}
+struct BCSComponentVertex_Expr_MakeColorSRGB {
+    R: i64,
+    G: i64,
+    B: i64,
+    A: i64,
+}
+struct BCSComponentVertex_Expr_MakeQuaternion {
+    X: f64,
+    Y: f64,
+    Z: f64,
+    W: f64,
+}
+struct BCSComponentVertex_Expr_MakeRotation {
+    Pitch: f64,
+    Yaw: f64,
+    Roll: f64,
+}
+struct BCSComponentVertex_Expr_MakeVector {
+    X: f64,
+    Y: f64,
+    Z: f64,
+}
+struct BCSComponentVertex_Expr_MathAtan2 {
+    Y: f64,
+    X: f64,
+}
+struct BCSComponentVertex_Expr_MathBlend {
+    Blend: f64,
+    bClampAlpha: bool,
+    InputA: WireValue,
+    InputB: WireValue,
+}
+struct BCSComponentVertex_Expr_MathClamp {
+    Min: WireValue,
+    Max: WireValue,
+    Input: WireValue,
+}
+struct BCSComponentVertex_Expr_MathCompare {
+    InputA: WireValue,
+    InputB: WireValue,
+}
+struct BCSComponentVertex_Expr_MathEasing {
+    Blend: f64,
+    Function: EBREasingFunction,
+    Direction: EBREasingDirection,
+    InputA: WireValue,
+    InputB: WireValue,
+}
+struct BCSComponentVertex_Expr_MathLogBase {
+    Input: f64,
+    Base: f64,
+}
+struct BCSComponentVertex_Expr_MathPow {
+    Input: f64,
+    Exponent: f64,
+}
+struct BCSComponentVertex_Expr_NearlyEqual {
+    InputA: WireValue,
+    InputB: WireValue,
+    Tolerance: f64,
+}
+struct BCSComponentVertex_Expr_Remap {
+    Value: f64,
+    InputMin: f64,
+    InputMax: f64,
+    OutputMin: f64,
+    OutputMax: f64,
+    Function: EBREasingFunction,
+    Direction: EBREasingDirection,
+}
+struct BCSComponentVertex_Expr_Select {
+    bSelectB: bool,
+    InputA: WireValue,
+    InputB: WireValue,
+}
+struct BCSComponentVertex_Expr_ServerUptime {
+}
+struct BCSComponentVertex_Expr_String_CharacterToCodepoint {
+    Character: str,
+}
+struct BCSComponentVertex_Expr_String_CodepointToCharacter {
+    Codepoint: i64,
+}
+struct BCSComponentVertex_Expr_String_Concatenate {
+    InputA: str,
+    InputB: str,
+    Separator: str,
+}
+struct BCSComponentVertex_Expr_String_Contains {
+    Input: str,
+    Search: str,
+    bCaseSensitive: bool,
+}
+struct BCSComponentVertex_Expr_String_EndsWith {
+    Input: str,
+    Suffix: str,
+    bCaseSensitive: bool,
+}
+struct BCSComponentVertex_Expr_String_Find {
+    Input: str,
+    Search: str,
+    bCaseSensitive: bool,
+    Start: i64,
+}
+struct BCSComponentVertex_Expr_String_FormatText {
+    FormatString: str,
+    InputA: WireValue,
+    InputB: WireValue,
+    InputC: WireValue,
+    InputD: WireValue,
+    InputE: WireValue,
+    InputF: WireValue,
+    InputG: WireValue,
+}
+struct BCSComponentVertex_Expr_String_Length {
+    Input: str,
+}
+struct BCSComponentVertex_Expr_String_ParseInt {
+    Input: str,
+}
+struct BCSComponentVertex_Expr_String_ParseNumber {
+    Input: str,
+}
+struct BCSComponentVertex_Expr_String_Replace {
+    Input: str,
+    Search: str,
+    Replacement: str,
+    bCaseSensitive: bool,
+    Start: i64,
+    MaxReplacements: i64,
+}
+struct BCSComponentVertex_Expr_String_Split {
+    Input: str,
+    Delimiter: str,
+    bCaseSensitive: bool,
+    Occurrence: i64,
+}
+struct BCSComponentVertex_Expr_String_StartsWith {
+    Input: str,
+    Prefix: str,
+    bCaseSensitive: bool,
+}
+struct BCSComponentVertex_Expr_String_Substring {
+    Input: str,
+    Start: i64,
+    Length: i64,
+}
+struct BCSComponentVertex_Expr_String_ToLower {
+    Input: str,
+}
+struct BCSComponentVertex_Expr_String_ToUpper {
+    Input: str,
+}
+struct BCSComponentVertex_Expr_String_Trim {
+    Input: str,
+}
+struct BCSComponentVertex_Expr_Swap {
+    bSwap: bool,
+    InputA: WireValue,
+    InputB: WireValue,
+}
+struct BCSComponentVertex_FunctionCall {
+    Input0: WireValue,
+    Input1: WireValue,
+    Input2: WireValue,
+    Input3: WireValue,
+    Input4: WireValue,
+    Input5: WireValue,
+    Input6: WireValue,
+    Input7: WireValue,
+    Output0: WireValue,
+    Output1: WireValue,
+    Output2: WireValue,
+    Output3: WireValue,
+    Output4: WireValue,
+    Output5: WireValue,
+    Output6: WireValue,
+    Output7: WireValue,
+    InputSources: ECallableInputSource[],
+}
+struct BrickComponentData_ArrayVar {
+    Value: dynamic_array,
 }
 struct BrickComponentData_AudioEmitter {
     bEnabled: bool,
@@ -434,6 +812,9 @@ struct BrickComponentData_AudioEmitter {
     NonFocusAzimuth: f32,
     NonFocusVolumeAttenuation: f32,
 }
+struct BrickComponentData_AudioReference {
+    Asset: object,
+}
 struct BrickComponentData_Bearing {
     bLimitAngle: bool,
     LimitAngle: f32,
@@ -442,12 +823,43 @@ struct BrickComponentData_Bearing {
     bReversed: bool,
     Damping: f32,
 }
+struct BrickComponentData_BrickAssetReference {
+    Asset: object,
+}
+struct BrickComponentData_BufferSeconds {
+    SecondsToWait: f32,
+    ZeroSecondsToWait: f32,
+    CurrentTime: f32,
+    Input: WireValue,
+    Output: WireValue,
+    Buffered: WireValue,
+    bHasQueued: bool,
+    bIsOffTimer: bool,
+}
+struct BrickComponentData_BufferTicks {
+    TicksToWait: i32,
+    ZeroTicksToWait: i32,
+    CurrentTicks: i32,
+    Input: WireValue,
+    Output: WireValue,
+    Buffered: WireValue,
+    bHasQueued: bool,
+    bIsOffTimer: bool,
+}
 struct BrickComponentData_Button {
     PressSound: object,
     ReleaseSound: object,
     bAllowNearbyInteraction: bool,
     bHiddenInteraction: bool,
     PromptCustomLabel: str,
+}
+struct BrickComponentData_CallableEntry_CountFor {
+}
+struct BrickComponentData_CallableEntry_ForEachArray {
+}
+struct BrickComponentData_CallableEntry_ForEachMap {
+}
+struct BrickComponentData_CallableEntry_Function {
 }
 struct BrickComponentData_CheckPoint {
     bRotatePlayerGravityOnSpawn: bool,
@@ -464,6 +876,61 @@ struct BrickComponentData_Damage {
     RepeatDelay: f32,
     Message: str,
     ConsoleTag: str,
+}
+struct BrickComponentData_EntityTypeReference {
+    Asset: class,
+}
+struct BrickComponentData_Event_ChatCommand {
+    CommandName: str,
+    HelpText: str,
+}
+struct BrickComponentData_Event_Custom {
+    EventName: str,
+    bIsObjectEvent: bool,
+    DataOut1: WireValue,
+    DataOut2: WireValue,
+    DataOut3: WireValue,
+    DataOut4: WireValue,
+    DataOut5: WireValue,
+    DataOut6: WireValue,
+    DataOut7: WireValue,
+    DataOut8: WireValue,
+}
+struct BrickComponentData_Event_Gamemode_CharacterBase {
+}
+struct BrickComponentData_Event_Gamemode_CharacterDamaged {
+}
+struct BrickComponentData_Event_Gamemode_CharacterDied {
+}
+struct BrickComponentData_Event_Gamemode_CharacterFiredWeapon {
+}
+struct BrickComponentData_Event_Gamemode_ControllerBase {
+}
+struct BrickComponentData_Event_Gamemode_ControllerTeamBase {
+}
+struct BrickComponentData_Event_Gamemode_RoundBase {
+    RoundNumber: i32,
+}
+struct BrickComponentData_Event_WholeGridInteracted {
+    bAllowNearbyInteraction: bool,
+    bHiddenInteraction: bool,
+    PromptCustomLabel: str,
+}
+struct BrickComponentData_Event_WholeGridTargeted {
+}
+struct BrickComponentData_FontReference {
+    Asset: object,
+}
+struct BrickComponentData_FunctionInput {
+    PortLabel: str,
+    PortOrder: i32,
+    DefaultValue: WireValue,
+    Value: WireValue,
+}
+struct BrickComponentData_FunctionOutput {
+    PortLabel: str,
+    PortOrder: i32,
+    DefaultValue: WireValue,
 }
 struct BrickComponentData_Interact {
     InteractSound: object,
@@ -487,17 +954,43 @@ struct BrickComponentData_Internal_InputSplitter_V2 {
 }
 struct BrickComponentData_Internal_Microchip {
 }
+struct BrickComponentData_Internal_Microchip_CountFor {
+    Count: i64,
+    FirstIndex: i64,
+    Step: i64,
+    bRunAcrossTicks: bool,
+}
+struct BrickComponentData_Internal_Microchip_ForEachArray {
+    bRunAcrossTicks: bool,
+}
+struct BrickComponentData_Internal_Microchip_ForEachMap {
+    bRunAcrossTicks: bool,
+}
+struct BrickComponentData_Internal_Microchip_FunctionDefinition {
+}
 struct BrickComponentData_Internal_MicrochipInput {
     PortLabel: str,
+    PortOrder: i32,
+    CallableDefault: WireValue,
+    CallableMirror: WireValue,
 }
 struct BrickComponentData_Internal_MicrochipOutput {
     PortLabel: str,
+    PortOrder: i32,
+    CallableDefault: WireValue,
+    CallableResult: WireValue,
 }
 struct BrickComponentData_Internal_ProjectileZoneEvent {
 }
 struct BrickComponentData_Internal_ReadBrickGrid {
 }
 struct BrickComponentData_Internal_ZoneEvent {
+}
+struct BrickComponentData_ItemReference {
+    Asset: class,
+}
+struct BrickComponentData_MapVar {
+    Value: dynamic_map,
 }
 struct BrickComponentData_Motor {
     bEnabled: bool,
@@ -529,6 +1022,18 @@ struct BrickComponentData_OneShotAudioEmitter {
     RepeatTime: f32,
     RepeatVariance: f32,
     RepeatCount: i32,
+}
+struct BrickComponentData_OneShotAudioReference {
+    Asset: object,
+}
+struct BrickComponentData_ParticleReference {
+    Asset: object,
+}
+struct BrickComponentData_PickupReference {
+    Asset: class,
+}
+struct BrickComponentData_ProjectileReference {
+    Asset: class,
 }
 struct BrickComponentData_ProjectileSpawner {
     ProjectileClass: class,
@@ -599,6 +1104,11 @@ struct BrickComponentData_SpawnPoint {
     bRotatePlayerGravityOnSpawn: bool,
     bEnable: bool,
 }
+struct BrickComponentData_Stopwatch {
+    Limit: f64,
+    Time: f64,
+    bRunning: bool,
+}
 struct BrickComponentData_Switch {
     bEnabled: bool,
     InteractSound: object,
@@ -619,685 +1129,24 @@ struct BrickComponentData_Touch {
     bCollisionEnabled_Player2: bool,
     bCollisionEnabled_Player3: bool,
 }
-struct BrickComponentData_WireGraph_AudioReference {
-    Asset: object,
-}
-struct BrickComponentData_WireGraph_BrickAssetReference {
-    Asset: object,
-}
-struct BrickComponentData_WireGraph_DeltaTime {
-}
-struct BrickComponentData_WireGraph_EntityTypeReference {
-    Asset: class,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Average {
-    Value: WireGraphVariant,
-    bIsEmpty: bool,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Base {
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_DualRef {
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_ElementOp {
-    Index: i64,
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Find {
-    Index: i64,
-    bFound: bool,
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Get {
-    bOutOfBounds: bool,
-    Index: i64,
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_GetLength {
-    Length: i64,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Insert {
-    bOutOfBounds: bool,
-    Index: i64,
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_MinMax {
-    Value: WireGraphVariant,
-    bIsEmpty: bool,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Pop {
-    bIsEmpty: bool,
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Push {
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_RemoveAtIndex {
-    Index: i64,
-    bOutOfBounds: bool,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Resize {
-    Size: i64,
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Slice {
-    Start: i64,
-    Count: i64,
-    bOutOfBounds: bool,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Sort {
-    bDescending: bool,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_SortMultiple {
-    bDescending: bool,
-    bSuccess: bool,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Sum {
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_ArrayVar_Swap {
-    IndexA: i64,
-    IndexB: i64,
-    bOutOfBounds: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Character_AddInventoryEntity {
-    EntityType: class,
-}
-struct BrickComponentData_WireGraph_Exec_Character_AddInventoryItem {
-    Item: class,
-}
-struct BrickComponentData_WireGraph_Exec_Character_GetAim {
-    bLocalAim: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Character_GetAmmo {
-    Resource: object,
-}
-struct BrickComponentData_WireGraph_Exec_Character_GetCurrentInventorySlot {
-}
-struct BrickComponentData_WireGraph_Exec_Character_GetDamage {
-}
-struct BrickComponentData_WireGraph_Exec_Character_GetFromController {
-}
-struct BrickComponentData_WireGraph_Exec_Character_GetInventoryEntry {
-    Slot: i64,
-}
-struct BrickComponentData_WireGraph_Exec_Character_GetWeaponChamberAmmo {
-    Slot: i64,
-    Resource: object,
-}
-struct BrickComponentData_WireGraph_Exec_Character_GrantAmmo {
-    Resource: object,
-    Amount: i64,
-}
-struct BrickComponentData_WireGraph_Exec_Character_IncDamage {
-    Amount: f64,
-}
-struct BrickComponentData_WireGraph_Exec_Character_IncWeaponChamberAmmo {
-    Slot: i64,
-    Resource: object,
-    Amount: i64,
-}
-struct BrickComponentData_WireGraph_Exec_Character_SetAmmo {
-    Resource: object,
-    Amount: i64,
-}
-struct BrickComponentData_WireGraph_Exec_Character_SetDamage {
-    Damage: f64,
-}
-struct BrickComponentData_WireGraph_Exec_Character_SetInventoryEntity {
-    Slot: i64,
-    EntityType: class,
-}
-struct BrickComponentData_WireGraph_Exec_Character_SetInventoryItem {
-    Slot: i64,
-    Item: class,
-}
-struct BrickComponentData_WireGraph_Exec_Character_SetTempPermission {
-    PermissionTagStr: str,
-    bPermissionEnable: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Character_SetWeaponChamberAmmo {
-    Slot: i64,
-    Resource: object,
-    Amount: i64,
-}
-struct BrickComponentData_WireGraph_Exec_Character_ShowHint {
-    HintTitle: str,
-    HintText: str,
-}
-struct BrickComponentData_WireGraph_Exec_ChatCommand {
-    CommandName: str,
-    HelpText: str,
-}
-struct BrickComponentData_WireGraph_Exec_Cycle {
-    Count: i64,
-    Value: i64,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_DestroySpawned {
-}
-struct BrickComponentData_WireGraph_Exec_Entity_DestroySpawnedPrefab {
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetSpeed {
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetTag {
-    Tag: str,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetTeam {
-}
-struct BrickComponentData_WireGraph_Exec_Entity_IsFrozen {
-}
-struct BrickComponentData_WireGraph_Exec_Entity_PlayAudioAt {
-    AudioDescriptor: object,
-    VolumeMultiplier: f64,
-    PitchMultiplier: f64,
-    InnerRadius: f64,
-    MaxDistance: f64,
-    bSpatialization: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_SetFrozen {
-    bFrozen: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_SetTag {
-    Tag: str,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_SetTeam {
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_BroadcastChatMessage {
-    Message: str,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_BroadcastStatusMessage {
-    Message: str,
-    bFlashIfUnchanged: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_FillArrayFromPlayers {
-    bIncludeBuilderMode: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_FillArrayFromTeamMembers {
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_GetCurrentRound {
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_GetLeaderboardValue {
-    Key: str,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_GetTeam {
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_GetTeamByName {
-    TeamName: str,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_GetTeamLeaderboardValue {
-    Key: str,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_GetTeamName {
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_LeaderboardValue {
-    Key: str,
-    Value: i64,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_PlayerWins {
-    bTeamWinsInstead: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_SetTeam {
-    bPinPlayerToTeam: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_SetTeamPinned {
-    bPinned: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_TeamLeaderboardValue {
-    Key: str,
-    Value: i64,
-}
-struct BrickComponentData_WireGraph_Exec_Gamemode_TeamWins {
-}
-struct BrickComponentData_WireGraph_Exec_GetInputs {
-}
-struct BrickComponentData_WireGraph_Exec_GetOwnTransform {
-}
-struct BrickComponentData_WireGraph_Exec_MapVar_ArrayDest {
-}
-struct BrickComponentData_WireGraph_Exec_MapVar_Base {
-}
-struct BrickComponentData_WireGraph_Exec_MapVar_CopyFrom {
-}
-struct BrickComponentData_WireGraph_Exec_MapVar_Get {
-    bFound: bool,
-    Key: WireGraphVariant,
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_MapVar_GetLength {
-    Length: i64,
-}
-struct BrickComponentData_WireGraph_Exec_MapVar_KeyOp {
-    Key: WireGraphVariant,
-    bFound: bool,
-}
-struct BrickComponentData_WireGraph_Exec_MapVar_Set {
-    Key: WireGraphVariant,
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_PlayClientAudio {
-    AudioDescriptor: object,
-    VolumeMultiplier: f64,
-    PitchMultiplier: f64,
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_ForceRespawn {
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_GetDisplayName {
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_GetFromEntity {
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_GetUserId {
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_GetUserName {
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_HasPermission {
-    PermissionName: str,
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_HasRole {
-    RoleName: str,
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_IsTrustedByBrickOwner {
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_SetCanRespawn {
-    bCanRespawn: bool,
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_ShowChatMessage {
-    Message: str,
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_ShowMessageBox {
-    Title: str,
-    Message: str,
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_ShowStatusMessage {
-    Message: str,
-}
-struct BrickComponentData_WireGraph_Exec_PlayGlobalAudio {
-    AudioDescriptor: object,
-    VolumeMultiplier: f64,
-    PitchMultiplier: f64,
-}
-struct BrickComponentData_WireGraph_Exec_PrintToConsole {
-    Text: str,
-}
-struct BrickComponentData_WireGraph_Exec_Random {
-    Min: WireGraphPrimMathVariant,
-    Max: WireGraphPrimMathVariant,
-}
-struct BrickComponentData_WireGraph_Exec_Toggle {
-    Value: bool,
-}
-struct BrickComponentData_WireGraph_Exec_Var_EditOrGet {
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_Var_Get {
-    Value: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Exec_WholeGridInteracted {
-    bAllowNearbyInteraction: bool,
-    bHiddenInteraction: bool,
-    PromptCustomLabel: str,
-}
-struct BrickComponentData_WireGraph_Exec_WholeGridTargeted {
-}
-struct BrickComponentData_WireGraph_Exec_Zone_GetEntities {
-    TagFilter: str,
-}
-struct BrickComponentData_WireGraph_Exec_Zone_GetPlayers {
-    TagFilter: str,
-}
-struct BrickComponentData_WireGraph_ExecBranch {
-    bCond: bool,
-}
-struct BrickComponentData_WireGraph_ExecUnion {
-}
-struct BrickComponentData_WireGraph_Expr_Bool_Bool {
-    bInput: bool,
-}
-struct BrickComponentData_WireGraph_Expr_BoolBool_Bool {
-    bInputA: bool,
-    bInputB: bool,
-}
-struct BrickComponentData_WireGraph_Expr_ChangeDetector {
-    Input: WireGraphVariant,
-    bPulseOnChange: bool,
-}
-struct BrickComponentData_WireGraph_Expr_ChangeDetectorExec {
-    Input: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Expr_Compare {
-    InputA: WireGraphVariant,
-    InputB: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Expr_Convert {
-    Input: WireGraphVariant,
-    Output: WireGraphVariant,
-    TargetType: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Expr_EdgeDetector {
-    Input: f64,
-    bPulseOnRisingEdge: bool,
-    bPulseOnFallingEdge: bool,
-}
-struct BrickComponentData_WireGraph_Expr_EdgeDetectorExec {
-    Input: f64,
-}
-struct BrickComponentData_WireGraph_Expr_EnumToInteger {
-    Input: WireGraphVariant,
-    Output: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Expr_Float_Float {
-    Input: f64,
-}
-struct BrickComponentData_WireGraph_Expr_Gamemode_TeamPredicate {
-}
-struct BrickComponentData_WireGraph_Expr_Int_Int {
-    Input: i64,
-}
-struct BrickComponentData_WireGraph_Expr_IntegerToEnum {
-    Input: i64,
-    bWrap: bool,
-    TargetType: WireGraphEnumVariant,
-    Output: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Expr_IntInt_Int {
-    InputA: i64,
-    InputB: i64,
-}
-struct BrickComponentData_WireGraph_Expr_ItemToPickup {
-}
-struct BrickComponentData_WireGraph_Expr_MakeColor {
-    R: f64,
-    G: f64,
-    B: f64,
-    A: f64,
-}
-struct BrickComponentData_WireGraph_Expr_MakeColorHex {
-    Hex: str,
-}
-struct BrickComponentData_WireGraph_Expr_MakeColorSRGB {
-    R: i64,
-    G: i64,
-    B: i64,
-    A: i64,
-}
-struct BrickComponentData_WireGraph_Expr_MakeQuaternion {
-    X: f64,
-    Y: f64,
-    Z: f64,
-    W: f64,
-}
-struct BrickComponentData_WireGraph_Expr_MakeRotation {
-    Pitch: f64,
-    Yaw: f64,
-    Roll: f64,
-}
-struct BrickComponentData_WireGraph_Expr_MakeVector {
-    X: f64,
-    Y: f64,
-    Z: f64,
-}
-struct BrickComponentData_WireGraph_Expr_MathAtan2 {
-    Y: f64,
-    X: f64,
-}
-struct BrickComponentData_WireGraph_Expr_MathBlend {
-    Blend: f64,
-    bClampAlpha: bool,
-    InputA: WireGraphPrimMathVariant,
-    InputB: WireGraphPrimMathVariant,
-}
-struct BrickComponentData_WireGraph_Expr_MathClamp {
-    Min: WireGraphPrimMathVariant,
-    Max: WireGraphPrimMathVariant,
-    Input: WireGraphPrimMathVariant,
-}
-struct BrickComponentData_WireGraph_Expr_MathCompare {
-    InputA: WireGraphPrimMathVariant,
-    InputB: WireGraphPrimMathVariant,
-}
-struct BrickComponentData_WireGraph_Expr_MathEasing {
-    Blend: f64,
-    Function: EBREasingFunction,
-    Direction: EBREasingDirection,
-    InputA: WireGraphPrimMathVariant,
-    InputB: WireGraphPrimMathVariant,
-}
-struct BrickComponentData_WireGraph_Expr_MathLogBase {
-    Input: f64,
-    Base: f64,
-}
-struct BrickComponentData_WireGraph_Expr_MathPow {
-    Input: f64,
-    Exponent: f64,
-}
-struct BrickComponentData_WireGraph_Expr_NearlyEqual {
-    InputA: WireGraphPrimMathVariant,
-    InputB: WireGraphPrimMathVariant,
-    Tolerance: f64,
-}
-struct BrickComponentData_WireGraph_Expr_PrimMathVariant_PrimMathVariant {
-    Input: WireGraphPrimMathVariant,
-}
-struct BrickComponentData_WireGraph_Expr_PrimMathVariantPrimMathVariant_PrimMathVariant {
-    InputA: WireGraphPrimMathVariant,
-    InputB: WireGraphPrimMathVariant,
-}
-struct BrickComponentData_WireGraph_Expr_Remap {
-    Value: f64,
-    InputMin: f64,
-    InputMax: f64,
-    OutputMin: f64,
-    OutputMax: f64,
-    Function: EBREasingFunction,
-    Direction: EBREasingDirection,
-}
-struct BrickComponentData_WireGraph_Expr_Select {
-    bSelectB: bool,
-    InputA: WireGraphVariant,
-    InputB: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Expr_String_CharacterToCodepoint {
-    Character: str,
-}
-struct BrickComponentData_WireGraph_Expr_String_CodepointToCharacter {
-    Codepoint: i64,
-}
-struct BrickComponentData_WireGraph_Expr_String_Concatenate {
-    InputA: str,
-    InputB: str,
-    Separator: str,
-}
-struct BrickComponentData_WireGraph_Expr_String_Contains {
-    Input: str,
-    Search: str,
-    bCaseSensitive: bool,
-}
-struct BrickComponentData_WireGraph_Expr_String_EndsWith {
-    Input: str,
-    Suffix: str,
-    bCaseSensitive: bool,
-}
-struct BrickComponentData_WireGraph_Expr_String_Find {
-    Input: str,
-    Search: str,
-    bCaseSensitive: bool,
-    Start: i64,
-}
-struct BrickComponentData_WireGraph_Expr_String_FormatText {
-    FormatString: str,
-    InputA: WireGraphVariant,
-    InputB: WireGraphVariant,
-    InputC: WireGraphVariant,
-    InputD: WireGraphVariant,
-    InputE: WireGraphVariant,
-    InputF: WireGraphVariant,
-    InputG: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Expr_String_Length {
-    Input: str,
-}
-struct BrickComponentData_WireGraph_Expr_String_ParseInt {
-    Input: str,
-}
-struct BrickComponentData_WireGraph_Expr_String_ParseNumber {
-    Input: str,
-}
-struct BrickComponentData_WireGraph_Expr_String_Replace {
-    Input: str,
-    Search: str,
-    Replacement: str,
-    bCaseSensitive: bool,
-    Start: i64,
-    MaxReplacements: i64,
-}
-struct BrickComponentData_WireGraph_Expr_String_Split {
-    Input: str,
-    Delimiter: str,
-    bCaseSensitive: bool,
-    Occurrence: i64,
-}
-struct BrickComponentData_WireGraph_Expr_String_StartsWith {
-    Input: str,
-    Prefix: str,
-    bCaseSensitive: bool,
-}
-struct BrickComponentData_WireGraph_Expr_String_Substring {
-    Input: str,
-    Start: i64,
-    Length: i64,
-}
-struct BrickComponentData_WireGraph_Expr_String_ToLower {
-    Input: str,
-}
-struct BrickComponentData_WireGraph_Expr_String_ToUpper {
-    Input: str,
-}
-struct BrickComponentData_WireGraph_Expr_String_Trim {
-    Input: str,
-}
-struct BrickComponentData_WireGraph_Expr_Swap {
-    bSwap: bool,
-    InputA: WireGraphVariant,
-    InputB: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Expr_Variant_Variant {
-    Input: WireGraphVariant,
-}
-struct BrickComponentData_WireGraph_Fake_CharacterDamageEvent {
-}
-struct BrickComponentData_WireGraph_Fake_CharacterDeathEvent {
-}
-struct BrickComponentData_WireGraph_Fake_CharacterEvent {
-}
-struct BrickComponentData_WireGraph_Fake_CharacterFiredWeaponEvent {
-}
-struct BrickComponentData_WireGraph_Fake_ControllerEvent {
-}
-struct BrickComponentData_WireGraph_Fake_ControllerTeamEvent {
-}
-struct BrickComponentData_WireGraph_Fake_RoundEvent {
-    RoundNumber: i32,
-}
-struct BrickComponentData_WireGraph_FindPlayer {
-    Query: str,
-}
-struct BrickComponentData_WireGraph_FontReference {
-    Asset: object,
-}
-struct BrickComponentData_WireGraph_FormatDate {
-    UnixEpoch: i64,
-    Format: str,
-    bUseUTC: bool,
-}
-struct BrickComponentData_WireGraph_GetUnixEpoch {
-}
-struct BrickComponentData_WireGraph_ItemReference {
-    Asset: class,
-}
-struct BrickComponentData_WireGraph_OneShotAudioReference {
-    Asset: object,
-}
-struct BrickComponentData_WireGraph_ParticleReference {
-    Asset: object,
-}
-struct BrickComponentData_WireGraph_PickupReference {
-    Asset: class,
-}
-struct BrickComponentData_WireGraph_ProjectileReference {
-    Asset: class,
-}
-struct BrickComponentData_WireGraph_ServerUptime {
-}
-struct BrickComponentData_WireGraph_WeaponResourceReference {
-    Asset: object,
-}
-struct BrickComponentData_WireGraph_WheelEngineAudioReference {
-    Asset: object,
-}
-struct BrickComponentData_WireGraphPseudo_ArrayVar {
-    Value: WireGraphArrayVariant,
-}
-struct BrickComponentData_WireGraphPseudo_BufferSeconds {
-    SecondsToWait: f32,
-    ZeroSecondsToWait: f32,
-    CurrentTime: f32,
-    Input: WireGraphVariant,
-    Output: WireGraphVariant,
-    Buffered: WireGraphVariant,
-    bHasQueued: bool,
-    bIsOffTimer: bool,
-}
-struct BrickComponentData_WireGraphPseudo_BufferTicks {
-    TicksToWait: i32,
-    ZeroTicksToWait: i32,
-    CurrentTicks: i32,
-    Input: WireGraphVariant,
-    Output: WireGraphVariant,
-    Buffered: WireGraphVariant,
-    bHasQueued: bool,
-    bIsOffTimer: bool,
-}
-struct BrickComponentData_WireGraphPseudo_CustomEvent {
-    EventName: str,
-    bIsObjectEvent: bool,
-    DataOut1: WireGraphVariant,
-    DataOut2: WireGraphVariant,
-    DataOut3: WireGraphVariant,
-    DataOut4: WireGraphVariant,
-    DataOut5: WireGraphVariant,
-    DataOut6: WireGraphVariant,
-    DataOut7: WireGraphVariant,
-    DataOut8: WireGraphVariant,
-}
-struct BrickComponentData_WireGraphPseudo_MapVar {
-    Value: WireGraphMapVariant,
-}
-struct BrickComponentData_WireGraphPseudo_SendCustomEvent {
-    EventName: str,
-    DataIn1: WireGraphVariant,
-    DataIn2: WireGraphVariant,
-    DataIn3: WireGraphVariant,
-    DataIn4: WireGraphVariant,
-    DataIn5: WireGraphVariant,
-    DataIn6: WireGraphVariant,
-    DataIn7: WireGraphVariant,
-    DataIn8: WireGraphVariant,
-}
-struct BrickComponentData_WireGraphPseudo_Timer {
-    Limit: f64,
-    Time: f64,
-    bRunning: bool,
-}
-struct BrickComponentData_WireGraphPseudo_Tween {
-    Target: WireGraphVariant,
-    Value: WireGraphVariant,
-    StartValue: WireGraphVariant,
+struct BrickComponentData_Tween {
+    Target: WireValue,
+    Value: WireValue,
+    StartValue: WireValue,
     Duration: f64,
     Elapsed: f64,
     bRunning: bool,
     Function: EBREasingFunction,
     Direction: EBREasingDirection,
 }
-struct BrickComponentData_WireGraphPseudo_Var {
-    Value: WireGraphVariant,
+struct BrickComponentData_Var {
+    Value: WireValue,
+}
+struct BrickComponentData_WeaponResourceReference {
+    Asset: object,
+}
+struct BrickComponentData_WheelEngineAudioReference {
+    Asset: object,
 }
 struct BrickComponentWireControl_DriveAndSteer {
 }
@@ -1316,16 +1165,21 @@ struct BRInventoryEntryWeaponResourceAmounts {
     Reserve: i32,
 }
 struct BRQueueSecondsEntry {
-    Data: WireGraphVariant[],
+    Data: WireValue[],
     RemainingTime: f32,
 }
 struct BRQueueTicksEntry {
-    Data: WireGraphVariant[],
+    Data: WireValue[],
     RemainingTicks: i32,
 }
 struct BRSavedBrickComponentTypeCounter {
     TypeIndex: u32,
     NumInstances: u32,
+}
+struct BRSavedChunk3DIndex {
+    X: i16,
+    Y: i16,
+    Z: i16,
 }
 struct Color {
     B: u8,
@@ -1390,383 +1244,256 @@ struct Vector4 {
     Z: f64,
     W: f64,
 }
-struct WireGraphBoolArray {
-    Values: bool[],
-}
-struct WireGraphDoubleArray {
-    Values: f64[],
-}
-struct WireGraphEnumArray_EBRColorSpace {
-    Values: EBRColorSpace[],
-}
-struct WireGraphEnumArray_EBRDisplayTextEasing {
-    Values: EBRDisplayTextEasing[],
-}
-struct WireGraphEnumArray_EBRDisplayTextJustification {
-    Values: EBRDisplayTextJustification[],
-}
-struct WireGraphEnumArray_EBREasingDirection {
-    Values: EBREasingDirection[],
-}
-struct WireGraphEnumArray_EBREasingFunction {
-    Values: EBREasingFunction[],
-}
-struct WireGraphEnumArray_EBrickAerodynamicForceApplication {
-    Values: EBrickAerodynamicForceApplication[],
-}
-struct WireGraphEnumArray_EBrickAerodynamicSurfaceRole {
-    Values: EBrickAerodynamicSurfaceRole[],
-}
-struct WireGraphEnumArray_EBrickAxis {
-    Values: EBrickAxis[],
-}
-struct WireGraphEnumArray_EBrickDirection {
-    Values: EBrickDirection[],
-}
-struct WireGraphEnumArray_EBrickLightRayTracingVisibility {
-    Values: EBrickLightRayTracingVisibility[],
-}
-struct WireGraphEnumArray_EBrickMaterial {
-    Values: EBrickMaterial[],
-}
-struct WireGraphEnumArray_EBrickRigidJointInterpMode {
-    Values: EBrickRigidJointInterpMode[],
-}
-struct WireGraphEnumArray_EBrickSeatAirStrafeControl {
-    Values: EBrickSeatAirStrafeControl[],
-}
-struct WireGraphEnumArray_EBrickSeatCameraOrigin {
-    Values: EBrickSeatCameraOrigin[],
-}
-struct WireGraphEnumArray_EBrickSeatFlightInvertOverride {
-    Values: EBrickSeatFlightInvertOverride[],
-}
-struct WireGraphEnumArray_EBrickSeatMode {
-    Values: EBrickSeatMode[],
-}
-struct WireGraphEnumArray_EBrickThrusterForceApplication {
-    Values: EBrickThrusterForceApplication[],
-}
-struct WireGraphEnumArray_EBrickVehicleFlightHandling {
-    Values: EBrickVehicleFlightHandling[],
-}
-struct WireGraphEnumArray_EBrickVehicleMassDistribution {
-    Values: EBrickVehicleMassDistribution[],
-}
-struct WireGraphEnumArray_EBRPawnCollisionChannel {
-    Values: EBRPawnCollisionChannel[],
-}
-struct WireGraphEnumArray_EBRSweepCollisionChannel {
-    Values: EBRSweepCollisionChannel[],
-}
-struct WireGraphEnumArray_EBRTextFacing {
-    Values: EBRTextFacing[],
-}
-struct WireGraphEnumArray_EBRTextMaterial {
-    Values: EBRTextMaterial[],
-}
-struct WireGraphEnumArray_EBRTextOutline {
-    Values: EBRTextOutline[],
-}
-struct WireGraphEnumArray_EBRTextShading {
-    Values: EBRTextShading[],
-}
-struct WireGraphEnumArray_EBRTextTypeface {
-    Values: EBRTextTypeface[],
-}
-struct WireGraphEnumArray_EProjectileSpawnLocation {
-    Values: EProjectileSpawnLocation[],
-}
-struct WireGraphEnumArrayWrapper {
-    Enum: WireGraphEnumArrayVariant,
-}
-struct WireGraphEnumMapWrapper_FWeakObjectPtr {
-    Enum: WireGraphEnumMapVariant_FWeakObjectPtr,
-}
-struct WireGraphEnumMapWrapper_FWireGraphString {
-    Enum: WireGraphEnumMapVariant_FWireGraphString,
-}
-struct WireGraphEnumMapWrapper_int64 {
-    Enum: WireGraphEnumMapVariant_int64,
-}
-struct WireGraphEnumWrapper {
-    Enum: WireGraphEnumVariant,
-}
 struct WireGraphExec {
 }
-struct WireGraphInt64Array {
-    Values: i64[],
-}
-struct WireGraphMap_FWeakObjectPtr_bool {
-}
-struct WireGraphMap_FWeakObjectPtr_double {
-}
-struct WireGraphMap_FWeakObjectPtr_EBRColorSpace {
-}
-struct WireGraphMap_FWeakObjectPtr_EBRDisplayTextEasing {
-}
-struct WireGraphMap_FWeakObjectPtr_EBRDisplayTextJustification {
-}
-struct WireGraphMap_FWeakObjectPtr_EBREasingDirection {
-}
-struct WireGraphMap_FWeakObjectPtr_EBREasingFunction {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickAerodynamicForceApplication {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickAerodynamicSurfaceRole {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickAxis {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickDirection {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickLightRayTracingVisibility {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickMaterial {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickRigidJointInterpMode {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickSeatAirStrafeControl {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickSeatCameraOrigin {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickSeatFlightInvertOverride {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickSeatMode {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickThrusterForceApplication {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickVehicleFlightHandling {
-}
-struct WireGraphMap_FWeakObjectPtr_EBrickVehicleMassDistribution {
-}
-struct WireGraphMap_FWeakObjectPtr_EBRPawnCollisionChannel {
-}
-struct WireGraphMap_FWeakObjectPtr_EBRSweepCollisionChannel {
-}
-struct WireGraphMap_FWeakObjectPtr_EBRTextFacing {
-}
-struct WireGraphMap_FWeakObjectPtr_EBRTextMaterial {
-}
-struct WireGraphMap_FWeakObjectPtr_EBRTextOutline {
-}
-struct WireGraphMap_FWeakObjectPtr_EBRTextShading {
-}
-struct WireGraphMap_FWeakObjectPtr_EBRTextTypeface {
-}
-struct WireGraphMap_FWeakObjectPtr_EProjectileSpawnLocation {
-}
-struct WireGraphMap_FWeakObjectPtr_FWeakObjectPtr {
-}
-struct WireGraphMap_FWeakObjectPtr_FWireGraphString {
-}
-struct WireGraphMap_FWeakObjectPtr_int64 {
-}
-struct WireGraphMap_FWireGraphString_bool {
-    Values: {str: bool},
-}
-struct WireGraphMap_FWireGraphString_double {
-    Values: {str: f64},
-}
-struct WireGraphMap_FWireGraphString_EBRColorSpace {
-    Values: {str: EBRColorSpace},
-}
-struct WireGraphMap_FWireGraphString_EBRDisplayTextEasing {
-    Values: {str: EBRDisplayTextEasing},
-}
-struct WireGraphMap_FWireGraphString_EBRDisplayTextJustification {
-    Values: {str: EBRDisplayTextJustification},
-}
-struct WireGraphMap_FWireGraphString_EBREasingDirection {
-    Values: {str: EBREasingDirection},
-}
-struct WireGraphMap_FWireGraphString_EBREasingFunction {
-    Values: {str: EBREasingFunction},
-}
-struct WireGraphMap_FWireGraphString_EBrickAerodynamicForceApplication {
-    Values: {str: EBrickAerodynamicForceApplication},
-}
-struct WireGraphMap_FWireGraphString_EBrickAerodynamicSurfaceRole {
-    Values: {str: EBrickAerodynamicSurfaceRole},
-}
-struct WireGraphMap_FWireGraphString_EBrickAxis {
-    Values: {str: EBrickAxis},
-}
-struct WireGraphMap_FWireGraphString_EBrickDirection {
-    Values: {str: EBrickDirection},
-}
-struct WireGraphMap_FWireGraphString_EBrickLightRayTracingVisibility {
-    Values: {str: EBrickLightRayTracingVisibility},
-}
-struct WireGraphMap_FWireGraphString_EBrickMaterial {
-    Values: {str: EBrickMaterial},
-}
-struct WireGraphMap_FWireGraphString_EBrickRigidJointInterpMode {
-    Values: {str: EBrickRigidJointInterpMode},
-}
-struct WireGraphMap_FWireGraphString_EBrickSeatAirStrafeControl {
-    Values: {str: EBrickSeatAirStrafeControl},
-}
-struct WireGraphMap_FWireGraphString_EBrickSeatCameraOrigin {
-    Values: {str: EBrickSeatCameraOrigin},
-}
-struct WireGraphMap_FWireGraphString_EBrickSeatFlightInvertOverride {
-    Values: {str: EBrickSeatFlightInvertOverride},
-}
-struct WireGraphMap_FWireGraphString_EBrickSeatMode {
-    Values: {str: EBrickSeatMode},
-}
-struct WireGraphMap_FWireGraphString_EBrickThrusterForceApplication {
-    Values: {str: EBrickThrusterForceApplication},
-}
-struct WireGraphMap_FWireGraphString_EBrickVehicleFlightHandling {
-    Values: {str: EBrickVehicleFlightHandling},
-}
-struct WireGraphMap_FWireGraphString_EBrickVehicleMassDistribution {
-    Values: {str: EBrickVehicleMassDistribution},
-}
-struct WireGraphMap_FWireGraphString_EBRPawnCollisionChannel {
-    Values: {str: EBRPawnCollisionChannel},
-}
-struct WireGraphMap_FWireGraphString_EBRSweepCollisionChannel {
-    Values: {str: EBRSweepCollisionChannel},
-}
-struct WireGraphMap_FWireGraphString_EBRTextFacing {
-    Values: {str: EBRTextFacing},
-}
-struct WireGraphMap_FWireGraphString_EBRTextMaterial {
-    Values: {str: EBRTextMaterial},
-}
-struct WireGraphMap_FWireGraphString_EBRTextOutline {
-    Values: {str: EBRTextOutline},
-}
-struct WireGraphMap_FWireGraphString_EBRTextShading {
-    Values: {str: EBRTextShading},
-}
-struct WireGraphMap_FWireGraphString_EBRTextTypeface {
-    Values: {str: EBRTextTypeface},
-}
-struct WireGraphMap_FWireGraphString_EProjectileSpawnLocation {
-    Values: {str: EProjectileSpawnLocation},
-}
-struct WireGraphMap_FWireGraphString_FWeakObjectPtr {
-    Values: {str: weak_object},
-}
-struct WireGraphMap_FWireGraphString_FWireGraphString {
-    Values: {str: str},
-}
-struct WireGraphMap_FWireGraphString_int64 {
-    Values: {str: i64},
-}
-struct WireGraphMap_int64_bool {
-    Values: {i64: bool},
-}
-struct WireGraphMap_int64_double {
-    Values: {i64: f64},
-}
-struct WireGraphMap_int64_EBRColorSpace {
-    Values: {i64: EBRColorSpace},
-}
-struct WireGraphMap_int64_EBRDisplayTextEasing {
-    Values: {i64: EBRDisplayTextEasing},
-}
-struct WireGraphMap_int64_EBRDisplayTextJustification {
-    Values: {i64: EBRDisplayTextJustification},
-}
-struct WireGraphMap_int64_EBREasingDirection {
-    Values: {i64: EBREasingDirection},
-}
-struct WireGraphMap_int64_EBREasingFunction {
-    Values: {i64: EBREasingFunction},
-}
-struct WireGraphMap_int64_EBrickAerodynamicForceApplication {
-    Values: {i64: EBrickAerodynamicForceApplication},
-}
-struct WireGraphMap_int64_EBrickAerodynamicSurfaceRole {
-    Values: {i64: EBrickAerodynamicSurfaceRole},
-}
-struct WireGraphMap_int64_EBrickAxis {
-    Values: {i64: EBrickAxis},
-}
-struct WireGraphMap_int64_EBrickDirection {
-    Values: {i64: EBrickDirection},
-}
-struct WireGraphMap_int64_EBrickLightRayTracingVisibility {
-    Values: {i64: EBrickLightRayTracingVisibility},
-}
-struct WireGraphMap_int64_EBrickMaterial {
-    Values: {i64: EBrickMaterial},
-}
-struct WireGraphMap_int64_EBrickRigidJointInterpMode {
-    Values: {i64: EBrickRigidJointInterpMode},
-}
-struct WireGraphMap_int64_EBrickSeatAirStrafeControl {
-    Values: {i64: EBrickSeatAirStrafeControl},
-}
-struct WireGraphMap_int64_EBrickSeatCameraOrigin {
-    Values: {i64: EBrickSeatCameraOrigin},
-}
-struct WireGraphMap_int64_EBrickSeatFlightInvertOverride {
-    Values: {i64: EBrickSeatFlightInvertOverride},
-}
-struct WireGraphMap_int64_EBrickSeatMode {
-    Values: {i64: EBrickSeatMode},
-}
-struct WireGraphMap_int64_EBrickThrusterForceApplication {
-    Values: {i64: EBrickThrusterForceApplication},
-}
-struct WireGraphMap_int64_EBrickVehicleFlightHandling {
-    Values: {i64: EBrickVehicleFlightHandling},
-}
-struct WireGraphMap_int64_EBrickVehicleMassDistribution {
-    Values: {i64: EBrickVehicleMassDistribution},
-}
-struct WireGraphMap_int64_EBRPawnCollisionChannel {
-    Values: {i64: EBRPawnCollisionChannel},
-}
-struct WireGraphMap_int64_EBRSweepCollisionChannel {
-    Values: {i64: EBRSweepCollisionChannel},
-}
-struct WireGraphMap_int64_EBRTextFacing {
-    Values: {i64: EBRTextFacing},
-}
-struct WireGraphMap_int64_EBRTextMaterial {
-    Values: {i64: EBRTextMaterial},
-}
-struct WireGraphMap_int64_EBRTextOutline {
-    Values: {i64: EBRTextOutline},
-}
-struct WireGraphMap_int64_EBRTextShading {
-    Values: {i64: EBRTextShading},
-}
-struct WireGraphMap_int64_EBRTextTypeface {
-    Values: {i64: EBRTextTypeface},
-}
-struct WireGraphMap_int64_EProjectileSpawnLocation {
-    Values: {i64: EProjectileSpawnLocation},
-}
-struct WireGraphMap_int64_FWeakObjectPtr {
-    Values: {i64: weak_object},
-}
-struct WireGraphMap_int64_FWireGraphString {
-    Values: {i64: str},
-}
-struct WireGraphMap_int64_int64 {
-    Values: {i64: i64},
-}
-struct WireGraphMapKeyWrapper_FWeakObjectPtr {
-    Map: WireGraphMapVariant_FWeakObjectPtr,
-}
-struct WireGraphMapKeyWrapper_FWireGraphString {
-    Map: WireGraphMapVariant_FWireGraphString,
-}
-struct WireGraphMapKeyWrapper_int64 {
-    Map: WireGraphMapVariant_int64,
-}
-struct WireGraphObjectArray {
-    Values: weak_object[],
-}
-struct WireGraphStringArray {
-    Values: str[],
+struct BCSComponentVertex_Exec_Character_AddInventoryBrick {
+    BrickAsset: object,
+    ProceduralSize: Vector,
+}
+struct BCSComponentVertex_Exec_Character_AddInventoryEntry {
+    Entry: BRInventoryEntryConfig,
+}
+struct BCSComponentVertex_Exec_Character_SetInventoryBrick {
+    Slot: i64,
+    BrickAsset: object,
+    ProceduralSize: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_AddLocationRotation {
+    Vector: Vector,
+    Rotation: Rotator,
+}
+struct BCSComponentVertex_Exec_Entity_AddVelocity {
+    Vector: Vector,
+    Rotation: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_GetAngularVelocity {
+    AngularVelocity: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_GetLinearVelocity {
+    LinearVelocity: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_GetLocation {
+    Vector: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_GetLocationRotation {
+    Vector: Vector,
+    Rotation: Rotator,
+}
+struct BCSComponentVertex_Exec_Entity_GetRotation {
+    Rotation: Rotator,
+}
+struct BCSComponentVertex_Exec_Entity_GetVelocity {
+    Vector: Vector,
+    Rotation: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_GetVelocityAtPoint {
+    Point: Vector,
+    LinearVelocity: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_RelativeTeleport {
+    Source: BrickComponentWirePortControl_TeleportDestination,
+    Destination: BrickComponentWirePortControl_TeleportDestination,
+}
+struct BCSComponentVertex_Exec_Entity_SetAngularVelocity {
+    AngularVelocity: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_SetGravityDirection {
+    Rotation: Rotator,
+}
+struct BCSComponentVertex_Exec_Entity_SetLinearVelocity {
+    LinearVelocity: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_SetLocation {
+    Vector: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_SetLocationRotation {
+    Vector: Vector,
+    Rotation: Rotator,
+}
+struct BCSComponentVertex_Exec_Entity_SetRotation {
+    Rotation: Rotator,
+}
+struct BCSComponentVertex_Exec_Entity_SetVelocity {
+    Vector: Vector,
+    Rotation: Vector,
+}
+struct BCSComponentVertex_Exec_Entity_Teleport {
+    Destination: BrickComponentWirePortControl_TeleportDestination,
+}
+struct BCSComponentVertex_Exec_PlayerState_DisplayText {
+    Text: str,
+    Font: object,
+    Typeface: EBRTextTypeface,
+    Anchor: Vector2D,
+    Position: Vector2D,
+    Angle: f64,
+    ZOrder: i64,
+    Scale: Vector2D,
+    Pivot: Vector2D,
+    FontSize: i32,
+    FontColor: LinearColor,
+    LetterSpacing: f64,
+    Skew: f64,
+    LineHeight: f64,
+    OutlineSize: i64,
+    OutlineColor: LinearColor,
+    bMiteredOutline: bool,
+    WrapWidth: f64,
+    ShadowOffset: Vector2D,
+    ShadowColor: LinearColor,
+    Justification: EBRDisplayTextJustification,
+    Transition: f64,
+    Easing: EBRDisplayTextEasing,
+    Lifetime: f64,
+    TextId: i64,
+}
+struct BCSComponentVertex_Exec_PrefabSpawner {
+    Prefab: str,
+    SpawnOffset: Vector,
+    SpawnOffsetRotation: Rotator,
+    SpawnVelocity: Vector,
+    Lifetime: f64,
+    Limit: i64,
+    SpawnedEntityIds: u32[],
+    SpawnedInstanceIds: u32[],
+}
+struct BCSComponentVertex_Exec_SpawnExplosion {
+    ProjectileType: class,
+    SpawnOffset: Vector,
+    ScaleMultiplier: f64,
+    DamageMultiplier: f64,
+}
+struct BCSComponentVertex_Exec_SpawnExplosionAt {
+    ProjectileType: class,
+    WorldPosition: Vector,
+    ScaleMultiplier: f64,
+    DamageMultiplier: f64,
+}
+struct BCSComponentVertex_Exec_Sweep {
+    Origin: Vector,
+    Direction: Vector,
+    Distance: f64,
+    Radius: f64,
+    bRelative: bool,
+    bIgnoreOwningGrid: bool,
+    CollisionChannel: EBRSweepCollisionChannel,
+    bDetectBricks: bool,
+    bDetectPlayers1: bool,
+    bDetectPlayers2: bool,
+    bDetectPlayers3: bool,
+    bDetectPlayers4: bool,
+    bOnlyHitPlayerBodyParts: bool,
+    bDetectPhysics: bool,
+    bDetectMap: bool,
+    HitLocation: Vector,
+    HitNormal: Vector,
+    HitDistance: f64,
+}
+struct BCSComponentVertex_Exec_SweepSimple {
+    Direction: EBrickDirection,
+    Distance: f64,
+    Radius: f64,
+    SpreadConeAngle: f64,
+    bSpreadBiasedTowardsCenter: bool,
+    CollisionChannel: EBRSweepCollisionChannel,
+    bDetectBricks: bool,
+    bDetectPlayers1: bool,
+    bDetectPlayers2: bool,
+    bDetectPlayers3: bool,
+    bDetectPlayers4: bool,
+    bOnlyHitPlayerBodyParts: bool,
+    bDetectPhysics: bool,
+    bDetectMap: bool,
+    HitLocation: Vector,
+    HitNormal: Vector,
+    HitDistance: f64,
+}
+struct BCSComponentVertex_Expr_ColorBlend {
+    ColorA: LinearColor,
+    ColorB: LinearColor,
+    Alpha: f64,
+    BlendSpace: EBRColorSpace,
+    bClampAlpha: bool,
+}
+struct BCSComponentVertex_Expr_ColorConvert {
+    Input: LinearColor,
+    FromSpace: EBRColorSpace,
+    ToSpace: EBRColorSpace,
+}
+struct BCSComponentVertex_Expr_ColorToHex {
+    Input: LinearColor,
+}
+struct BCSComponentVertex_Expr_DirectionToRotation {
+    Direction: Vector,
+}
+struct BCSComponentVertex_Expr_InvertRotation {
+    Input: Quat,
+}
+struct BCSComponentVertex_Expr_QuatAngleBetween {
+    InputA: Quat,
+    InputB: Quat,
+}
+struct BCSComponentVertex_Expr_QuatBetween {
+    From: Vector,
+    To: Vector,
+}
+struct BCSComponentVertex_Expr_QuatDotProduct {
+    InputA: Quat,
+    InputB: Quat,
+}
+struct BCSComponentVertex_Expr_QuatFromAxisAngle {
+    Axis: Vector,
+    Angle: f64,
+}
+struct BCSComponentVertex_Expr_QuatSlerp {
+    InputA: Quat,
+    InputB: Quat,
+    Alpha: f64,
+    bShortestPath: bool,
+    bClampAlpha: bool,
+}
+struct BCSComponentVertex_Expr_QuatToAxisAngle {
+    Input: Quat,
+}
+struct BCSComponentVertex_Expr_RotateVector {
+    Rotation: Quat,
+    Vector: Vector,
+}
+struct BCSComponentVertex_Expr_RotationToDirection {
+    Rotation: Quat,
+}
+struct BCSComponentVertex_Expr_SplitColor {
+    Input: LinearColor,
+}
+struct BCSComponentVertex_Expr_SplitColorSRGB {
+    Input: LinearColor,
+}
+struct BCSComponentVertex_Expr_SplitQuaternion {
+    Input: Quat,
+}
+struct BCSComponentVertex_Expr_SplitRotation {
+    Input: Rotator,
+}
+struct BCSComponentVertex_Expr_SplitVector {
+    Input: Vector,
+}
+struct BCSComponentVertex_Expr_Vec_Float {
+    Input: Vector,
+}
+struct BCSComponentVertex_Expr_Vec_Vec {
+    Input: Vector,
+}
+struct BCSComponentVertex_Expr_VecFloat_Vec {
+    Input: Vector,
+    Scalar: f64,
+}
+struct BCSComponentVertex_Expr_VecVec_Float {
+    InputA: Vector,
+    InputB: Vector,
+}
+struct BCSComponentVertex_Expr_VecVec_Vec {
+    InputA: Vector,
+    InputB: Vector,
 }
 struct BrickComponentData_AerodynamicSurface {
     bEnabled: bool,
@@ -1808,6 +1535,12 @@ struct BrickComponentData_BrickPropertyChanger {
     Color: Color,
     MaterialAlpha: u8,
     Material: EBrickMaterial,
+}
+struct BrickComponentData_Dampen {
+    Target: WireValue,
+    Value: WireValue,
+    SmoothTime: f64,
+    Velocity: Vector4,
 }
 struct BrickComponentData_ExplosionSpawner {
     ProjectileType: class,
@@ -1901,13 +1634,53 @@ struct BrickComponentData_PointLight {
     RayTracingVisibility: EBrickLightRayTracingVisibility,
 }
 struct BrickComponentData_PrefabSpawn {
-    Prefab: bundle_path_ref,
+    Prefab: str,
     SpawnOffset: Vector,
     SpawnOffsetRotation: Rotator,
     SpawnVelocity: Vector,
     bSpawnEnable: bool,
     RespawnTime: f64,
     SpawnedEntityIds: u32[],
+}
+struct BrickComponentData_QueueSeconds {
+    SecondsToWait: f32,
+    Entries: BRQueueSecondsEntry[],
+    DataIn1: WireValue,
+    DataIn2: WireValue,
+    DataIn3: WireValue,
+    DataIn4: WireValue,
+    DataIn5: WireValue,
+    DataIn6: WireValue,
+    DataIn7: WireValue,
+    DataIn8: WireValue,
+    DataOut1: WireValue,
+    DataOut2: WireValue,
+    DataOut3: WireValue,
+    DataOut4: WireValue,
+    DataOut5: WireValue,
+    DataOut6: WireValue,
+    DataOut7: WireValue,
+    DataOut8: WireValue,
+}
+struct BrickComponentData_QueueTicks {
+    TicksToWait: i32,
+    Entries: BRQueueTicksEntry[],
+    DataIn1: WireValue,
+    DataIn2: WireValue,
+    DataIn3: WireValue,
+    DataIn4: WireValue,
+    DataIn5: WireValue,
+    DataIn6: WireValue,
+    DataIn7: WireValue,
+    DataIn8: WireValue,
+    DataOut1: WireValue,
+    DataOut2: WireValue,
+    DataOut3: WireValue,
+    DataOut4: WireValue,
+    DataOut5: WireValue,
+    DataOut6: WireValue,
+    DataOut7: WireValue,
+    DataOut8: WireValue,
 }
 struct BrickComponentData_Seat_V2 {
     bIsOccupied: bool,
@@ -2054,301 +1827,6 @@ struct BrickComponentData_WheelEngine_V2 {
     WaterSteeringForce: f32,
     AudioDescriptor: object,
 }
-struct BrickComponentData_WireGraph_Exec_Character_AddInventoryBrick {
-    BrickAsset: object,
-    ProceduralSize: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Character_AddInventoryEntry {
-    Entry: BRInventoryEntryConfig,
-}
-struct BrickComponentData_WireGraph_Exec_Character_SetInventoryBrick {
-    Slot: i64,
-    BrickAsset: object,
-    ProceduralSize: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_AddLocationRotation {
-    Vector: Vector,
-    Rotation: Rotator,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_AddVelocity {
-    Vector: Vector,
-    Rotation: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetAngularVelocity {
-    AngularVelocity: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetLinearVelocity {
-    LinearVelocity: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetLocation {
-    Vector: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetLocationRotation {
-    Vector: Vector,
-    Rotation: Rotator,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetRotation {
-    Rotation: Rotator,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetVelocity {
-    Vector: Vector,
-    Rotation: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_GetVelocityAtPoint {
-    Point: Vector,
-    LinearVelocity: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_RelativeTeleport {
-    Source: BrickComponentWirePortControl_TeleportDestination,
-    Destination: BrickComponentWirePortControl_TeleportDestination,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_SetAngularVelocity {
-    AngularVelocity: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_SetGravityDirection {
-    Rotation: Rotator,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_SetLinearVelocity {
-    LinearVelocity: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_SetLocation {
-    Vector: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_SetLocationRotation {
-    Vector: Vector,
-    Rotation: Rotator,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_SetRotation {
-    Rotation: Rotator,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_SetVelocity {
-    Vector: Vector,
-    Rotation: Vector,
-}
-struct BrickComponentData_WireGraph_Exec_Entity_Teleport {
-    Destination: BrickComponentWirePortControl_TeleportDestination,
-}
-struct BrickComponentData_WireGraph_Exec_PlayerState_DisplayText {
-    Text: str,
-    Font: object,
-    Typeface: EBRTextTypeface,
-    Anchor: Vector2D,
-    Position: Vector2D,
-    Angle: f64,
-    ZOrder: i64,
-    Scale: Vector2D,
-    Pivot: Vector2D,
-    FontSize: i32,
-    FontColor: LinearColor,
-    LetterSpacing: f64,
-    Skew: f64,
-    LineHeight: f64,
-    OutlineSize: i64,
-    OutlineColor: LinearColor,
-    bMiteredOutline: bool,
-    WrapWidth: f64,
-    ShadowOffset: Vector2D,
-    ShadowColor: LinearColor,
-    Justification: EBRDisplayTextJustification,
-    Transition: f64,
-    Easing: EBRDisplayTextEasing,
-    Lifetime: f64,
-    TextId: i64,
-}
-struct BrickComponentData_WireGraph_Exec_PrefabSpawner {
-    Prefab: bundle_path_ref,
-    SpawnOffset: Vector,
-    SpawnOffsetRotation: Rotator,
-    SpawnVelocity: Vector,
-    Lifetime: f64,
-    Limit: i64,
-    SpawnedEntityIds: u32[],
-    SpawnedInstanceIds: u32[],
-}
-struct BrickComponentData_WireGraph_Exec_SpawnExplosion {
-    ProjectileType: class,
-    SpawnOffset: Vector,
-    ScaleMultiplier: f64,
-    DamageMultiplier: f64,
-}
-struct BrickComponentData_WireGraph_Exec_SpawnExplosionAt {
-    ProjectileType: class,
-    WorldPosition: Vector,
-    ScaleMultiplier: f64,
-    DamageMultiplier: f64,
-}
-struct BrickComponentData_WireGraph_Exec_Sweep {
-    Origin: Vector,
-    Direction: Vector,
-    Distance: f64,
-    Radius: f64,
-    CollisionChannel: EBRSweepCollisionChannel,
-    bDetectBricks: bool,
-    bDetectPlayers1: bool,
-    bDetectPlayers2: bool,
-    bDetectPlayers3: bool,
-    bDetectPlayers4: bool,
-    bOnlyHitPlayerBodyParts: bool,
-    bDetectPhysics: bool,
-    bDetectMap: bool,
-    bRelative: bool,
-    bIgnoreOwningGrid: bool,
-    HitLocation: Vector,
-    HitNormal: Vector,
-    HitDistance: f64,
-}
-struct BrickComponentData_WireGraph_Exec_SweepSimple {
-    Direction: EBrickDirection,
-    Distance: f64,
-    Radius: f64,
-    CollisionChannel: EBRSweepCollisionChannel,
-    SpreadConeAngle: f64,
-    bSpreadBiasedTowardsCenter: bool,
-    bDetectBricks: bool,
-    bDetectPlayers1: bool,
-    bDetectPlayers2: bool,
-    bDetectPlayers3: bool,
-    bDetectPlayers4: bool,
-    bOnlyHitPlayerBodyParts: bool,
-    bDetectPhysics: bool,
-    bDetectMap: bool,
-    HitLocation: Vector,
-    HitNormal: Vector,
-    HitDistance: f64,
-}
-struct BrickComponentData_WireGraph_Expr_ColorBlend {
-    ColorA: LinearColor,
-    ColorB: LinearColor,
-    Alpha: f64,
-    BlendSpace: EBRColorSpace,
-    bClampAlpha: bool,
-}
-struct BrickComponentData_WireGraph_Expr_ColorConvert {
-    Input: LinearColor,
-    FromSpace: EBRColorSpace,
-    ToSpace: EBRColorSpace,
-}
-struct BrickComponentData_WireGraph_Expr_ColorToHex {
-    Input: LinearColor,
-}
-struct BrickComponentData_WireGraph_Expr_DirectionToRotation {
-    Direction: Vector,
-}
-struct BrickComponentData_WireGraph_Expr_InvertRotation {
-    Input: Quat,
-}
-struct BrickComponentData_WireGraph_Expr_QuatAngleBetween {
-    InputA: Quat,
-    InputB: Quat,
-}
-struct BrickComponentData_WireGraph_Expr_QuatBetween {
-    From: Vector,
-    To: Vector,
-}
-struct BrickComponentData_WireGraph_Expr_QuatDotProduct {
-    InputA: Quat,
-    InputB: Quat,
-}
-struct BrickComponentData_WireGraph_Expr_QuatFromAxisAngle {
-    Axis: Vector,
-    Angle: f64,
-}
-struct BrickComponentData_WireGraph_Expr_QuatSlerp {
-    InputA: Quat,
-    InputB: Quat,
-    Alpha: f64,
-    bShortestPath: bool,
-    bClampAlpha: bool,
-}
-struct BrickComponentData_WireGraph_Expr_QuatToAxisAngle {
-    Input: Quat,
-}
-struct BrickComponentData_WireGraph_Expr_RotateVector {
-    Rotation: Quat,
-    Vector: Vector,
-}
-struct BrickComponentData_WireGraph_Expr_RotationToDirection {
-    Rotation: Quat,
-}
-struct BrickComponentData_WireGraph_Expr_SplitColor {
-    Input: LinearColor,
-}
-struct BrickComponentData_WireGraph_Expr_SplitColorSRGB {
-    Input: LinearColor,
-}
-struct BrickComponentData_WireGraph_Expr_SplitQuaternion {
-    Input: Quat,
-}
-struct BrickComponentData_WireGraph_Expr_SplitRotation {
-    Input: Rotator,
-}
-struct BrickComponentData_WireGraph_Expr_SplitVector {
-    Input: Vector,
-}
-struct BrickComponentData_WireGraph_Expr_Vec_Float {
-    Input: Vector,
-}
-struct BrickComponentData_WireGraph_Expr_Vec_Vec {
-    Input: Vector,
-}
-struct BrickComponentData_WireGraph_Expr_VecFloat_Vec {
-    Input: Vector,
-    Scalar: f64,
-}
-struct BrickComponentData_WireGraph_Expr_VecVec_Float {
-    InputA: Vector,
-    InputB: Vector,
-}
-struct BrickComponentData_WireGraph_Expr_VecVec_Vec {
-    InputA: Vector,
-    InputB: Vector,
-}
-struct BrickComponentData_WireGraphPseudo_Dampen {
-    Target: WireGraphVariant,
-    Value: WireGraphVariant,
-    SmoothTime: f64,
-    Velocity: Vector4,
-}
-struct BrickComponentData_WireGraphPseudo_QueueSeconds {
-    SecondsToWait: f32,
-    Entries: BRQueueSecondsEntry[],
-    DataIn1: WireGraphVariant,
-    DataIn2: WireGraphVariant,
-    DataIn3: WireGraphVariant,
-    DataIn4: WireGraphVariant,
-    DataIn5: WireGraphVariant,
-    DataIn6: WireGraphVariant,
-    DataIn7: WireGraphVariant,
-    DataIn8: WireGraphVariant,
-    DataOut1: WireGraphVariant,
-    DataOut2: WireGraphVariant,
-    DataOut3: WireGraphVariant,
-    DataOut4: WireGraphVariant,
-    DataOut5: WireGraphVariant,
-    DataOut6: WireGraphVariant,
-    DataOut7: WireGraphVariant,
-    DataOut8: WireGraphVariant,
-}
-struct BrickComponentData_WireGraphPseudo_QueueTicks {
-    TicksToWait: i32,
-    Entries: BRQueueTicksEntry[],
-    DataIn1: WireGraphVariant,
-    DataIn2: WireGraphVariant,
-    DataIn3: WireGraphVariant,
-    DataIn4: WireGraphVariant,
-    DataIn5: WireGraphVariant,
-    DataIn6: WireGraphVariant,
-    DataIn7: WireGraphVariant,
-    DataIn8: WireGraphVariant,
-    DataOut1: WireGraphVariant,
-    DataOut2: WireGraphVariant,
-    DataOut3: WireGraphVariant,
-    DataOut4: WireGraphVariant,
-    DataOut5: WireGraphVariant,
-    DataOut6: WireGraphVariant,
-    DataOut7: WireGraphVariant,
-    DataOut8: WireGraphVariant,
-}
 struct BrickTypeNetWrapper {
     BrickAsset: object,
     ProceduralSize: IntVector,
@@ -2363,6 +1841,11 @@ struct BRPlayerPartCustomizationV3 {
     SocketName: str,
     Colors: Color[],
 }
+struct BRSavedBrickRef {
+    GridPersistentIndex: u32,
+    ChunkIndex: BRSavedChunk3DIndex,
+    BrickIndexInChunk: u32,
+}
 struct BRSavedComponentChunkSoA {
     ComponentTypeCounters: BRSavedBrickComponentTypeCounter[],
     ComponentBrickIndices: u32[],
@@ -2373,49 +1856,47 @@ struct BRSavedComponentChunkSoA {
     MicrochipBrickIndices: u32[],
     MicrochipBrickGridReferences: u32[],
 }
-struct WireGraphLinearColorArray {
-    Values: LinearColor[],
+struct BCSComponentVertex_Exec_BrickComponent {
+    Brick: BRSavedBrickRef,
+    ComponentType: object,
 }
-struct WireGraphMap_FWeakObjectPtr_FLinearColor {
+struct BCSComponentVertex_Exec_BrickComponentBase {
+    Brick: BRSavedBrickRef,
+    ComponentType: object,
 }
-struct WireGraphMap_FWeakObjectPtr_FQuat {
+struct BCSComponentVertex_Exec_Character_AddInventoryItemAdv {
+    ItemType: class,
+    DamageMultiplier: f64,
+    WeaponSpeedMultiplier: f64,
+    ItemScale: f64,
+    ItemNameOverride: str,
+    ProjectileOverride: class,
+    ProjectileScaleMultiplier: f64,
+    WeaponAmmoOverride: BRInventoryEntryWeaponAmmoOverride,
+    bOverrideColors: bool,
+    MeshColors: Color[],
 }
-struct WireGraphMap_FWeakObjectPtr_FRotator {
+struct BCSComponentVertex_Exec_Character_SetInventoryItemAdv {
+    Slot: i64,
+    ItemType: class,
+    DamageMultiplier: f64,
+    WeaponSpeedMultiplier: f64,
+    ItemScale: f64,
+    ItemNameOverride: str,
+    ProjectileOverride: class,
+    ProjectileScaleMultiplier: f64,
+    WeaponAmmoOverride: BRInventoryEntryWeaponAmmoOverride,
+    bOverrideColors: bool,
+    MeshColors: Color[],
 }
-struct WireGraphMap_FWeakObjectPtr_FVector {
+struct BCSComponentVertex_Exec_GetBrickProperty {
+    Brick: BRSavedBrickRef,
+    Property: EBRBrickProperty,
 }
-struct WireGraphMap_FWireGraphString_FLinearColor {
-    Values: {str: LinearColor},
-}
-struct WireGraphMap_FWireGraphString_FQuat {
-    Values: {str: Quat},
-}
-struct WireGraphMap_FWireGraphString_FRotator {
-    Values: {str: Rotator},
-}
-struct WireGraphMap_FWireGraphString_FVector {
-    Values: {str: Vector},
-}
-struct WireGraphMap_int64_FLinearColor {
-    Values: {i64: LinearColor},
-}
-struct WireGraphMap_int64_FQuat {
-    Values: {i64: Quat},
-}
-struct WireGraphMap_int64_FRotator {
-    Values: {i64: Rotator},
-}
-struct WireGraphMap_int64_FVector {
-    Values: {i64: Vector},
-}
-struct WireGraphQuatArray {
-    Values: Quat[],
-}
-struct WireGraphRotatorArray {
-    Values: Rotator[],
-}
-struct WireGraphVectorArray {
-    Values: Vector[],
+struct BCSComponentVertex_Exec_SetBrickProperty {
+    Value: WireValue,
+    Brick: BRSavedBrickRef,
+    Property: EBRBrickProperty,
 }
 struct BrickComponentData_ItemSpawn {
     PickupClass: class,
@@ -2429,6 +1910,7 @@ struct BrickComponentData_ItemSpawn {
     WeaponSpeedMultiplier: f32,
     ItemNameOverride: str,
     ProjectileOverride: class,
+    ProjectileScaleMultiplier: f32,
     WeaponAmmoOverride: BRInventoryEntryWeaponAmmoOverride,
     PickupOffsetDirection: EBrickDirection,
     PickupOffsetDistance: f32,
@@ -2444,29 +1926,6 @@ struct BrickComponentData_ItemSpawn {
     PickupBobHeight: f32,
     PickupAnimationPhase: f32,
 }
-struct BrickComponentData_WireGraph_Exec_Character_AddInventoryItemAdv {
-    ItemType: class,
-    DamageMultiplier: f64,
-    WeaponSpeedMultiplier: f64,
-    ItemScale: f64,
-    ItemNameOverride: str,
-    ProjectileOverride: class,
-    WeaponAmmoOverride: BRInventoryEntryWeaponAmmoOverride,
-    bOverrideColors: bool,
-    MeshColors: Color[],
-}
-struct BrickComponentData_WireGraph_Exec_Character_SetInventoryItemAdv {
-    Slot: i64,
-    ItemType: class,
-    DamageMultiplier: f64,
-    WeaponSpeedMultiplier: f64,
-    ItemScale: f64,
-    ItemNameOverride: str,
-    ProjectileOverride: class,
-    WeaponAmmoOverride: BRInventoryEntryWeaponAmmoOverride,
-    bOverrideColors: bool,
-    MeshColors: Color[],
-}
 struct BRInventoryEntryBrick {
     BrickType: BrickTypeNetWrapper,
 }
@@ -2479,6 +1938,7 @@ struct BRInventoryEntryItem {
     ItemScale: f32,
     ItemNameOverride: str,
     ProjectileOverride: class,
+    ProjectileScaleMultiplier: f32,
     WeaponAmmoOverride: BRInventoryEntryWeaponAmmoOverride,
 }
 struct BRInventoryEntryPlan {
@@ -2489,6 +1949,213 @@ struct BRInventoryEntryPlan {
 }
 struct BRPlayerAvatarCustomizationV3 {
     Parts: BRPlayerPartCustomizationV3[],
+}
+struct BRSavedComponentRef {
+    Brick: BRSavedBrickRef,
+    ComponentTypeIndex: u16,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Append {
+    SourceRef: BRSavedComponentRef,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Average {
+    Value: WireValue,
+    bIsEmpty: bool,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Clear {
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_CopyFrom {
+    SourceRef: BRSavedComponentRef,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_ElementOp {
+    Index: i64,
+    Value: WireValue,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Fill {
+    Value: WireValue,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Find {
+    Index: i64,
+    bFound: bool,
+    Value: WireValue,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Get {
+    Index: i64,
+    Value: WireValue,
+    bOutOfBounds: bool,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_GetLength {
+    Length: i64,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Insert {
+    bOutOfBounds: bool,
+    Index: i64,
+    Value: WireValue,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Max {
+    Value: WireValue,
+    bIsEmpty: bool,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Min {
+    Value: WireValue,
+    bIsEmpty: bool,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Pop {
+    Value: WireValue,
+    bIsEmpty: bool,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Push {
+    Value: WireValue,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_RemoveAtIndex {
+    Index: i64,
+    bOutOfBounds: bool,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Resize {
+    Size: i64,
+    Value: WireValue,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Reverse {
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Shuffle {
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Slice {
+    Start: i64,
+    Count: i64,
+    bOutOfBounds: bool,
+    SourceRef: BRSavedComponentRef,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Sort {
+    bDescending: bool,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_SortMultiple {
+    ArrayVarRef: BRSavedComponentRef,
+    ArrayVarRef2: BRSavedComponentRef,
+    ArrayVarRef3: BRSavedComponentRef,
+    ArrayVarRef4: BRSavedComponentRef,
+    ArrayVarRef5: BRSavedComponentRef,
+    ArrayVarRef6: BRSavedComponentRef,
+    ArrayVarRef7: BRSavedComponentRef,
+    ArrayVarRef8: BRSavedComponentRef,
+    bDescending: bool,
+    bSuccess: bool,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Sum {
+    Value: WireValue,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_ArrayVar_Swap {
+    IndexA: i64,
+    IndexB: i64,
+    bOutOfBounds: bool,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_Character_SetInventoryEntry {
+    Slot: i64,
+    Entry: BRInventoryEntryConfig,
+    EntryPlan: BRInventoryEntryPlan,
+}
+struct BCSComponentVertex_Exec_Gamemode_FillArrayFromPlayers {
+    bIncludeBuilderMode: bool,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_Gamemode_FillArrayFromTeamMembers {
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_GetComponentProperty {
+    Component: BRSavedComponentRef,
+    PropertyName: str,
+    ComponentType: object,
+}
+struct BCSComponentVertex_Exec_MapVar_Clear {
+    MapVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_MapVar_CopyFrom {
+    SourceRef: BRSavedComponentRef,
+    MapVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_MapVar_Get {
+    Key: WireValue,
+    Value: WireValue,
+    bFound: bool,
+    MapVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_MapVar_GetKeys {
+    bIncludeDead: bool,
+    ArrayVarRef: BRSavedComponentRef,
+    MapVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_MapVar_GetLength {
+    Length: i64,
+    MapVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_MapVar_GetValues {
+    ArrayVarRef: BRSavedComponentRef,
+    MapVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_MapVar_Has {
+    Key: WireValue,
+    bFound: bool,
+    MapVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_MapVar_Remove {
+    Key: WireValue,
+    bFound: bool,
+    MapVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_MapVar_Set {
+    Key: WireValue,
+    Value: WireValue,
+    MapVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_SetComponentProperty {
+    Value: WireValue,
+    Component: BRSavedComponentRef,
+    PropertyName: str,
+    ComponentType: object,
+}
+struct BCSComponentVertex_Exec_Var_Get {
+    VarRef: BRSavedComponentRef,
+    Value: WireValue,
+}
+struct BCSComponentVertex_Exec_Var_Increment {
+    VarRef: BRSavedComponentRef,
+    Value: WireValue,
+}
+struct BCSComponentVertex_Exec_Var_Set {
+    bChangeType: bool,
+    VarRef: BRSavedComponentRef,
+    Value: WireValue,
+}
+struct BCSComponentVertex_Exec_Zone_GetEntities {
+    TagFilter: str,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Exec_Zone_GetPlayers {
+    TagFilter: str,
+    ArrayVarRef: BRSavedComponentRef,
+}
+struct BCSComponentVertex_Expr_ContainerChangeDetector {
+    ContainerRef: BRSavedComponentRef,
 }
 struct BrickComponentData_BotSpawn {
     RespawnTime: f32,
@@ -2524,8 +2191,46 @@ struct BrickComponentData_BotSpawn {
     bTeamCollision3: bool,
     BotWeapon: class,
 }
-struct BrickComponentData_WireGraph_Exec_Character_SetInventoryEntry {
-    Slot: i64,
-    Entry: BRInventoryEntryConfig,
-    EntryPlan: BRInventoryEntryPlan,
+types {
+    EBrickDirection,
+    EBrickAxis,
+    EBRPawnCollisionChannel,
+    EBRTextShading,
+    EBRTextOutline,
+    EBRTextMaterial,
+    EBRTextTypeface,
+    EBRTextFacing,
+    EBREasingFunction,
+    EBREasingDirection,
+    EBRColorSpace,
+    EProjectileSpawnLocation,
+    EBrickRigidJointInterpMode,
+    EBRDisplayTextJustification,
+    EBRDisplayTextEasing,
+    EBrickMaterial,
+    EBrickLightRayTracingVisibility,
+    EBrickSeatMode,
+    EBrickSeatCameraOrigin,
+    EBrickSeatFlightInvertOverride,
+    EBrickSeatAirStrafeControl,
+    EBrickAerodynamicSurfaceRole,
+    EBrickAerodynamicForceApplication,
+    EBrickThrusterForceApplication,
+    EBrickVehicleFlightHandling,
+    EBrickVehicleMassDistribution,
+    EBRSweepCollisionChannel,
+    EBRReverbEffect,
+    EWireKind,
+    i64,
+    str,
+    weak_object,
+    brick_handle,
+    component_handle,
+    f64,
+    Bool,
+    Vector,
+    Rotator,
+    Quat,
+    LinearColor,
+    WireValue,
 }

@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 
 use crate::{
-    BrFsReader, BrReader, IntoReader, World, brz::reader::BrzIndex, compression::decompress,
+    BrFsReader, BrReader, IntoReader, World, compression::decompress,
     errors::BrError, pending::BrPendingFs, tables::BrBlob,
 };
 
@@ -9,6 +9,7 @@ mod errors;
 pub use errors::*;
 
 mod reader;
+pub use reader::BrzIndex;
 #[cfg(test)]
 mod tests;
 

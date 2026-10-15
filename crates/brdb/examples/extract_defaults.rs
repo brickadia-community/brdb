@@ -1,14 +1,74 @@
+use brdb::schema::{BrdbSchema, BrdbSchemaStructProperty, BrdbValue, EA3WireVariant, WireValue};
 use brdb::{AsBrdbValue, Brdb, IntoReader};
-use brdb::schema::{BrdbSchema, BrdbSchemaStructProperty, WireVariant};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-fn format_value(
-    schema: &BrdbSchema,
-    ty_str: &str,
-    val: &dyn AsBrdbValue,
-) -> Option<String> {
+/// Upper bound for the sparse grid-id probe (grid 1 = main, microchip planes are higher).
+const MAX_GRID_ID: usize = 512;
+
+/// An EA3 wire graph value as a Rust literal.
+fn ea3_wire_literal(wv: EA3WireVariant) -> String {
+    match wv {
+        EA3WireVariant::Number(n) => format!("EA3WireVariant::Number({n:?})"),
+        EA3WireVariant::Int(n) => format!("EA3WireVariant::Int({n})"),
+        EA3WireVariant::Bool(b) => format!("EA3WireVariant::Bool({b})"),
+        EA3WireVariant::Object(o) => format!("EA3WireVariant::Object({o:?})"),
+        EA3WireVariant::Exec => "EA3WireVariant::Exec".into(),
+        EA3WireVariant::Vector(v) => format!(
+            "EA3WireVariant::Vector(Vector3f {{ x: {:?}, y: {:?}, z: {:?} }})",
+            v.x, v.y, v.z
+        ),
+        EA3WireVariant::Str(s) => format!("EA3WireVariant::Str({s:?}.into())"),
+        EA3WireVariant::Rotator { pitch, yaw, roll } => {
+            format!("EA3WireVariant::Rotator {{ pitch: {pitch:?}, yaw: {yaw:?}, roll: {roll:?} }}")
+        }
+        EA3WireVariant::Quat { x, y, z, w } => {
+            format!("EA3WireVariant::Quat {{ x: {x:?}, y: {y:?}, z: {z:?}, w: {w:?} }}")
+        }
+        EA3WireVariant::LinearColor { r, g, b, a } => format!(
+            "EA3WireVariant::LinearColor {{ r: {r:?}f32, g: {g:?}f32, b: {b:?}f32, a: {a:?}f32 }}"
+        ),
+    }
+}
+
+/// A `WireValue` as a Rust literal; `None` for brick/component references,
+/// whose default is the zero value written for an unset field anyway.
+fn wire_value_literal(wv: WireValue) -> Option<String> {
+    Some(match wv {
+        WireValue::Bool(b) => format!("WireValue::Bool({b})"),
+        WireValue::Int(n) => format!("WireValue::Int({n})"),
+        WireValue::Number(n) => format!("WireValue::Number({n:?})"),
+        WireValue::LinearColor { r, g, b, a } => format!(
+            "WireValue::LinearColor {{ r: {r:?}f32, g: {g:?}f32, b: {b:?}f32, a: {a:?}f32 }}"
+        ),
+        WireValue::Vector { x, y, z } => {
+            format!("WireValue::Vector {{ x: {x:?}, y: {y:?}, z: {z:?} }}")
+        }
+        WireValue::Rotator { pitch, yaw, roll } => {
+            format!("WireValue::Rotator {{ pitch: {pitch:?}, yaw: {yaw:?}, roll: {roll:?} }}")
+        }
+        WireValue::Quat { x, y, z, w } => {
+            format!("WireValue::Quat {{ x: {x:?}, y: {y:?}, z: {z:?}, w: {w:?} }}")
+        }
+        WireValue::Str(s) => format!("WireValue::Str({s:?}.into())"),
+        WireValue::Enum(e) => format!(
+            "WireValue::Enum(BrdbDynamicEnum::new({:?}, {}))",
+            e.enum_name, e.value
+        ),
+        WireValue::Object => "WireValue::Object".into(),
+        WireValue::Exec => "WireValue::Exec".into(),
+        WireValue::BrickRef(_) | WireValue::ComponentRef(_) => return None,
+    })
+}
+
+fn format_value(schema: &BrdbSchema, ty_str: &str, val: &dyn AsBrdbValue) -> Option<String> {
     let b = |s: String| format!("Box::new({s}) as Box<dyn AsBrdbValue>");
+    // Types the Latest format writes without declaring them.
+    let ty_str = match ty_str {
+        "Bool" if schema.get_struct(ty_str).is_none() => "bool",
+        "Str" if schema.get_struct(ty_str).is_none() => "str",
+        other => other,
+    };
     match ty_str {
         "bool" => Some(b(format!("{}", val.as_brdb_bool().ok()?))),
         "u8" => Some(b(format!("{}u8", val.as_brdb_u8().ok()?))),
@@ -22,35 +82,48 @@ fn format_value(
         "f32" => Some(b(format!("{:?}f32", val.as_brdb_f32().ok()?))),
         "f64" => Some(b(format!("{:?}f64", val.as_brdb_f64().ok()?))),
         "str" => Some(b(format!("String::from({:?})", val.as_brdb_str().ok()?))),
-        "bundle_path_ref" => Some(b(format!("String::from({:?})", val.as_brdb_str().unwrap_or("")))),
+        "bundle_path_ref" => Some(b(format!(
+            "String::from({:?})",
+            val.as_brdb_str().unwrap_or("")
+        ))),
         "wire_graph_variant" | "wire_graph_prim_math_variant" => {
-            let wv = match val.as_brdb_wire_variant().ok()? {
-                WireVariant::Number(n) => format!("WireVariant::Number({n:?})"),
-                WireVariant::Int(n) => format!("WireVariant::Int({n})"),
-                WireVariant::Bool(b) => format!("WireVariant::Bool({b})"),
-                WireVariant::Object(o) => format!("WireVariant::Object({o:?})"),
-                WireVariant::Exec => "WireVariant::Exec".into(),
-                WireVariant::Vector(v) => format!(
-                    "WireVariant::Vector(Vector3f {{ x: {:?}, y: {:?}, z: {:?} }})",
-                    v.x, v.y, v.z
-                ),
-                WireVariant::Str(s) => format!("WireVariant::Str({s:?}.into())"),
-                WireVariant::Rotator { pitch, yaw, roll } => format!(
-                    "WireVariant::Rotator {{ pitch: {pitch:?}, yaw: {yaw:?}, roll: {roll:?} }}"
-                ),
-                WireVariant::Quat { x, y, z, w } => format!(
-                    "WireVariant::Quat {{ x: {x:?}, y: {y:?}, z: {z:?}, w: {w:?} }}"
-                ),
-                WireVariant::LinearColor { r, g, b, a } => format!(
-                    "WireVariant::LinearColor {{ r: {r:?}f32, g: {g:?}f32, b: {b:?}f32, a: {a:?}f32 }}"
-                ),
-            };
-            Some(b(wv))
+            Some(b(ea3_wire_literal(val.as_brdb_ea3_wire_variant().ok()?)))
         }
-        "class" | "object" => None, // asset refs are context-dependent
+        "class" | "object" | "weak_object" => None, // asset refs are context-dependent
+        "dynamic_array" => {
+            // Only empty containers have a literal form here.
+            let (element, mut items) = val.as_brdb_dynamic_array().ok()?;
+            items
+                .next()
+                .is_none()
+                .then(|| b(format!("BrdbDynamicArray::empty({element:?})")))
+        }
+        "dynamic_map" => {
+            let (key, value, mut entries) = val.as_brdb_dynamic_map().ok()?;
+            entries
+                .next()
+                .is_none()
+                .then(|| b(format!("BrdbDynamicMap::empty({key:?}, {value:?})")))
+        }
+        "dynamic_enum" => {
+            let (name, value) = val.as_brdb_dynamic_enum().ok()?;
+            Some(b(format!("BrdbDynamicEnum::new({name:?}, {value})")))
+        }
         other => {
-            if schema.get_enum(other).is_some() {
-                Some(b(format!("{}u8", val.as_brdb_u8().unwrap_or(0))))
+            if schema.get_variant(other).is_some() {
+                // A decoded variant is the raw value of its alternative.
+                let raw = val.as_brdb_value()?;
+                if schema.is_latest() {
+                    Some(b(wire_value_literal(WireValue::try_from(raw).ok()?)?))
+                } else {
+                    Some(b(ea3_wire_literal(EA3WireVariant::try_from(raw).ok()?)))
+                }
+            } else if schema.get_enum(other).is_some() {
+                let value = match val.as_brdb_value() {
+                    Some(BrdbValue::Enum(e)) => e.value,
+                    _ => val.as_brdb_u8().unwrap_or(0) as u64,
+                };
+                Some(b(format!("{value}u8")))
             } else if other == "Color" {
                 let s_id = schema.intern.get(other)?;
                 let get_u8 = |field: &str| -> u8 {
@@ -60,8 +133,13 @@ fn format_value(
                         .and_then(|v| v.as_brdb_u8().ok())
                         .unwrap_or(0)
                 };
-                let r = get_u8("R"); let g = get_u8("G"); let b_ = get_u8("B"); let a = get_u8("A");
-                Some(b(format!("SavedBrickColor {{ r: {r}, g: {g}, b: {b_}, a: {a} }}")))
+                let r = get_u8("R");
+                let g = get_u8("G");
+                let b_ = get_u8("B");
+                let a = get_u8("A");
+                Some(b(format!(
+                    "SavedBrickColor {{ r: {r}, g: {g}, b: {b_}, a: {a} }}"
+                )))
             } else if let Some(s_ty) = schema.get_struct(other) {
                 // Generic struct — recurse into fields and emit a NestedStructDefault so nested
                 // struct values (Vector2D {X,Y}, LinearColor {R,G,B,A}, ...) survive into
@@ -74,7 +152,9 @@ fn format_value(
                         BrdbSchemaStructProperty::Type(t) => schema.intern.lookup_ref(*t)?,
                         _ => continue,
                     };
-                    let prop_val = val.as_brdb_struct_prop_value(schema, s_id, *field_id).ok()?;
+                    let prop_val = val
+                        .as_brdb_struct_prop_value(schema, s_id, *field_id)
+                        .ok()?;
                     // Skip a sub-field we can't format (e.g. an object/class ref) but keep the
                     // rest — a missing field falls back to zero at write time.
                     let Some(formatted) = format_value(schema, &inner_ty, prop_val) else {
@@ -92,7 +172,10 @@ fn format_value(
                 if parts.is_empty() {
                     None
                 } else {
-                    Some(b(format!("NestedStructDefault(vec![{}])", parts.join(", "))))
+                    Some(b(format!(
+                        "NestedStructDefault(vec![{}])",
+                        parts.join(", ")
+                    )))
                 }
             } else {
                 None
@@ -103,7 +186,10 @@ fn format_value(
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
-    let path = PathBuf::from(args.get(1).expect("usage: extract_defaults <dump.brdb> [output.rs]"));
+    let path = PathBuf::from(
+        args.get(1)
+            .expect("usage: extract_defaults <dump.brdb> [output.rs]"),
+    );
     let output_path = args.get(2).map(PathBuf::from);
     let db = Brdb::open(path)?.into_reader();
     let global_data = db.global_data()?;
@@ -125,53 +211,61 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         wire_ports.insert(port.clone());
     }
 
-    for chunk in db.brick_chunk_index(1)? {
-        if chunk.num_components == 0 {
-            continue;
-        }
-        let Ok((_soa, components)) = db.component_chunk(1, *chunk) else {
+    // Grid 1 is the main grid; microchip planes are separate grids whose ids are
+    // sparse and can start well above 1 (a zoo save had 1 then 48..=71), so probe a
+    // wide range and skip gaps instead of stopping at the first missing id. Reading
+    // only grid 1 loses every plane-resident component (MicrochipInput, the
+    // CallableEntry_* gates, FunctionInput) -- they place only inside a plane.
+    for gid in 1..MAX_GRID_ID {
+        let Ok(chunks) = db.brick_chunk_index(gid) else {
             continue;
         };
-        for s in components {
-            let name = s.get_name().to_owned();
-            if struct_defaults.contains_key(&name) {
+        for chunk in chunks {
+            if chunk.num_components == 0 {
                 continue;
             }
-
-            let Some(struct_def) = schema.get_struct(&name) else {
+            let Ok((_soa, components)) = db.component_chunk(gid, *chunk) else {
                 continue;
             };
-            let s_id = match schema.intern.get(&name) {
-                Some(id) => id,
-                None => continue,
-            };
+            for s in components {
+                let name = s.get_name().to_owned();
+                if struct_defaults.contains_key(&name) {
+                    continue;
+                }
 
-            let mut fields = Vec::new();
-            for (field_id, prop_ty) in struct_def {
-                let field_name = match field_id.get(&schema) {
-                    Some(n) => n.to_owned(),
+                let Some(struct_def) = schema.get_struct(&name) else {
+                    continue;
+                };
+                let s_id = match schema.intern.get(&name) {
+                    Some(id) => id,
                     None => continue,
                 };
-                let ty_str = match prop_ty {
-                    BrdbSchemaStructProperty::Type(t) => {
-                        match schema.intern.lookup_ref(*t) {
+
+                let mut fields = Vec::new();
+                for (field_id, prop_ty) in struct_def {
+                    let field_name = match field_id.get(&schema) {
+                        Some(n) => n.to_owned(),
+                        None => continue,
+                    };
+                    let ty_str = match prop_ty {
+                        BrdbSchemaStructProperty::Type(t) => match schema.intern.lookup_ref(*t) {
                             Some(s) => s.to_owned(),
                             None => continue,
-                        }
-                    }
-                    _ => continue,
-                };
-                let val = match s.as_brdb_struct_prop_value(&schema, s_id, *field_id) {
-                    Ok(v) => v,
-                    Err(_) => continue,
-                };
-                let formatted = match format_value(&schema, &ty_str, val) {
-                    Some(f) => f,
-                    None => continue,
-                };
-                fields.push((field_name, ty_str, formatted));
+                        },
+                        _ => continue,
+                    };
+                    let val = match s.as_brdb_struct_prop_value(&schema, s_id, *field_id) {
+                        Ok(v) => v,
+                        Err(_) => continue,
+                    };
+                    let formatted = match format_value(&schema, &ty_str, val) {
+                        Some(f) => f,
+                        None => continue,
+                    };
+                    fields.push((field_name, ty_str, formatted));
+                }
+                struct_defaults.insert(name, fields);
             }
-            struct_defaults.insert(name, fields);
         }
     }
 
@@ -206,10 +300,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     w!();
 
     w!("use std::sync::LazyLock;");
-    // WireVariant is only referenced when a dump carries wire-variant defaults;
+    // EA3WireVariant is only referenced when a dump carries wire-variant defaults;
     // allow it to be unused so a dump without any still compiles clean.
     w!("#[allow(unused_imports)]");
-    w!("use crate::schema::WireVariant;");
+    if schema.is_latest() {
+        w!("use crate::schema::{{BrdbDynamicArray, BrdbDynamicEnum, BrdbDynamicMap, WireValue}};");
+    } else {
+        w!("use crate::schema::EA3WireVariant;");
+    }
     w!("use crate::schema::as_brdb::AsBrdbValue;");
     // NestedStructDefault carries struct-typed defaults (Vector2D/LinearColor/...); allow it
     // to be unused so a dump without any nested-struct defaults still compiles clean.
@@ -218,7 +316,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     w!("use crate::SavedBrickColor;");
     w!();
     w!("/// Default field values for every component data struct.");
-    w!("pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<dyn AsBrdbValue>)>)>> =");
+    w!(
+        "pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<dyn AsBrdbValue>)>)>> ="
+    );
     w!("    LazyLock::new(|| vec![");
     let mut first_entry = true;
     for (name, fields) in &struct_defaults {

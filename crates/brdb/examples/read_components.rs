@@ -12,10 +12,10 @@ fn run<T: BrFsReader>(db: &BrReader<T>) -> Result<(), Box<dyn std::error::Error>
     );
     // Probe grid ids 1.. until one is missing (covers the main grid plus any
     // microchip inner grids, which entity discovery may not surface).
-    for gid in 1..32 {
+    for gid in 1..512 {
         let chunks = match db.brick_chunk_index(gid) {
             Ok(c) => c,
-            Err(_) => break,
+            Err(_) => continue,
         };
         println!("=== grid {gid} ===");
         for chunk in chunks {

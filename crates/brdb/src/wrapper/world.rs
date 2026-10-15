@@ -3,17 +3,19 @@ use indexmap::IndexMap;
 use crate::{
     IntVector,
     assets::{LiteralComponent, bricks, entities},
-    errors::BrError,
-    schema::BrdbSchema,
+    errors::{BrError, BrdbWorldError},
+    schema::{BrdbSchema, BrdbSchemaFormat},
     wrapper::{
         Brick, Entity, Guid, Owner, Position, UnsavedFs, UnsavedWorld, WireConnection, WirePort,
-        WorldMeta, schemas,
+        WorldMeta,
     },
 };
 
-use super::component_db::{COMPONENT_TYPE_STRUCT_PAIRS, ENTITY_TYPE_STRUCT_PAIRS, WIRE_PORT_NAMES};
+use super::{
+    component_db::{COMPONENT_TYPE_STRUCT_PAIRS, ENTITY_TYPE_STRUCT_PAIRS, WIRE_PORT_NAMES},
+    schemas::BuiltinSchemas,
+};
 
-#[derive(Default)]
 pub struct World {
     pub meta: WorldMeta,
     pub owners: IndexMap<Guid, Owner>,
@@ -38,6 +40,40 @@ pub struct World {
     pub global_data: crate::schema::BrdbSchemaGlobalData,
     pub component_schema: BrdbSchema,
     pub entity_schema: BrdbSchema,
+    /// The save format this world is written in.
+    ///
+    /// [`BrdbSchemaFormat::Latest`] (the default) writes every schema in the
+    /// map form, as the game writes them.
+    ///
+    /// [`BrdbSchemaFormat::Auto`] writes each `.schema` in the container it
+    /// needs: the map form for schemas with a `types` table or dynamic
+    /// containers (the component schema), the array form otherwise. Every
+    /// current game build reads both, but a world written this way without
+    /// components has an EA3 component schema, so
+    /// [`crate::migrate::needs_migration`] reports it as an EA3 save.
+    ///
+    /// Writing EA3 worlds is not supported: [`World::to_unsaved`] fails with
+    /// [`BrdbWorldError::Ea3WriteUnsupported`].
+    pub schema_format: BrdbSchemaFormat,
+}
+
+impl Default for World {
+    fn default() -> Self {
+        Self {
+            meta: Default::default(),
+            owners: Default::default(),
+            bricks: Default::default(),
+            grids: Default::default(),
+            wires: Default::default(),
+            entities: Default::default(),
+            microchip_links: Default::default(),
+            prefabs: Default::default(),
+            global_data: Default::default(),
+            component_schema: Default::default(),
+            entity_schema: Default::default(),
+            schema_format: BrdbSchemaFormat::Latest,
+        }
+    }
 }
 
 impl World {
@@ -68,11 +104,26 @@ impl World {
         Ok(data)
     }
 
+    /// Pin a schema taken from the built-in set to this world's format.
+    fn pin_format(&self, schema: &mut BrdbSchema) {
+        if self.schema_format != BrdbSchemaFormat::Auto {
+            schema.set_format(self.schema_format);
+        }
+    }
+
     /// Load the full component schema and register all known type→struct
     /// mappings and wire port names from the built-in component database.
     pub fn register_all_components(&mut self) {
-        self.component_schema = schemas::bricks_components_schema_max().clone();
-        self.entity_schema = schemas::entities_chunks_schema().clone();
+        let builtin = BuiltinSchemas::get();
+        self.component_schema = builtin.components_max.clone();
+        self.entity_schema = builtin.entities_chunks.clone();
+        let (mut components, mut entities) = (
+            std::mem::take(&mut self.component_schema),
+            std::mem::take(&mut self.entity_schema),
+        );
+        self.pin_format(&mut components);
+        self.pin_format(&mut entities);
+        (self.component_schema, self.entity_schema) = (components, entities);
         for &(type_name, struct_name) in COMPONENT_TYPE_STRUCT_PAIRS {
             if !self.global_data.has_component_type(type_name) {
                 self.global_data
@@ -113,11 +164,19 @@ impl World {
     pub fn register_used_components(&mut self) {
         use std::collections::HashMap;
 
-        let max = schemas::bricks_components_schema_max();
+        let builtin = BuiltinSchemas::get();
+        let max = builtin.components_max;
 
         // Reset to the minimal SoA scaffolding (no per-component data structs).
-        self.component_schema = schemas::bricks_components_schema_min().clone();
-        self.entity_schema = schemas::entities_chunks_schema().clone();
+        let mut components = builtin.components_min.clone();
+        let mut entities = builtin.entities_chunks.clone();
+        // The minimal scaffolding has no types table of its own, so carry the
+        // max schema's format over before any data is encoded with it.
+        components.set_format(max.format());
+        self.pin_format(&mut components);
+        self.pin_format(&mut entities);
+        self.component_schema = components;
+        self.entity_schema = entities;
         self.global_data.component_type_names.clear();
         self.global_data.component_data_struct_names.clear();
         self.global_data.component_wire_port_names.clear();
@@ -155,9 +214,8 @@ impl World {
             }
         }
 
-        let (enums, variants, structs) = max.extract_structs_transitive(seed_structs);
-        self.component_schema.add_meta(enums, structs);
-        self.component_schema.add_variants(variants);
+        self.component_schema
+            .add_schema_meta(max.extract_structs_transitive(seed_structs));
 
         // Wire ports referenced by connections.
         for w in &self.wires {
@@ -182,18 +240,16 @@ impl World {
 
     /// Parse a schema string and merge its definitions.
     pub fn register_component_schema(&mut self, schema_str: &str) {
-        if let Ok((enums, variants, structs)) = BrdbSchema::parse_to_meta(schema_str) {
-            self.component_schema.add_meta(enums, structs);
-            self.component_schema.add_variants(variants);
+        if let Ok(meta) = BrdbSchema::parse_to_meta(schema_str) {
+            self.component_schema.add_schema_meta(meta);
         }
     }
 
     /// Pull a single struct from the max schema.
     pub fn register_component(&mut self, struct_name: &str) {
-        let max = schemas::bricks_components_schema_max();
-        if let Some((enums, variants, structs)) = max.extract_struct_meta(struct_name) {
-            self.component_schema.add_meta(enums, structs);
-            self.component_schema.add_variants(variants);
+        let max = BuiltinSchemas::get().components_max;
+        if let Some(meta) = max.extract_struct_meta(struct_name) {
+            self.component_schema.add_schema_meta(meta);
         }
     }
 
@@ -250,6 +306,9 @@ impl World {
     }
 
     pub fn to_unsaved(&self) -> Result<UnsavedFs, BrError> {
+        if self.schema_format == BrdbSchemaFormat::EA3 {
+            return Err(BrdbWorldError::Ea3WriteUnsupported.into());
+        }
         let mut unsaved_fs = UnsavedFs {
             meta: self.meta.clone(),
             worlds: Default::default(),
@@ -258,14 +317,21 @@ impl World {
 
         {
             let mut world = UnsavedWorld::default();
-
-            if !self.component_schema.structs.is_empty() {
-                world.component_schema = self.component_schema.clone();
-            }
-            if !self.entity_schema.structs.is_empty() {
-                world.entity_schema = self.entity_schema.clone();
-            }
+            let builtin = BuiltinSchemas::get();
+            world.component_schema = if self.component_schema.structs.is_empty() {
+                builtin.components_min.clone()
+            } else {
+                self.component_schema.clone()
+            };
+            world.entity_schema = if self.entity_schema.structs.is_empty() {
+                builtin.entities_chunks.clone()
+            } else {
+                self.entity_schema.clone()
+            };
+            self.pin_format(&mut world.component_schema);
+            self.pin_format(&mut world.entity_schema);
             world.global_data = self.global_data.clone();
+            world.schema_format = self.schema_format;
 
             for o in self.owners.values() {
                 world.owners.add(o);

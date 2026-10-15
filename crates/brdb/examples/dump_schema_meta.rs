@@ -15,8 +15,9 @@ fn run<T: BrFsReader>(db: &BrReader<T>, filter: &str) -> Result<(), Box<dyn std:
     schemas.sort_by(|a, b| a.0.cmp(&b.0));
 
     for (path, bytes) in &schemas {
-        let (enums, variants, structs) = BrdbSchema::read_to_meta(bytes.as_slice())?;
-        println!("######## {path} ########");
+        let ((enums, variants, structs, types), format) =
+            BrdbSchema::read_to_meta_with_format(bytes.as_slice())?;
+        println!("######## {path} ({format:?}) ########");
         for (n, vals) in &enums {
             let names: Vec<_> = vals.iter().map(|(k, v)| format!("{k}={v}")).collect();
             println!("enum {n}: {}", names.join(", "));
@@ -27,6 +28,9 @@ fn run<T: BrFsReader>(db: &BrReader<T>, filter: &str) -> Result<(), Box<dyn std:
         for (n, props) in &structs {
             let p: Vec<_> = props.iter().map(|(k, v)| format!("{k}:{v:?}")).collect();
             println!("struct {n} {{ {} }}", p.join(", "));
+        }
+        if !types.is_empty() {
+            println!("types: {types:?}");
         }
     }
     Ok(())

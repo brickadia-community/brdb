@@ -199,6 +199,9 @@ pub struct EntityChunkSoA {
     /// Per-entity remaining lifespan in seconds (0 = no auto-despawn). Added in
     /// a newer schema; older saves omit it.
     pub remaining_life_spans: Vec<f32>,
+    /// Per-entity index of the prefab spawn instance that created it (0 for
+    /// none). Latest saves only; EA3 saves omit it.
+    pub prefab_spawn_instance_indices: Vec<u32>,
 
     /// Entity data paired with struct name, resolved at add time from the library.
     pub unwritten_struct_data: Vec<Arc<Box<dyn BrdbComponent>>>,
@@ -250,6 +253,8 @@ impl EntityChunkSoA {
         self.colors_and_alphas.push(entity.color_and_alpha.clone());
         // No auto-despawn for authored entities.
         self.remaining_life_spans.push(0.0);
+        // Authored entities were not spawned by a prefab spawner.
+        self.prefab_spawn_instance_indices.push(0);
     }
 
     pub fn to_bytes(self, schema: &BrdbSchema) -> Result<Vec<u8>, BrdbSchemaError> {
@@ -270,8 +275,15 @@ impl EntityChunkSoA {
             };
             let struct_ty = schema.global_data.get_entity_class_name(ty);
             let Some(struct_ty) = struct_ty else { continue };
-            write_brdb_memoized(schema, &mut cache, &mut memo, &mut buf, struct_ty, &**entity_data)
-                .map_err(|e| e.wrap(format!("entity data {i}: {struct_ty}")))?;
+            write_brdb_memoized(
+                schema,
+                &mut cache,
+                &mut memo,
+                &mut buf,
+                struct_ty,
+                &**entity_data,
+            )
+            .map_err(|e| e.wrap(format!("entity data {i}: {struct_ty}")))?;
         }
         Ok(buf)
     }
@@ -312,6 +324,7 @@ impl AsBrdbValue for EntityChunkSoA {
             "AngularVelocities" => Ok(self.angular_velocities.as_brdb_iter()),
             "ColorsAndAlphas" => Ok(self.colors_and_alphas.as_brdb_iter()),
             "RemainingLifeSpans" => Ok(self.remaining_life_spans.as_brdb_iter()),
+            "PrefabSpawnInstanceIndices" => Ok(self.prefab_spawn_instance_indices.as_brdb_iter()),
             n => unimplemented!("unimplemented struct field {n}"),
         }
     }
@@ -369,6 +382,12 @@ impl TryFrom<&BrdbValue> for EntityChunkSoA {
             // Added in a newer schema; older saves omit it.
             remaining_life_spans: if value.contains_key("RemainingLifeSpans") {
                 value.prop("RemainingLifeSpans")?.try_into()?
+            } else {
+                Vec::new()
+            },
+            // Latest saves only.
+            prefab_spawn_instance_indices: if value.contains_key("PrefabSpawnInstanceIndices") {
+                value.prop("PrefabSpawnInstanceIndices")?.try_into()?
             } else {
                 Vec::new()
             },

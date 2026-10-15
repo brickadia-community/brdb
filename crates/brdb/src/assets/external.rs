@@ -7,7 +7,7 @@
 
 use crate::wrapper::BString;
 
-// === BRItemBase (88) ===
+// === BRItemBase (87) ===
 pub const BP_ITEM_BASE: BString = BString::str("BP_ItemBase");
 pub const WEAPON_AP_CARBINE: BString = BString::str("Weapon_APCarbine");
 pub const WEAPON_ANTI_MATERIEL_RIFLE: BString = BString::str("Weapon_AntiMaterielRifle");
@@ -72,7 +72,6 @@ pub const WEAPON_SHADOW_CLAWS: BString = BString::str("Weapon_ShadowClaws");
 pub const WEAPON_SHARP_CLAWS: BString = BString::str("Weapon_SharpClaws");
 pub const WEAPON_SHOTGUN: BString = BString::str("Weapon_Shotgun");
 pub const WEAPON_SLUG_SHOTGUN: BString = BString::str("Weapon_SlugShotgun");
-pub const WEAPON_SMOKE_GRENADE: BString = BString::str("Weapon_SmokeGrenade");
 pub const WEAPON_SNIPER: BString = BString::str("Weapon_Sniper");
 pub const WEAPON_SODA_CAN: BString = BString::str("Weapon_SodaCan");
 pub const WEAPON_SPATHA: BString = BString::str("Weapon_Spatha");
@@ -162,7 +161,6 @@ pub const BR_ITEM_BASE_ASSETS: &[BString] = &[
     WEAPON_SHARP_CLAWS,
     WEAPON_SHOTGUN,
     WEAPON_SLUG_SHOTGUN,
-    WEAPON_SMOKE_GRENADE,
     WEAPON_SNIPER,
     WEAPON_SODA_CAN,
     WEAPON_SPATHA,
@@ -188,9 +186,10 @@ pub const BR_ITEM_BASE_ASSETS: &[BString] = &[
     WEAPON_ZWEIHANDER,
 ];
 
-// === BRPickupBase (99) ===
+// === BRPickupBase (98) ===
 pub const BP_ITEM_PICKUP_AP_CARBINE: BString = BString::str("BP_ItemPickup_APCarbine");
-pub const BP_ITEM_PICKUP_ANTI_MATERIEL_RIFLE: BString = BString::str("BP_ItemPickup_AntiMaterielRifle");
+pub const BP_ITEM_PICKUP_ANTI_MATERIEL_RIFLE: BString =
+    BString::str("BP_ItemPickup_AntiMaterielRifle");
 pub const BP_ITEM_PICKUP_ARMING_SWORD: BString = BString::str("BP_ItemPickup_ArmingSword");
 pub const BP_ITEM_PICKUP_ASSAULT_RIFLE: BString = BString::str("BP_ItemPickup_AssaultRifle");
 pub const BP_ITEM_PICKUP_AUTO_SHOTGUN: BString = BString::str("BP_ItemPickup_AutoShotgun");
@@ -203,7 +202,8 @@ pub const BP_ITEM_PICKUP_BOW: BString = BString::str("BP_ItemPickup_Bow");
 pub const BP_ITEM_PICKUP_BOX_PISTOL: BString = BString::str("BP_ItemPickup_BoxPistol");
 pub const BP_ITEM_PICKUP_BULLPUP_RIFLE: BString = BString::str("BP_ItemPickup_BullpupRifle");
 pub const BP_ITEM_PICKUP_BULLPUP_SMG: BString = BString::str("BP_ItemPickup_BullpupSMG");
-pub const BP_ITEM_PICKUP_CHARGED_LONGSWORD: BString = BString::str("BP_ItemPickup_ChargedLongsword");
+pub const BP_ITEM_PICKUP_CHARGED_LONGSWORD: BString =
+    BString::str("BP_ItemPickup_ChargedLongsword");
 pub const BP_ITEM_PICKUP_CLAWS: BString = BString::str("BP_ItemPickup_Claws");
 pub const BP_ITEM_PICKUP_CRYSTAL_KALIS: BString = BString::str("BP_ItemPickup_CrystalKalis");
 pub const BP_ITEM_PICKUP_DERRINGER: BString = BString::str("BP_ItemPickup_Derringer");
@@ -213,7 +213,8 @@ pub const BP_ITEM_PICKUP_GRENADE_LAUNCHER: BString = BString::str("BP_ItemPickup
 pub const BP_ITEM_PICKUP_GUARD_PISTOL: BString = BString::str("BP_ItemPickup_GuardPistol");
 pub const BP_ITEM_PICKUP_HANDAXE: BString = BString::str("BP_ItemPickup_Handaxe");
 pub const BP_ITEM_PICKUP_HEALTH_POTION: BString = BString::str("BP_ItemPickup_HealthPotion");
-pub const BP_ITEM_PICKUP_HEAVY_ASSAULT_RIFLE: BString = BString::str("BP_ItemPickup_HeavyAssaultRifle");
+pub const BP_ITEM_PICKUP_HEAVY_ASSAULT_RIFLE: BString =
+    BString::str("BP_ItemPickup_HeavyAssaultRifle");
 pub const BP_ITEM_PICKUP_HEAVY_SMG: BString = BString::str("BP_ItemPickup_HeavySMG");
 pub const BP_ITEM_PICKUP_HERO_SWORD: BString = BString::str("BP_ItemPickup_HeroSword");
 pub const BP_ITEM_PICKUP_HIGH_POWER_PISTOL: BString = BString::str("BP_ItemPickup_HighPowerPistol");
@@ -224,7 +225,8 @@ pub const BP_ITEM_PICKUP_IMPULSE_GRENADE: BString = BString::str("BP_ItemPickup_
 pub const BP_ITEM_PICKUP_KNIFE: BString = BString::str("BP_ItemPickup_Knife");
 pub const BP_ITEM_PICKUP_LASER_AXE: BString = BString::str("BP_ItemPickup_LaserAxe");
 pub const BP_ITEM_PICKUP_LASER_CLEAVER: BString = BString::str("BP_ItemPickup_LaserCleaver");
-pub const BP_ITEM_PICKUP_LEVER_ACTION_RIFLE: BString = BString::str("BP_ItemPickup_LeverActionRifle");
+pub const BP_ITEM_PICKUP_LEVER_ACTION_RIFLE: BString =
+    BString::str("BP_ItemPickup_LeverActionRifle");
 pub const BP_ITEM_PICKUP_LIGHT_MACHINE_GUN: BString = BString::str("BP_ItemPickup_LightMachineGun");
 pub const BP_ITEM_PICKUP_LONGSWORD: BString = BString::str("BP_ItemPickup_Longsword");
 pub const BP_ITEM_PICKUP_MAGNUM_PISTOL: BString = BString::str("BP_ItemPickup_MagnumPistol");
@@ -251,7 +253,6 @@ pub const BP_ITEM_PICKUP_SERVICE_RIFLE: BString = BString::str("BP_ItemPickup_Se
 pub const BP_ITEM_PICKUP_SHADOW_CLAWS: BString = BString::str("BP_ItemPickup_ShadowClaws");
 pub const BP_ITEM_PICKUP_SHOTGUN: BString = BString::str("BP_ItemPickup_Shotgun");
 pub const BP_ITEM_PICKUP_SLUG_SHOTGUN: BString = BString::str("BP_ItemPickup_SlugShotgun");
-pub const BP_ITEM_PICKUP_SMOKE_GRENADE: BString = BString::str("BP_ItemPickup_SmokeGrenade");
 pub const BP_ITEM_PICKUP_SNIPER_RIFLE: BString = BString::str("BP_ItemPickup_SniperRifle");
 pub const BP_ITEM_PICKUP_SODA: BString = BString::str("BP_ItemPickup_Soda");
 pub const BP_ITEM_PICKUP_SPATHA: BString = BString::str("BP_ItemPickup_Spatha");
@@ -260,15 +261,23 @@ pub const BP_ITEM_PICKUP_SPORTING_SHOTGUN: BString = BString::str("BP_ItemPickup
 pub const BP_ITEM_PICKUP_STAMPED_SMG: BString = BString::str("BP_ItemPickup_StampedSMG");
 pub const BP_ITEM_PICKUP_STICK_GRENADE: BString = BString::str("BP_ItemPickup_StickGrenade");
 pub const BP_ITEM_PICKUP_SUBMACHINE_GUN: BString = BString::str("BP_ItemPickup_SubmachineGun");
-pub const BP_ITEM_PICKUP_SUBMACHINE_GUN_UNSUPPRESSED: BString = BString::str("BP_ItemPickup_SubmachineGun_Unsuppressed");
+pub const BP_ITEM_PICKUP_SUBMACHINE_GUN_UNSUPPRESSED: BString =
+    BString::str("BP_ItemPickup_SubmachineGun_Unsuppressed");
 pub const BP_ITEM_PICKUP_SUPER_SHOTGUN: BString = BString::str("BP_ItemPickup_SuperShotgun");
-pub const BP_ITEM_PICKUP_SUPPRESSED_ASSAULT_RIFLE: BString = BString::str("BP_ItemPickup_SuppressedAssaultRifle");
-pub const BP_ITEM_PICKUP_SUPPRESSED_BULLPUP_SMG: BString = BString::str("BP_ItemPickup_SuppressedBullpupSMG");
-pub const BP_ITEM_PICKUP_SUPPRESSED_GUARD_PISTOL: BString = BString::str("BP_ItemPickup_SuppressedGuardPistol");
-pub const BP_ITEM_PICKUP_SUPPRESSED_HEAVY_SMG: BString = BString::str("BP_ItemPickup_SuppressedHeavySMG");
-pub const BP_ITEM_PICKUP_SUPPRESSED_MICRO_SMG: BString = BString::str("BP_ItemPickup_SuppressedMicroSMG");
-pub const BP_ITEM_PICKUP_SUPPRESSED_PISTOL: BString = BString::str("BP_ItemPickup_SuppressedPistol");
-pub const BP_ITEM_PICKUP_SUPPRESSED_SERVICE_R_IFLE: BString = BString::str("BP_ItemPickup_SuppressedServiceRIfle");
+pub const BP_ITEM_PICKUP_SUPPRESSED_ASSAULT_RIFLE: BString =
+    BString::str("BP_ItemPickup_SuppressedAssaultRifle");
+pub const BP_ITEM_PICKUP_SUPPRESSED_BULLPUP_SMG: BString =
+    BString::str("BP_ItemPickup_SuppressedBullpupSMG");
+pub const BP_ITEM_PICKUP_SUPPRESSED_GUARD_PISTOL: BString =
+    BString::str("BP_ItemPickup_SuppressedGuardPistol");
+pub const BP_ITEM_PICKUP_SUPPRESSED_HEAVY_SMG: BString =
+    BString::str("BP_ItemPickup_SuppressedHeavySMG");
+pub const BP_ITEM_PICKUP_SUPPRESSED_MICRO_SMG: BString =
+    BString::str("BP_ItemPickup_SuppressedMicroSMG");
+pub const BP_ITEM_PICKUP_SUPPRESSED_PISTOL: BString =
+    BString::str("BP_ItemPickup_SuppressedPistol");
+pub const BP_ITEM_PICKUP_SUPPRESSED_SERVICE_R_IFLE: BString =
+    BString::str("BP_ItemPickup_SuppressedServiceRIfle");
 pub const BP_ITEM_PICKUP_TACTICAL_SMG: BString = BString::str("BP_ItemPickup_TacticalSMG");
 pub const BP_ITEM_PICKUP_TACTICAL_SHOTGUN: BString = BString::str("BP_ItemPickup_TacticalShotgun");
 pub const BP_ITEM_PICKUP_TOMAHAWK: BString = BString::str("BP_ItemPickup_Tomahawk");
@@ -352,7 +361,6 @@ pub const BR_PICKUP_BASE_ASSETS: &[BString] = &[
     BP_ITEM_PICKUP_SHADOW_CLAWS,
     BP_ITEM_PICKUP_SHOTGUN,
     BP_ITEM_PICKUP_SLUG_SHOTGUN,
-    BP_ITEM_PICKUP_SMOKE_GRENADE,
     BP_ITEM_PICKUP_SNIPER_RIFLE,
     BP_ITEM_PICKUP_SODA,
     BP_ITEM_PICKUP_SPATHA,
@@ -391,7 +399,7 @@ pub const BR_PICKUP_BASE_ASSETS: &[BString] = &[
     BP_PICKUP_HEALTH_SMALL,
 ];
 
-// === BRWeaponProjectile (69) ===
+// === BRWeaponProjectile (68) ===
 pub const BP_BULLET_PROJECTILE: BString = BString::str("BP_Bullet_Projectile");
 pub const PROJECTILE_AMR: BString = BString::str("Projectile_AMR");
 pub const PROJECTILE_AP_CARBINE: BString = BString::str("Projectile_APCarbine");
@@ -441,21 +449,25 @@ pub const PROJECTILE_SEMI_AUTO_RIFLE: BString = BString::str("Projectile_SemiAut
 pub const PROJECTILE_SERVICE_RIFLE: BString = BString::str("Projectile_ServiceRifle");
 pub const PROJECTILE_SHOTGUN: BString = BString::str("Projectile_Shotgun");
 pub const PROJECTILE_SLUG_SHOTGUN: BString = BString::str("Projectile_SlugShotgun");
-pub const PROJECTILE_SMOKE_GRENADE_NEW: BString = BString::str("Projectile_SmokeGrenade_New");
 pub const PROJECTILE_SNIPER: BString = BString::str("Projectile_Sniper");
 pub const PROJECTILE_SPORTING_SHOTGUN: BString = BString::str("Projectile_SportingShotgun");
 pub const PROJECTILE_STAMPED_SMG: BString = BString::str("Projectile_StampedSMG");
 pub const PROJECTILE_STICK_GRENADE: BString = BString::str("Projectile_StickGrenade");
 pub const PROJECTILE_SUBMACHINE_GUN: BString = BString::str("Projectile_SubmachineGun");
-pub const PROJECTILE_SUBMACHINE_GUN_UNSUPPRESSED: BString = BString::str("Projectile_SubmachineGun_Unsuppressed");
+pub const PROJECTILE_SUBMACHINE_GUN_UNSUPPRESSED: BString =
+    BString::str("Projectile_SubmachineGun_Unsuppressed");
 pub const PROJECTILE_SUPER_SHOTGUN: BString = BString::str("Projectile_SuperShotgun");
-pub const PROJECTILE_SUPPRESSED_ASSAULT_RIFLE: BString = BString::str("Projectile_SuppressedAssaultRifle");
-pub const PROJECTILE_SUPPRESSED_BULLPUP_SMG: BString = BString::str("Projectile_SuppressedBullpupSMG");
-pub const PROJECTILE_SUPPRESSED_GUARD_PISTOL: BString = BString::str("Projectile_SuppressedGuardPistol");
+pub const PROJECTILE_SUPPRESSED_ASSAULT_RIFLE: BString =
+    BString::str("Projectile_SuppressedAssaultRifle");
+pub const PROJECTILE_SUPPRESSED_BULLPUP_SMG: BString =
+    BString::str("Projectile_SuppressedBullpupSMG");
+pub const PROJECTILE_SUPPRESSED_GUARD_PISTOL: BString =
+    BString::str("Projectile_SuppressedGuardPistol");
 pub const PROJECTILE_SUPPRESSED_HEAVY_SMG: BString = BString::str("Projectile_SuppressedHeavySMG");
 pub const PROJECTILE_SUPPRESSED_MICRO_SMG: BString = BString::str("Projectile_SuppressedMicroSMG");
 pub const PROJECTILE_SUPPRESSED_PISTOL: BString = BString::str("Projectile_SuppressedPistol");
-pub const PROJECTILE_SUPPRESSED_SERVICE_RIFLE: BString = BString::str("Projectile_SuppressedServiceRifle");
+pub const PROJECTILE_SUPPRESSED_SERVICE_RIFLE: BString =
+    BString::str("Projectile_SuppressedServiceRifle");
 pub const PROJECTILE_TACTICAL_SMG: BString = BString::str("Projectile_TacticalSMG");
 pub const PROJECTILE_TACTICAL_SHOTGUN: BString = BString::str("Projectile_TacticalShotgun");
 pub const PROJECTILE_TOMAHAWK: BString = BString::str("Projectile_Tomahawk");
@@ -512,7 +524,6 @@ pub const BR_WEAPON_PROJECTILE_ASSETS: &[BString] = &[
     PROJECTILE_SERVICE_RIFLE,
     PROJECTILE_SHOTGUN,
     PROJECTILE_SLUG_SHOTGUN,
-    PROJECTILE_SMOKE_GRENADE_NEW,
     PROJECTILE_SNIPER,
     PROJECTILE_SPORTING_SHOTGUN,
     PROJECTILE_STAMPED_SMG,
@@ -535,45 +546,69 @@ pub const BR_WEAPON_PROJECTILE_ASSETS: &[BString] = &[
 ];
 
 // === BrickAudioDescriptor (199) ===
-pub const BA_AMB_ABSTRACT_SUBTLE_INTERFERENCE: BString = BString::str("BA_AMB_Abstract_Subtle_Interference");
-pub const BA_AMB_COMPONENT_AIR_CONDITIONING_BUZZY_1: BString = BString::str("BA_AMB_Component_Air_Conditioning_Buzzy_1");
-pub const BA_AMB_COMPONENT_AIR_CONDITIONING_BUZZY_2: BString = BString::str("BA_AMB_Component_Air_Conditioning_Buzzy_2");
-pub const BA_AMB_COMPONENT_AIR_CONDITIONING_GRUNGY: BString = BString::str("BA_AMB_Component_Air_Conditioning_Grungy");
-pub const BA_AMB_COMPONENT_AIR_CONDITIONING_WOBBLY: BString = BString::str("BA_AMB_Component_Air_Conditioning_Wobbly");
-pub const BA_AMB_COMPONENT_ALARM_SCIFI_CREEPY: BString = BString::str("BA_AMB_Component_Alarm_Scifi_Creepy");
-pub const BA_AMB_COMPONENT_ALARM_SCIFI_WARNING_1: BString = BString::str("BA_AMB_Component_Alarm_Scifi_Warning_1");
-pub const BA_AMB_COMPONENT_ALARM_SCIFI_WARNING_2: BString = BString::str("BA_AMB_Component_Alarm_Scifi_Warning_2");
-pub const BA_AMB_COMPONENT_ALARM_SCIFI_WARNING_3: BString = BString::str("BA_AMB_Component_Alarm_Scifi_Warning_3");
-pub const BA_AMB_COMPONENT_AUTOMATED_VENDING: BString = BString::str("BA_AMB_Component_Automated_Vending");
-pub const BA_AMB_COMPONENT_FIRES_FIREPLACE_1: BString = BString::str("BA_AMB_Component_Fires_Fireplace_1");
-pub const BA_AMB_COMPONENT_HORN_CAR_GENERIC: BString = BString::str("BA_AMB_Component_Horn_Car_Generic");
-pub const BA_AMB_COMPONENT_HORN_CAR_SMALL: BString = BString::str("BA_AMB_Component_Horn_Car_Small");
-pub const BA_AMB_COMPONENT_HORN_CAR_TRUCK: BString = BString::str("BA_AMB_Component_Horn_Car_Truck");
-pub const BA_AMB_COMPONENT_HOSPITAL_MISC_RESPIRATOR: BString = BString::str("BA_AMB_Component_Hospital_Misc_Respirator");
-pub const BA_AMB_COMPONENT_HOSPITAL_MONITORS_HEART_1: BString = BString::str("BA_AMB_Component_Hospital_Monitors_Heart_1");
-pub const BA_AMB_COMPONENT_HOSPITAL_MONITORS_HEART_2: BString = BString::str("BA_AMB_Component_Hospital_Monitors_Heart_2");
-pub const BA_AMB_COMPONENT_HOSPITAL_MONITORS_HEART_3: BString = BString::str("BA_AMB_Component_Hospital_Monitors_Heart_3");
+pub const BA_AMB_ABSTRACT_SUBTLE_INTERFERENCE: BString =
+    BString::str("BA_AMB_Abstract_Subtle_Interference");
+pub const BA_AMB_COMPONENT_AIR_CONDITIONING_BUZZY_1: BString =
+    BString::str("BA_AMB_Component_Air_Conditioning_Buzzy_1");
+pub const BA_AMB_COMPONENT_AIR_CONDITIONING_BUZZY_2: BString =
+    BString::str("BA_AMB_Component_Air_Conditioning_Buzzy_2");
+pub const BA_AMB_COMPONENT_AIR_CONDITIONING_GRUNGY: BString =
+    BString::str("BA_AMB_Component_Air_Conditioning_Grungy");
+pub const BA_AMB_COMPONENT_AIR_CONDITIONING_WOBBLY: BString =
+    BString::str("BA_AMB_Component_Air_Conditioning_Wobbly");
+pub const BA_AMB_COMPONENT_ALARM_SCIFI_CREEPY: BString =
+    BString::str("BA_AMB_Component_Alarm_Scifi_Creepy");
+pub const BA_AMB_COMPONENT_ALARM_SCIFI_WARNING_1: BString =
+    BString::str("BA_AMB_Component_Alarm_Scifi_Warning_1");
+pub const BA_AMB_COMPONENT_ALARM_SCIFI_WARNING_2: BString =
+    BString::str("BA_AMB_Component_Alarm_Scifi_Warning_2");
+pub const BA_AMB_COMPONENT_ALARM_SCIFI_WARNING_3: BString =
+    BString::str("BA_AMB_Component_Alarm_Scifi_Warning_3");
+pub const BA_AMB_COMPONENT_AUTOMATED_VENDING: BString =
+    BString::str("BA_AMB_Component_Automated_Vending");
+pub const BA_AMB_COMPONENT_FIRES_FIREPLACE_1: BString =
+    BString::str("BA_AMB_Component_Fires_Fireplace_1");
+pub const BA_AMB_COMPONENT_HORN_CAR_GENERIC: BString =
+    BString::str("BA_AMB_Component_Horn_Car_Generic");
+pub const BA_AMB_COMPONENT_HORN_CAR_SMALL: BString =
+    BString::str("BA_AMB_Component_Horn_Car_Small");
+pub const BA_AMB_COMPONENT_HORN_CAR_TRUCK: BString =
+    BString::str("BA_AMB_Component_Horn_Car_Truck");
+pub const BA_AMB_COMPONENT_HOSPITAL_MISC_RESPIRATOR: BString =
+    BString::str("BA_AMB_Component_Hospital_Misc_Respirator");
+pub const BA_AMB_COMPONENT_HOSPITAL_MONITORS_HEART_1: BString =
+    BString::str("BA_AMB_Component_Hospital_Monitors_Heart_1");
+pub const BA_AMB_COMPONENT_HOSPITAL_MONITORS_HEART_2: BString =
+    BString::str("BA_AMB_Component_Hospital_Monitors_Heart_2");
+pub const BA_AMB_COMPONENT_HOSPITAL_MONITORS_HEART_3: BString =
+    BString::str("BA_AMB_Component_Hospital_Monitors_Heart_3");
 pub const BA_AMB_EXTERIOR_CITY: BString = BString::str("BA_AMB_Exterior_City");
-pub const BA_AMB_EXTERIOR_CONSTRUCTION_HEAVY: BString = BString::str("BA_AMB_Exterior_Construction_Heavy");
-pub const BA_AMB_EXTERIOR_CONSTRUCTION_LIGHT: BString = BString::str("BA_AMB_Exterior_Construction_Light");
+pub const BA_AMB_EXTERIOR_CONSTRUCTION_HEAVY: BString =
+    BString::str("BA_AMB_Exterior_Construction_Heavy");
+pub const BA_AMB_EXTERIOR_CONSTRUCTION_LIGHT: BString =
+    BString::str("BA_AMB_Exterior_Construction_Light");
 pub const BA_AMB_EXTERIOR_COURTYARD: BString = BString::str("BA_AMB_Exterior_Courtyard");
 pub const BA_AMB_EXTERIOR_GENTLE_FOREST: BString = BString::str("BA_AMB_Exterior_GentleForest");
 pub const BA_AMB_EXTERIOR_NIGHT_CRICKETS: BString = BString::str("BA_AMB_Exterior_NightCrickets");
 pub const BA_AMB_EXTERIOR_NOISY_FOREST: BString = BString::str("BA_AMB_Exterior_NoisyForest");
 pub const BA_AMB_EXTERIOR_WINDY_FOREST: BString = BString::str("BA_AMB_Exterior_WindyForest");
 pub const BA_AMB_EXTERIOR_WINDY_MOUNTAIN: BString = BString::str("BA_AMB_Exterior_WindyMountain");
-pub const BA_AMB_INTERIOR_AIRCRAFT_CABIN_GENTLE: BString = BString::str("BA_AMB_Interior_Aircraft_Cabin_Gentle");
-pub const BA_AMB_INTERIOR_AIRCRAFT_CABIN_INTENSE: BString = BString::str("BA_AMB_Interior_Aircraft_Cabin_Intense");
+pub const BA_AMB_INTERIOR_AIRCRAFT_CABIN_GENTLE: BString =
+    BString::str("BA_AMB_Interior_Aircraft_Cabin_Gentle");
+pub const BA_AMB_INTERIOR_AIRCRAFT_CABIN_INTENSE: BString =
+    BString::str("BA_AMB_Interior_Aircraft_Cabin_Intense");
 pub const BA_AMB_INTERIOR_DRIPPY_TUNNEL: BString = BString::str("BA_AMB_Interior_DrippyTunnel");
 pub const BA_AMB_INTERIOR_ELECTRIC: BString = BString::str("BA_AMB_Interior_Electric");
 pub const BA_AMB_INTERIOR_ELEVATOR_SHAFT: BString = BString::str("BA_AMB_Interior_Elevator_Shaft");
 pub const BA_AMB_INTERIOR_LOW_FREQUENCY: BString = BString::str("BA_AMB_Interior_Low_Frequency");
-pub const BA_AMB_INTERIOR_QUIET_AIRCONDITIONING: BString = BString::str("BA_AMB_Interior_Quiet_Airconditioning");
+pub const BA_AMB_INTERIOR_QUIET_AIRCONDITIONING: BString =
+    BString::str("BA_AMB_Interior_Quiet_Airconditioning");
 pub const BA_AMB_INTERIOR_SERVER_ROOM: BString = BString::str("BA_AMB_Interior_ServerRoom");
 pub const BA_AMB_INTERIOR_SPACE_TUNNEL: BString = BString::str("BA_AMB_Interior_SpaceTunnel");
 pub const BA_AMB_INTERIOR_UNDERWATER: BString = BString::str("BA_AMB_Interior_Underwater");
 pub const BA_AIR_RAID_SIREN1: BString = BString::str("BA_AirRaidSiren1");
-pub const BA_ALARMS_HOUSEHOLD_ALARM_CLOCK: BString = BString::str("BA_Alarms_Household_Alarm_Clock");
+pub const BA_ALARMS_HOUSEHOLD_ALARM_CLOCK: BString =
+    BString::str("BA_Alarms_Household_Alarm_Clock");
 pub const BA_ALARMS_HOUSEHOLD_BELLS: BString = BString::str("BA_Alarms_Household_Bells");
 pub const BA_ALARMS_HOUSEHOLD_BURGLAR: BString = BString::str("BA_Alarms_Household_Burglar");
 pub const BA_ALARMS_HOUSEHOLD_CAR: BString = BString::str("BA_Alarms_Household_Car");
@@ -586,7 +621,8 @@ pub const BA_ALARMS_INDUSTRIAL_TRUCK: BString = BString::str("BA_Alarms_Industri
 pub const BA_CREAKING_METAL_SQUEAKY: BString = BString::str("BA_Creaking_Metal_Squeaky");
 pub const BA_CREAKING_METAL_STRAINING: BString = BString::str("BA_Creaking_Metal_Straining");
 pub const BA_CREAKING_METAL_STRESS: BString = BString::str("BA_Creaking_Metal_Stress");
-pub const BA_CREAKING_WOOD_CONSTANT_RATTLING: BString = BString::str("BA_Creaking_Wood_Constant_Rattling");
+pub const BA_CREAKING_WOOD_CONSTANT_RATTLING: BString =
+    BString::str("BA_Creaking_Wood_Constant_Rattling");
 pub const BA_CREAKING_WOOD_INTERIOR: BString = BString::str("BA_Creaking_Wood_Interior");
 pub const BA_CREAKING_WOOD_MASSIVE: BString = BString::str("BA_Creaking_Wood_Massive");
 pub const BA_CREAKING_WOOD_WAVING: BString = BString::str("BA_Creaking_Wood_Waving");
@@ -598,7 +634,8 @@ pub const BA_FAUNA_BIRDS_NIGHTINGALE: BString = BString::str("BA_Fauna_Birds_Nig
 pub const BA_JACOBS_LADDER: BString = BString::str("BA_Jacobs_Ladder");
 pub const BA_JACUZZI: BString = BString::str("BA_Jacuzzi");
 pub const BA_KITCHEN_DISHES: BString = BString::str("BA_Kitchen_Dishes");
-pub const BA_KITCHEN_DISHWASHER_COLLECTING_WATER: BString = BString::str("BA_Kitchen_Dishwasher_Collecting_Water");
+pub const BA_KITCHEN_DISHWASHER_COLLECTING_WATER: BString =
+    BString::str("BA_Kitchen_Dishwasher_Collecting_Water");
 pub const BA_KITCHEN_DISHWASHER_RUNNING: BString = BString::str("BA_Kitchen_Dishwasher_Running");
 pub const BA_KITCHEN_FRYING_FOOD_LARGE: BString = BString::str("BA_Kitchen_Frying_Food_Large");
 pub const BA_KITCHEN_FRYING_FOOD_SMALL: BString = BString::str("BA_Kitchen_Frying_Food_Small");
@@ -606,12 +643,14 @@ pub const BA_MUS_COMPONENT_APX_ALLEGRO: BString = BString::str("BA_MUS_Component
 pub const BA_MUS_COMPONENT_APX_APOGEE: BString = BString::str("BA_MUS_Component_APX_Apogee");
 pub const BA_MUS_COMPONENT_APX_ARCADIA: BString = BString::str("BA_MUS_Component_APX_Arcadia");
 pub const BA_MUS_COMPONENT_APX_ARENA: BString = BString::str("BA_MUS_Component_APX_Arena");
-pub const BA_MUS_COMPONENT_APX_CANOPY_OF_LIGHT: BString = BString::str("BA_MUS_Component_APX_Canopy_of_Light");
+pub const BA_MUS_COMPONENT_APX_CANOPY_OF_LIGHT: BString =
+    BString::str("BA_MUS_Component_APX_Canopy_of_Light");
 pub const BA_MUS_COMPONENT_APX_CARRIER: BString = BString::str("BA_MUS_Component_APX_Carrier");
 pub const BA_MUS_COMPONENT_APX_CLOCKWORK: BString = BString::str("BA_MUS_Component_APX_Clockwork");
 pub const BA_MUS_COMPONENT_APX_CRYPT: BString = BString::str("BA_MUS_Component_APX_Crypt");
 pub const BA_MUS_COMPONENT_APX_ELEGANT: BString = BString::str("BA_MUS_Component_APX_Elegant");
-pub const BA_MUS_COMPONENT_APX_ENCHANTMENT: BString = BString::str("BA_MUS_Component_APX_Enchantment");
+pub const BA_MUS_COMPONENT_APX_ENCHANTMENT: BString =
+    BString::str("BA_MUS_Component_APX_Enchantment");
 pub const BA_MUS_COMPONENT_APX_EXPLORERS: BString = BString::str("BA_MUS_Component_APX_Explorers");
 pub const BA_MUS_COMPONENT_APX_FROG: BString = BString::str("BA_MUS_Component_APX_Frog");
 pub const BA_MUS_COMPONENT_APX_FUSION: BString = BString::str("BA_MUS_Component_APX_Fusion");
@@ -629,7 +668,8 @@ pub const BA_MUS_COMPONENT_APX_NOIR: BString = BString::str("BA_MUS_Component_AP
 pub const BA_MUS_COMPONENT_APX_OASIS: BString = BString::str("BA_MUS_Component_APX_Oasis");
 pub const BA_MUS_COMPONENT_APX_OPEN_RANGE: BString = BString::str("BA_MUS_Component_APX_OpenRange");
 pub const BA_MUS_COMPONENT_APX_PULSE: BString = BString::str("BA_MUS_Component_APX_Pulse");
-pub const BA_MUS_COMPONENT_APX_REFRACTION: BString = BString::str("BA_MUS_Component_APX_Refraction");
+pub const BA_MUS_COMPONENT_APX_REFRACTION: BString =
+    BString::str("BA_MUS_Component_APX_Refraction");
 pub const BA_MUS_COMPONENT_APX_SANCTUARY: BString = BString::str("BA_MUS_Component_APX_Sanctuary");
 pub const BA_MUS_COMPONENT_APX_SERENITY: BString = BString::str("BA_MUS_Component_APX_Serenity");
 pub const BA_MUS_COMPONENT_APX_SET_SAIL: BString = BString::str("BA_MUS_Component_APX_SetSail");
@@ -637,44 +677,63 @@ pub const BA_MUS_COMPONENT_APX_SHADOW: BString = BString::str("BA_MUS_Component_
 pub const BA_MUS_COMPONENT_APX_SPIES: BString = BString::str("BA_MUS_Component_APX_Spies");
 pub const BA_MUS_COMPONENT_APX_STANCED: BString = BString::str("BA_MUS_Component_APX_Stanced");
 pub const BA_MUS_COMPONENT_APX_STROLL: BString = BString::str("BA_MUS_Component_APX_Stroll");
-pub const BA_MUS_COMPONENT_APX_TESTAROSSA: BString = BString::str("BA_MUS_Component_APX_Testarossa");
-pub const BA_MUS_COMPONENT_APX_TETSUZANKO: BString = BString::str("BA_MUS_Component_APX_Tetsuzanko");
-pub const BA_MUS_COMPONENT_APX_THE_ENTERTAINER: BString = BString::str("BA_MUS_Component_APX_TheEntertainer");
+pub const BA_MUS_COMPONENT_APX_TESTAROSSA: BString =
+    BString::str("BA_MUS_Component_APX_Testarossa");
+pub const BA_MUS_COMPONENT_APX_TETSUZANKO: BString =
+    BString::str("BA_MUS_Component_APX_Tetsuzanko");
+pub const BA_MUS_COMPONENT_APX_THE_ENTERTAINER: BString =
+    BString::str("BA_MUS_Component_APX_TheEntertainer");
 pub const BA_MUS_COMPONENT_APX_TO_THE_END: BString = BString::str("BA_MUS_Component_APX_ToTheEnd");
 pub const BA_MUS_COMPONENT_APX_TRANQUIL: BString = BString::str("BA_MUS_Component_APX_Tranquil");
 pub const BA_MUS_COMPONENT_APX_WINGS: BString = BString::str("BA_MUS_Component_APX_Wings");
 pub const BA_MUS_COMPONENT_APX_WONDER: BString = BString::str("BA_MUS_Component_APX_Wonder");
-pub const BA_MUS_COMPONENT_BASIL_BRAIN_CHATTER: BString = BString::str("BA_MUS_Component_Basil_BrainChatter");
-pub const BA_MUS_COMPONENT_BASIL_COFFEE_SHOP: BString = BString::str("BA_MUS_Component_Basil_CoffeeShop");
-pub const BA_MUS_COMPONENT_BASIL_DRIVE_AT_DUSK: BString = BString::str("BA_MUS_Component_Basil_DriveAtDusk");
+pub const BA_MUS_COMPONENT_BASIL_BRAIN_CHATTER: BString =
+    BString::str("BA_MUS_Component_Basil_BrainChatter");
+pub const BA_MUS_COMPONENT_BASIL_COFFEE_SHOP: BString =
+    BString::str("BA_MUS_Component_Basil_CoffeeShop");
+pub const BA_MUS_COMPONENT_BASIL_DRIVE_AT_DUSK: BString =
+    BString::str("BA_MUS_Component_Basil_DriveAtDusk");
 pub const BA_MUS_COMPONENT_BASIL_HER_WAY: BString = BString::str("BA_MUS_Component_Basil_HerWay");
-pub const BA_MUS_COMPONENT_BASIL_JOURNEY_THROUGH_TIME: BString = BString::str("BA_MUS_Component_Basil_JourneyThroughTime");
-pub const BA_MUS_COMPONENT_BASIL_MARCHING_THROUGH_THE_CLOUDS: BString = BString::str("BA_MUS_Component_Basil_MarchingThroughTheClouds");
-pub const BA_MUS_COMPONENT_BASIL_MR_ALBERTSON: BString = BString::str("BA_MUS_Component_Basil_MrAlbertson");
+pub const BA_MUS_COMPONENT_BASIL_JOURNEY_THROUGH_TIME: BString =
+    BString::str("BA_MUS_Component_Basil_JourneyThroughTime");
+pub const BA_MUS_COMPONENT_BASIL_MARCHING_THROUGH_THE_CLOUDS: BString =
+    BString::str("BA_MUS_Component_Basil_MarchingThroughTheClouds");
+pub const BA_MUS_COMPONENT_BASIL_MR_ALBERTSON: BString =
+    BString::str("BA_MUS_Component_Basil_MrAlbertson");
 pub const BA_MUS_COMPONENT_BASIL_NIGHTS: BString = BString::str("BA_MUS_Component_Basil_Nights");
-pub const BA_MUS_COMPONENT_BASIL_OCEAN_SIDE: BString = BString::str("BA_MUS_Component_Basil_OceanSide");
+pub const BA_MUS_COMPONENT_BASIL_OCEAN_SIDE: BString =
+    BString::str("BA_MUS_Component_Basil_OceanSide");
 pub const BA_MUS_COMPONENT_BASIL_PUZZLED: BString = BString::str("BA_MUS_Component_Basil_Puzzled");
 pub const BA_MUS_COMPONENT_BASIL_QUANTUM: BString = BString::str("BA_MUS_Component_Basil_Quantum");
 pub const BA_MUS_COMPONENT_BASIL_SPACED: BString = BString::str("BA_MUS_Component_Basil_Spaced");
-pub const BA_MUS_COMPONENT_BASIL_SUNSET_COFFEE: BString = BString::str("BA_MUS_Component_Basil_SunsetCoffee");
+pub const BA_MUS_COMPONENT_BASIL_SUNSET_COFFEE: BString =
+    BString::str("BA_MUS_Component_Basil_SunsetCoffee");
 pub const BA_MUS_COMPONENT_CUSTARD: BString = BString::str("BA_MUS_Component_Custard");
 pub const BA_MUS_COMPONENT_EL_DUO: BString = BString::str("BA_MUS_Component_El_Duo");
 pub const BA_MUS_COMPONENT_FOUNTAINTAIL: BString = BString::str("BA_MUS_Component_Fountaintail");
-pub const BA_MUS_COMPONENT_JOHNNY_LEDGER_CRYSTAL_TOWER: BString = BString::str("BA_MUS_Component_JohnnyLedger_CrystalTower");
-pub const BA_MUS_COMPONENT_JOHNNY_LEDGER_LANDING_PAGE: BString = BString::str("BA_MUS_Component_JohnnyLedger_LandingPage");
-pub const BA_MUS_COMPONENT_JOHNNY_LEDGER_UNCOUTH_MEETING: BString = BString::str("BA_MUS_Component_JohnnyLedger_UncouthMeeting");
+pub const BA_MUS_COMPONENT_JOHNNY_LEDGER_CRYSTAL_TOWER: BString =
+    BString::str("BA_MUS_Component_JohnnyLedger_CrystalTower");
+pub const BA_MUS_COMPONENT_JOHNNY_LEDGER_LANDING_PAGE: BString =
+    BString::str("BA_MUS_Component_JohnnyLedger_LandingPage");
+pub const BA_MUS_COMPONENT_JOHNNY_LEDGER_UNCOUTH_MEETING: BString =
+    BString::str("BA_MUS_Component_JohnnyLedger_UncouthMeeting");
 pub const BA_MUS_COMPONENT_MORNING_DREAM: BString = BString::str("BA_MUS_Component_Morning_Dream");
 pub const BA_MUS_COMPONENT_OST_90S: BString = BString::str("BA_MUS_Component_OST_90s");
-pub const BA_MUS_COMPONENT_OST_AESTHETICS: BString = BString::str("BA_MUS_Component_OST_Aesthetics");
-pub const BA_MUS_COMPONENT_OST_DRIFTING_IN_SPACE: BString = BString::str("BA_MUS_Component_OST_Drifting_in_Space");
+pub const BA_MUS_COMPONENT_OST_AESTHETICS: BString =
+    BString::str("BA_MUS_Component_OST_Aesthetics");
+pub const BA_MUS_COMPONENT_OST_DRIFTING_IN_SPACE: BString =
+    BString::str("BA_MUS_Component_OST_Drifting_in_Space");
 pub const BA_MUS_COMPONENT_OST_FAMILIAR: BString = BString::str("BA_MUS_Component_OST_Familiar");
-pub const BA_MUS_COMPONENT_OST_FROZEN_MOO: BString = BString::str("BA_MUS_Component_OST_Frozen_Moo");
+pub const BA_MUS_COMPONENT_OST_FROZEN_MOO: BString =
+    BString::str("BA_MUS_Component_OST_Frozen_Moo");
 pub const BA_MUS_COMPONENT_OST_HARD_BASS: BString = BString::str("BA_MUS_Component_OST_Hard_Bass");
 pub const BA_MUS_COMPONENT_OST_IMPOSTER: BString = BString::str("BA_MUS_Component_OST_Imposter");
 pub const BA_MUS_COMPONENT_OST_PENSIVE: BString = BString::str("BA_MUS_Component_OST_Pensive");
-pub const BA_MUS_COMPONENT_OST_SOUNDS_GOOD: BString = BString::str("BA_MUS_Component_OST_SoundsGood");
+pub const BA_MUS_COMPONENT_OST_SOUNDS_GOOD: BString =
+    BString::str("BA_MUS_Component_OST_SoundsGood");
 pub const BA_MUS_COMPONENT_OST_SPUNKY: BString = BString::str("BA_MUS_Component_OST_Spunky");
-pub const BA_MUS_COMPONENT_OST_STRATEGIZE: BString = BString::str("BA_MUS_Component_OST_Strategize");
+pub const BA_MUS_COMPONENT_OST_STRATEGIZE: BString =
+    BString::str("BA_MUS_Component_OST_Strategize");
 pub const BA_MUS_COMPONENT_OST_VIBE: BString = BString::str("BA_MUS_Component_OST_Vibe");
 pub const BA_MUS_COMPONENT_RETRO_BOSS: BString = BString::str("BA_MUS_Component_Retro_Boss");
 pub const BA_MUS_COMPONENT_RETRO_MENU: BString = BString::str("BA_MUS_Component_Retro_Menu");
@@ -683,24 +742,35 @@ pub const BA_MUS_COMPONENT_RETRO_STAGE_2: BString = BString::str("BA_MUS_Compone
 pub const BA_MUS_COMPONENT_RETRO_STAGE_3: BString = BString::str("BA_MUS_Component_Retro_Stage_3");
 pub const BA_MUS_COMPONENT_RETRO_STAGE_4: BString = BString::str("BA_MUS_Component_Retro_Stage_4");
 pub const BA_MUS_COMPONENT_RETRO_STAGE_5: BString = BString::str("BA_MUS_Component_Retro_Stage_5");
-pub const BA_MUS_COMPONENT_SOLUTION_NOT_FORTHCOMING: BString = BString::str("BA_MUS_Component_Solution_Not_Forthcoming");
-pub const BA_MUS_COMPONENT_THUNDERPUNCH_A: BString = BString::str("BA_MUS_Component_Thunderpunch_A");
-pub const BA_MUS_COMPONENT_THUNDERPUNCH_B: BString = BString::str("BA_MUS_Component_Thunderpunch_B");
-pub const BA_MUS_COMPONENT_THUNDERPUNCH_DRONE: BString = BString::str("BA_MUS_Component_Thunderpunch_Drone");
-pub const BA_MUS_COMPONENT_SPZI_AT_THE_FAIR: BString = BString::str("BA_MUS_Component_spzi_AtTheFair");
+pub const BA_MUS_COMPONENT_SOLUTION_NOT_FORTHCOMING: BString =
+    BString::str("BA_MUS_Component_Solution_Not_Forthcoming");
+pub const BA_MUS_COMPONENT_THUNDERPUNCH_A: BString =
+    BString::str("BA_MUS_Component_Thunderpunch_A");
+pub const BA_MUS_COMPONENT_THUNDERPUNCH_B: BString =
+    BString::str("BA_MUS_Component_Thunderpunch_B");
+pub const BA_MUS_COMPONENT_THUNDERPUNCH_DRONE: BString =
+    BString::str("BA_MUS_Component_Thunderpunch_Drone");
+pub const BA_MUS_COMPONENT_SPZI_AT_THE_FAIR: BString =
+    BString::str("BA_MUS_Component_spzi_AtTheFair");
 pub const BA_MUS_COMPONENT_SPZI_CORAL: BString = BString::str("BA_MUS_Component_spzi_Coral");
 pub const BA_MUS_COMPONENT_SPZI_CRYPT: BString = BString::str("BA_MUS_Component_spzi_Crypt");
-pub const BA_MUS_COMPONENT_SPZI_DEEP_SEA_CREATURE: BString = BString::str("BA_MUS_Component_spzi_DeepSeaCreature");
+pub const BA_MUS_COMPONENT_SPZI_DEEP_SEA_CREATURE: BString =
+    BString::str("BA_MUS_Component_spzi_DeepSeaCreature");
 pub const BA_MUS_COMPONENT_SPZI_ICY_HALLS: BString = BString::str("BA_MUS_Component_spzi_IcyHalls");
-pub const BA_MUS_COMPONENT_SPZI_SECRET_CHAMBER: BString = BString::str("BA_MUS_Component_spzi_SecretChamber");
+pub const BA_MUS_COMPONENT_SPZI_SECRET_CHAMBER: BString =
+    BString::str("BA_MUS_Component_spzi_SecretChamber");
 pub const BA_MUS_COMPONENT_SPZI_SERENE: BString = BString::str("BA_MUS_Component_spzi_Serene");
-pub const BA_MUS_COMPONENT_SPZI_THE_ACADEMY: BString = BString::str("BA_MUS_Component_spzi_TheAcademy");
+pub const BA_MUS_COMPONENT_SPZI_THE_ACADEMY: BString =
+    BString::str("BA_MUS_Component_spzi_TheAcademy");
 pub const BA_MUS_COMPONENT_SPZI_THE_LAB: BString = BString::str("BA_MUS_Component_spzi_TheLab");
-pub const BA_MUS_COMPONENT_SPZI_VINE_ALLEY: BString = BString::str("BA_MUS_Component_spzi_VineAlley");
+pub const BA_MUS_COMPONENT_SPZI_VINE_ALLEY: BString =
+    BString::str("BA_MUS_Component_spzi_VineAlley");
 pub const BA_MUS_COMPONENT_VIWRAP_SHOP: BString = BString::str("BA_MUS_Component_viwrap_Shop");
 pub const BA_MUS_COMPONENT_VIWRAP_SWAMP: BString = BString::str("BA_MUS_Component_viwrap_Swamp");
-pub const BA_MUS_COMPONENT_VIWRAP_TENSION: BString = BString::str("BA_MUS_Component_viwrap_Tension");
-pub const BA_MUS_NEW_BEGINNING_WINTER_HOLIDAY: BString = BString::str("BA_MUS_New_Beginning_Winter_Holiday");
+pub const BA_MUS_COMPONENT_VIWRAP_TENSION: BString =
+    BString::str("BA_MUS_Component_viwrap_Tension");
+pub const BA_MUS_NEW_BEGINNING_WINTER_HOLIDAY: BString =
+    BString::str("BA_MUS_New_Beginning_Winter_Holiday");
 pub const BA_MUS_OST_HOME: BString = BString::str("BA_MUS_OST_Home");
 pub const BA_MUS_OST_INCANDESCENT: BString = BString::str("BA_MUS_OST_Incandescent");
 pub const BA_MUS_OST_LAST_HURRAH: BString = BString::str("BA_MUS_OST_Last_Hurrah");
@@ -729,8 +799,10 @@ pub const BA_WATER_FLOWING_CALM: BString = BString::str("BA_Water_Flowing_Calm")
 pub const BA_WATER_FLOWING_FOUNTAIN: BString = BString::str("BA_Water_Flowing_Fountain");
 pub const BA_WATER_FLOWING_WATERFALL: BString = BString::str("BA_Water_Flowing_Waterfall");
 pub const BA_WATER_FLOWING_WAVES: BString = BString::str("BA_Water_Flowing_Waves");
-pub const BA_WATER_RESTING_LAKE_SHORE_NOISY: BString = BString::str("BA_Water_Resting_LakeShore_Noisy");
-pub const BA_WATER_RESTING_LAKE_SHORE_STILL: BString = BString::str("BA_Water_Resting_LakeShore_Still");
+pub const BA_WATER_RESTING_LAKE_SHORE_NOISY: BString =
+    BString::str("BA_Water_Resting_LakeShore_Noisy");
+pub const BA_WATER_RESTING_LAKE_SHORE_STILL: BString =
+    BString::str("BA_Water_Resting_LakeShore_Still");
 pub const MUS_APX_APOGEE: BString = BString::str("MUS_APX_Apogee");
 pub const MUS_APX_CANOPY_OF_LIGHT: BString = BString::str("MUS_APX_Canopy_of_Light");
 pub const MUS_APX_MICRO: BString = BString::str("MUS_APX_Micro");
@@ -992,56 +1064,16 @@ pub const BRICK_FONT_DESCRIPTOR_ASSETS: &[BString] = &[
     ROBOTO_MONO,
 ];
 
-// === BrickOneShotAudioDescriptor (126) ===
-pub const BOSA_AMR_FIRE: BString = BString::str("BOSA_AMR_Fire");
-pub const BOSA_AP_CARBINE_FIRE: BString = BString::str("BOSA_APCarbine_Fire");
-pub const BOSA_AUTO_SHOTGUN_FIRE: BString = BString::str("BOSA_AutoShotgun_Fire");
-pub const BOSA_AUTO_SHOTGUN_LAST_FIRE: BString = BString::str("BOSA_AutoShotgun_Last_Fire");
-pub const BOSA_BARRAGE_LAUNCHER_FIRE: BString = BString::str("BOSA_BarrageLauncher_Fire");
-pub const BOSA_BOLT_ACTION_RIFLE_FIRE: BString = BString::str("BOSA_BoltActionRifle_Fire");
-pub const BOSA_BOW_FIRE: BString = BString::str("BOSA_Bow_Fire");
-pub const BOSA_BOX_PISTOL_FIRE: BString = BString::str("BOSA_BoxPistol_Fire");
-pub const BOSA_BULLPUP_RIFLE_FIRE: BString = BString::str("BOSA_BullpupRifle_Fire");
-pub const BOSA_BULLPUP_SMG_FIRE: BString = BString::str("BOSA_BullpupSMG_Fire");
+// === BrickOneShotAudioDescriptor (347) ===
 pub const BOSA_BUTTONS_BUTTON_1_PRESS: BString = BString::str("BOSA_Buttons_Button_1_Press");
 pub const BOSA_BUTTONS_BUTTON_1_RELEASE: BString = BString::str("BOSA_Buttons_Button_1_Release");
 pub const BOSA_BUTTONS_BUTTON_2_PRESS: BString = BString::str("BOSA_Buttons_Button_2_Press");
 pub const BOSA_BUTTONS_BUTTON_2_RELEASE: BString = BString::str("BOSA_Buttons_Button_2_Release");
 pub const BOSA_BUTTONS_BUTTON_3_PRESS: BString = BString::str("BOSA_Buttons_Button_3_Press");
 pub const BOSA_BUTTONS_BUTTON_3_RELEASE: BString = BString::str("BOSA_Buttons_Button_3_Release");
-pub const BOSA_DERRINGER_FIRE: BString = BString::str("BOSA_Derringer_Fire");
-pub const BOSA_FLINTLOCK_FIRE: BString = BString::str("BOSA_Flintlock_Fire");
-pub const BOSA_GUARD_PISTOL_FIRE: BString = BString::str("BOSA_GuardPistol_Fire");
-pub const BOSA_GUARD_PISTOL_SUPPRESSED_FIRE: BString = BString::str("BOSA_GuardPistol_Suppressed_Fire");
-pub const BOSA_HEAVY_ASSAULT_RIFLE_FIRE: BString = BString::str("BOSA_HeavyAssaultRifle_Fire");
-pub const BOSA_HEAVY_SMG_FIRE: BString = BString::str("BOSA_HeavySMG_Fire");
-pub const BOSA_HIGH_POWER_PISTOL_FIRE: BString = BString::str("BOSA_HighPowerPistol_Fire");
-pub const BOSA_HUNTING_SHOTGUN_FIRE: BString = BString::str("BOSA_HuntingShotgun_Fire");
-pub const BOSA_HUNTING_SHOTGUN_LAST_FIRE: BString = BString::str("BOSA_HuntingShotgun_Last_Fire");
-pub const BOSA_LEVER_ACTION_FIRE: BString = BString::str("BOSA_LeverAction_Fire");
-pub const BOSA_LIGHT_MACHINE_GUN_FIRE: BString = BString::str("BOSA_LightMachineGun_Fire");
-pub const BOSA_MAGNUM_FIRE: BString = BString::str("BOSA_Magnum_Fire");
-pub const BOSA_MICRO_SMG_FIRE: BString = BString::str("BOSA_MicroSMG_Fire");
-pub const BOSA_MINIGUN_FIRE: BString = BString::str("BOSA_Minigun_Fire");
-pub const BOSA_PDW_FIRE: BString = BString::str("BOSA_PDW_Fire");
-pub const BOSA_PISTOL_FIRE: BString = BString::str("BOSA_Pistol_Fire");
-pub const BOSA_PULSE_CARBINE_FIRE: BString = BString::str("BOSA_PulseCarbine_Fire");
-pub const BOSA_RAILGUN_FIRE: BString = BString::str("BOSA_Railgun_Fire");
-pub const BOSA_REVOLVER_FIRE: BString = BString::str("BOSA_Revolver_Fire");
-pub const BOSA_SEMI_AUTO_RIFLE_FIRE: BString = BString::str("BOSA_SemiAutoRifle_Fire");
-pub const BOSA_SERVICE_RIFLE_FIRE: BString = BString::str("BOSA_ServiceRifle_Fire");
-pub const BOSA_SLUG_SHOTGUN_FIRE: BString = BString::str("BOSA_SlugShotgun_Fire");
-pub const BOSA_SLUG_SHOTGUN_LAST_FIRE: BString = BString::str("BOSA_SlugShotgun_Last_Fire");
-pub const BOSA_STAMPED_SMG_FIRE: BString = BString::str("BOSA_StampedSMG_Fire");
-pub const BOSA_SUPER_SHOTGUN_FIRE: BString = BString::str("BOSA_SuperShotgun_Fire");
-pub const BOSA_SUPPRESSED_ASSAULT_RIFLE_FIRE: BString = BString::str("BOSA_SuppressedAssaultRifle_Fire");
-pub const BOSA_TACTICAL_SMG_FIRE: BString = BString::str("BOSA_TacticalSMG_Fire");
-pub const BOSA_TACTICAL_SHOTGUN_FIRE: BString = BString::str("BOSA_TacticalShotgun_Fire");
-pub const BOSA_TACTICAL_SHOTGUN_LAST_FIRE: BString = BString::str("BOSA_TacticalShotgun_Last_Fire");
-pub const BOSA_TYPEWRITER_FIRE: BString = BString::str("BOSA_Typewriter_Fire");
-pub const BOSA_UNSUPPRESSED_SMG_FIRE: BString = BString::str("BOSA_UnsuppressedSMG_Fire");
 pub const OBA_AIR_BRAKE: BString = BString::str("OBA_Air_Brake");
-pub const OBA_BR_CHECKPOINT_ACQUIRE_CLICK_CUE: BString = BString::str("OBA_BR_Checkpoint_Acquire_Click_Cue");
+pub const OBA_BR_CHECKPOINT_ACQUIRE_CLICK_CUE: BString =
+    BString::str("OBA_BR_Checkpoint_Acquire_Click_Cue");
 pub const OBA_BEEP_1: BString = BString::str("OBA_Beep_1");
 pub const OBA_BEEP_2: BString = BString::str("OBA_Beep_2");
 pub const OBA_BEEP_3: BString = BString::str("OBA_Beep_3");
@@ -1049,7 +1081,8 @@ pub const OBA_BEEP_4: BString = BString::str("OBA_Beep_4");
 pub const OBA_BEEP_5: BString = BString::str("OBA_Beep_5");
 pub const OBA_BEEP_6: BString = BString::str("OBA_Beep_6");
 pub const OBA_BRICKTIONARY_GUESS: BString = BString::str("OBA_Bricktionary_Guess");
-pub const OBA_BRICKTIONARY_MATCH_COMPLETE: BString = BString::str("OBA_Bricktionary_Match_Complete");
+pub const OBA_BRICKTIONARY_MATCH_COMPLETE: BString =
+    BString::str("OBA_Bricktionary_Match_Complete");
 pub const OBA_BRICKTIONARY_ROUND_LOST: BString = BString::str("OBA_Bricktionary_Round_Lost");
 pub const OBA_BRICKTIONARY_ROUND_START: BString = BString::str("OBA_Bricktionary_Round_Start");
 pub const OBA_BRICKTIONARY_ROUND_WIN: BString = BString::str("OBA_Bricktionary_Round_Win");
@@ -1100,11 +1133,14 @@ pub const OBA_METAL_STRES_DISTANT_2: BString = BString::str("OBA_MetalStresDista
 pub const OBA_NIGHT_VISION: BString = BString::str("OBA_NightVision");
 pub const OBA_TOOL_AIR_DRILL: BString = BString::str("OBA_ToolAir_Drill");
 pub const OBA_TOOL_PNUEMATIC_DRILL: BString = BString::str("OBA_ToolPnuematic_Drill");
-pub const OBA_UI_CHECKPOINT_ACQUIRE_TUNE_CUE: BString = BString::str("OBA_UI_Checkpoint_Acquire_Tune_Cue");
+pub const OBA_UI_CHECKPOINT_ACQUIRE_TUNE_CUE: BString =
+    BString::str("OBA_UI_Checkpoint_Acquire_Tune_Cue");
 pub const OBA_UI_GOAL_TUNE_CUE: BString = BString::str("OBA_UI_Goal_Tune_Cue");
 pub const OBA_VENDING_MACHINE_DISPENSE: BString = BString::str("OBA_Vending_Machine_Dispense");
-pub const OBA_VENDING_MACHINE_ENTER_COIN_1: BString = BString::str("OBA_Vending_Machine_Enter_Coin_1");
-pub const OBA_VENDING_MACHINE_ENTER_COIN_2: BString = BString::str("OBA_Vending_Machine_Enter_Coin_2");
+pub const OBA_VENDING_MACHINE_ENTER_COIN_1: BString =
+    BString::str("OBA_Vending_Machine_Enter_Coin_1");
+pub const OBA_VENDING_MACHINE_ENTER_COIN_2: BString =
+    BString::str("OBA_Vending_Machine_Enter_Coin_2");
 pub const OBA_WATER_DROPLET_1: BString = BString::str("OBA_Water_Droplet_1");
 pub const OBA_WATER_DROPLET_2: BString = BString::str("OBA_Water_Droplet_2");
 pub const OBA_WATER_DROPLET_3: BString = BString::str("OBA_Water_Droplet_3");
@@ -1119,55 +1155,384 @@ pub const OBA_WOOD_CREAK1_2: BString = BString::str("OBA_WoodCreak1_2");
 pub const OBA_WOOD_CREAK1_3: BString = BString::str("OBA_WoodCreak1_3");
 pub const OBA_WOOD_CREAK1_4: BString = BString::str("OBA_WoodCreak1_4");
 pub const OBA_TIM_SWEENEY: BString = BString::str("OBA_tim_sweeney");
+pub const OSA_AMR_EQUIP: BString = BString::str("OSA_AMR_Equip");
+pub const OSA_AMR_FIRE: BString = BString::str("OSA_AMR_Fire");
+pub const OSA_AMR_RELOAD_BEGIN: BString = BString::str("OSA_AMR_Reload_Begin");
+pub const OSA_AMR_RELOAD_BOLT_BACK: BString = BString::str("OSA_AMR_Reload_Bolt_Back");
+pub const OSA_AMR_RELOAD_BOLT_FORWARD: BString = BString::str("OSA_AMR_Reload_Bolt_Forward");
+pub const OSA_AMR_RELOAD_MAGAZINE_IN: BString = BString::str("OSA_AMR_Reload_Magazine_In");
+pub const OSA_AMR_RELOAD_MAGAZINE_OUT: BString = BString::str("OSA_AMR_Reload_Magazine_Out");
+pub const OSA_AP_CARBINE_FIRE: BString = BString::str("OSA_APCarbine_Fire");
+pub const OSA_ARMING_SWORD_EQUIP: BString = BString::str("OSA_ArmingSword_Equip");
+pub const OSA_ARMING_SWORD_SWING: BString = BString::str("OSA_ArmingSword_Swing");
+pub const OSA_ASSAULT_RIFLE_EQUIP: BString = BString::str("OSA_AssaultRifle_Equip");
+pub const OSA_ASSAULT_RIFLE_RELOAD_BOLT_BACK: BString =
+    BString::str("OSA_AssaultRifle_Reload_Bolt_Back");
+pub const OSA_ASSAULT_RIFLE_RELOAD_CHAMBER: BString =
+    BString::str("OSA_AssaultRifle_Reload_Chamber");
+pub const OSA_ASSAULT_RIFLE_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_AssaultRifle_Reload_Magazine_In");
+pub const OSA_ASSAULT_RIFLE_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_AssaultRifle_Reload_Magazine_Out");
+pub const OSA_AUTO_SHOTGUN_FIRE: BString = BString::str("OSA_AutoShotgun_Fire");
+pub const OSA_AUTO_SHOTGUN_LAST_FIRE: BString = BString::str("OSA_AutoShotgun_Last_Fire");
+pub const OSA_AUTO_SHOTGUN_RELOAD_BEGIN: BString = BString::str("OSA_AutoShotgun_Reload_Begin");
+pub const OSA_AUTO_SHOTGUN_RELOAD_BOLT_BACK: BString =
+    BString::str("OSA_AutoShotgun_Reload_Bolt_Back");
+pub const OSA_AUTO_SHOTGUN_RELOAD_BOLT_FORWARD: BString =
+    BString::str("OSA_AutoShotgun_Reload_Bolt_Forward");
+pub const OSA_AUTO_SHOTGUN_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_AutoShotgun_Reload_Magazine_In");
+pub const OSA_AUTO_SHOTGUN_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_AutoShotgun_Reload_Magazine_Out");
+pub const OSA_BARRAGE_LAUNCHER_FIRE: BString = BString::str("OSA_BarrageLauncher_Fire");
+pub const OSA_BATTLE_AXE_EQUIP: BString = BString::str("OSA_BattleAxe_Equip");
+pub const OSA_BATTLE_AXE_SWING: BString = BString::str("OSA_BattleAxe_Swing");
+pub const OSA_BOLT_ACTION_RIFLE_FIRE: BString = BString::str("OSA_BoltActionRifle_Fire");
+pub const OSA_BOLT_ACTION_RIFLE_RELOAD_BEGIN: BString =
+    BString::str("OSA_BoltActionRifle_Reload_Begin");
+pub const OSA_BOLT_ACTION_RIFLE_RELOAD_BOLT_BACK: BString =
+    BString::str("OSA_BoltActionRifle_Reload_Bolt_Back");
+pub const OSA_BOLT_ACTION_RIFLE_RELOAD_BOLT_FORWARD: BString =
+    BString::str("OSA_BoltActionRifle_Reload_Bolt_Forward");
+pub const OSA_BOLT_ACTION_RIFLE_RELOAD_BULLET: BString =
+    BString::str("OSA_BoltActionRifle_Reload_Bullet");
+pub const OSA_BOLT_ACTION_RIFLE_RELOAD_END: BString =
+    BString::str("OSA_BoltActionRifle_Reload_End");
+pub const OSA_BOLT_ACTION_RIFLE_RELOAD_INSERT_BULLET: BString =
+    BString::str("OSA_BoltActionRifle_Reload_Insert_Bullet");
+pub const OSA_BOLT_ACTION_RIFLE_RELOAD_PLACE_CLIP: BString =
+    BString::str("OSA_BoltActionRifle_Reload_Place_Clip");
+pub const OSA_BOLT_ACTION_RIFLE_RELOAD_PUSH_CLIP: BString =
+    BString::str("OSA_BoltActionRifle_Reload_Push_Clip");
+pub const OSA_BOW_EQUIP: BString = BString::str("OSA_Bow_Equip");
+pub const OSA_BOW_FIRE: BString = BString::str("OSA_Bow_Fire");
+pub const OSA_BOW_NOCK: BString = BString::str("OSA_Bow_Nock");
+pub const OSA_BOW_RELOAD: BString = BString::str("OSA_Bow_Reload");
+pub const OSA_BOX_PISTOL_FIRE: BString = BString::str("OSA_BoxPistol_Fire");
+pub const OSA_BOX_PISTOL_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_BoxPistol_Reload_Magazine_In");
+pub const OSA_BOX_PISTOL_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_BoxPistol_Reload_Magazine_Out");
+pub const OSA_BOX_PISTOL_RELOAD_SLIDE: BString = BString::str("OSA_BoxPistol_Reload_Slide");
+pub const OSA_BULLPUP_RIFLE_FIRE: BString = BString::str("OSA_BullpupRifle_Fire");
+pub const OSA_BULLPUP_RIFLE_RELOAD_BOLT_BACK: BString =
+    BString::str("OSA_BullpupRifle_Reload_Bolt_Back");
+pub const OSA_BULLPUP_RIFLE_RELOAD_BOLT_FORWARD: BString =
+    BString::str("OSA_BullpupRifle_Reload_Bolt_Forward");
+pub const OSA_BULLPUP_RIFLE_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_BullpupRifle_Reload_Magazine_In");
+pub const OSA_BULLPUP_RIFLE_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_BullpupRifle_Reload_Magazine_Out");
+pub const OSA_BULLPUP_RIFLE_RELOAD_MAGAZINE_TAP: BString =
+    BString::str("OSA_BullpupRifle_Reload_Magazine_Tap");
+pub const OSA_BULLPUP_SMG_FIRE: BString = BString::str("OSA_BullpupSMG_Fire");
+pub const OSA_BULLPUP_SMG_RELOAD_BOLT_BACK: BString =
+    BString::str("OSA_BullpupSMG_Reload_Bolt_Back");
+pub const OSA_BULLPUP_SMG_RELOAD_BOLT_RELEASE: BString =
+    BString::str("OSA_BullpupSMG_Reload_Bolt_Release");
+pub const OSA_BULLPUP_SMG_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_BullpupSMG_Reload_Magazine_In");
+pub const OSA_BULLPUP_SMG_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_BullpupSMG_Reload_Magazine_Out");
+pub const OSA_COMBAT_SHOTGUN_FIRE: BString = BString::str("OSA_CombatShotgun_Fire");
+pub const OSA_COMBAT_SHOTGUN_LAST_FIRE: BString = BString::str("OSA_CombatShotgun_Last_Fire");
+pub const OSA_DERRINGER_FIRE: BString = BString::str("OSA_Derringer_Fire");
+pub const OSA_DERRINGER_RELOAD_CLOSE: BString = BString::str("OSA_Derringer_Reload_Close");
+pub const OSA_DERRINGER_RELOAD_COCK: BString = BString::str("OSA_Derringer_Reload_Cock");
+pub const OSA_DERRINGER_RELOAD_INSERT: BString = BString::str("OSA_Derringer_Reload_Insert");
+pub const OSA_DERRINGER_RELOAD_OPEN: BString = BString::str("OSA_Derringer_Reload_Open");
+pub const OSA_FLINTLOCK_FIRE: BString = BString::str("OSA_Flintlock_Fire");
+pub const OSA_FLINTLOCK_RELOAD_BEGIN: BString = BString::str("OSA_Flintlock_Reload_Begin");
+pub const OSA_FLINTLOCK_RELOAD_COCK: BString = BString::str("OSA_Flintlock_Reload_Cock");
+pub const OSA_FLINTLOCK_RELOAD_INSERT_BALL: BString =
+    BString::str("OSA_Flintlock_Reload_Insert_Ball");
+pub const OSA_FLINTLOCK_RELOAD_PREP: BString = BString::str("OSA_Flintlock_Reload_Prep");
+pub const OSA_FLINTLOCK_RELOAD_ROD_IN: BString = BString::str("OSA_Flintlock_Reload_Rod_In");
+pub const OSA_FLINTLOCK_RELOAD_ROD_OUT: BString = BString::str("OSA_Flintlock_Reload_Rod_Out");
+pub const OSA_FRAG_GRENADE_BOUNCE: BString = BString::str("OSA_FragGrenade_Bounce");
+pub const OSA_FRAG_GRENADE_EXPLOSION: BString = BString::str("OSA_FragGrenade_Explosion");
+pub const OSA_FRAG_GRENADE_RAISE: BString = BString::str("OSA_FragGrenade_Raise");
+pub const OSA_FRAG_GRENADE_THROW: BString = BString::str("OSA_FragGrenade_Throw");
+pub const OSA_GRENADE_LAUNCHER_FIRE: BString = BString::str("OSA_GrenadeLauncher_Fire");
+pub const OSA_GRENADE_LAUNCHER_RELOAD_CLOSE_CYLINDER: BString =
+    BString::str("OSA_GrenadeLauncher_Reload_Close_Cylinder");
+pub const OSA_GRENADE_LAUNCHER_RELOAD_INSERT_GRENADE: BString =
+    BString::str("OSA_GrenadeLauncher_Reload_Insert_Grenade");
+pub const OSA_GRENADE_LAUNCHER_RELOAD_OPEN_CYLINDER: BString =
+    BString::str("OSA_GrenadeLauncher_Reload_Open_Cylinder");
+pub const OSA_GUARD_PISTOL_FIRE: BString = BString::str("OSA_GuardPistol_Fire");
+pub const OSA_GUARD_PISTOL_FIRE_LAST_SHOT: BString = BString::str("OSA_GuardPistol_Fire_LastShot");
+pub const OSA_GUARD_PISTOL_RELOAD_BOLT_RELEASE: BString =
+    BString::str("OSA_GuardPistol_Reload_Bolt_Release");
+pub const OSA_GUARD_PISTOL_RELOAD_MAGAZINE_INSERT: BString =
+    BString::str("OSA_GuardPistol_Reload_Magazine_Insert");
+pub const OSA_GUARD_PISTOL_RELOAD_MAGAZINE_REMOVE: BString =
+    BString::str("OSA_GuardPistol_Reload_Magazine_Remove");
+pub const OSA_GUARD_PISTOL_SUPPRESSED_FIRE: BString =
+    BString::str("OSA_GuardPistol_Suppressed_Fire");
+pub const OSA_GUARD_PISTOL_SUPPRESSED_FIRE_LAST_FIRE: BString =
+    BString::str("OSA_GuardPistol_Suppressed_Fire_LastFire");
+pub const OSA_HEALTH_POTION_CONSUME: BString = BString::str("OSA_HealthPotion_Consume");
+pub const OSA_HEALTH_POTION_EQUIP: BString = BString::str("OSA_HealthPotion_Equip");
+pub const OSA_HEALTH_POTION_UNCORK: BString = BString::str("OSA_HealthPotion_Uncork");
+pub const OSA_HEAVY_ASSAULT_RIFLE_FIRE: BString = BString::str("OSA_HeavyAssaultRifle_Fire");
+pub const OSA_HEAVY_ASSAULT_RIFLE_RELOAD_BOLT_BACK: BString =
+    BString::str("OSA_HeavyAssaultRifle_Reload_BoltBack");
+pub const OSA_HEAVY_ASSAULT_RIFLE_RELOAD_BOLT_RELEASE: BString =
+    BString::str("OSA_HeavyAssaultRifle_Reload_BoltRelease");
+pub const OSA_HEAVY_ASSAULT_RIFLE_RELOAD_MAG_IN: BString =
+    BString::str("OSA_HeavyAssaultRifle_Reload_MagIn");
+pub const OSA_HEAVY_ASSAULT_RIFLE_RELOAD_MAG_OUT: BString =
+    BString::str("OSA_HeavyAssaultRifle_Reload_MagOut");
+pub const OSA_HEAVY_SMG_FIRE: BString = BString::str("OSA_HeavySMG_Fire");
+pub const OSA_HEAVY_SMG_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_HeavySMG_Reload_Magazine_In");
+pub const OSA_HEAVY_SMG_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_HeavySMG_Reload_Magazine_Out");
+pub const OSA_HEAVY_SMG_RELOAD_SLIDE_BACK: BString = BString::str("OSA_HeavySMG_Reload_Slide_Back");
+pub const OSA_HEAVY_SMG_RELOAD_SLIDE_FORWARD: BString =
+    BString::str("OSA_HeavySMG_Reload_Slide_Forward");
+pub const OSA_HIGH_POWER_PISTOL_FIRE: BString = BString::str("OSA_HighPowerPistol_Fire");
+pub const OSA_HIGH_POWER_PISTOL_LAST_FIRE: BString = BString::str("OSA_HighPowerPistol_LastFire");
+pub const OSA_HIGH_POWER_PISTOL_RELOAD_MAG_IN: BString =
+    BString::str("OSA_HighPowerPistol_Reload_MagIn");
+pub const OSA_HIGH_POWER_PISTOL_RELOAD_MAG_OUT: BString =
+    BString::str("OSA_HighPowerPistol_Reload_MagOut");
+pub const OSA_HIGH_POWER_PISTOL_RELOAD_SLIDE_RACK: BString =
+    BString::str("OSA_HighPowerPistol_Reload_SlideRack");
+pub const OSA_HUNTING_SHOTGUN_FIRE: BString = BString::str("OSA_HuntingShotgun_Fire");
+pub const OSA_HUNTING_SHOTGUN_LAST_FIRE: BString = BString::str("OSA_HuntingShotgun_Last_Fire");
+pub const OSA_KNIFE_EQUIP: BString = BString::str("OSA_Knife_Equip");
+pub const OSA_KNIFE_HEAVY_PREPARE: BString = BString::str("OSA_Knife_Heavy_Prepare");
+pub const OSA_KNIFE_HEAVY_RECOVER: BString = BString::str("OSA_Knife_Heavy_Recover");
+pub const OSA_KNIFE_SWING_HEAVY: BString = BString::str("OSA_Knife_Swing_Heavy");
+pub const OSA_KNIFE_SWING_LIGHT: BString = BString::str("OSA_Knife_Swing_Light");
+pub const OSA_LASER_AXE_EQUIP: BString = BString::str("OSA_LaserAxe_Equip");
+pub const OSA_LASER_AXE_SWING: BString = BString::str("OSA_LaserAxe_Swing");
+pub const OSA_LASER_CLEAVER_EQUIP: BString = BString::str("OSA_LaserCleaver_Equip");
+pub const OSA_LASER_CLEAVER_SWING: BString = BString::str("OSA_LaserCleaver_Swing");
+pub const OSA_LEVER_ACTION_FIRE: BString = BString::str("OSA_LeverAction_Fire");
+pub const OSA_LEVER_ACTION_RELOAD_BEGIN: BString = BString::str("OSA_LeverAction_Reload_Begin");
+pub const OSA_LEVER_ACTION_RELOAD_CYCLE_IN: BString =
+    BString::str("OSA_LeverAction_Reload_Cycle_In");
+pub const OSA_LEVER_ACTION_RELOAD_CYCLE_OUT: BString =
+    BString::str("OSA_LeverAction_Reload_Cycle_Out");
+pub const OSA_LEVER_ACTION_RELOAD_CYCLE_OUT_PING: BString =
+    BString::str("OSA_LeverAction_Reload_Cycle_Out_Ping");
+pub const OSA_LEVER_ACTION_RELOAD_END_FOLEY: BString =
+    BString::str("OSA_LeverAction_Reload_End_Foley");
+pub const OSA_LEVER_ACTION_RELOAD_INSERT_BULLET: BString =
+    BString::str("OSA_LeverAction_Reload_Insert_Bullet");
+pub const OSA_LIGHT_MACHINE_GUN_FIRE: BString = BString::str("OSA_LightMachineGun_Fire");
+pub const OSA_LIGHT_MACHINE_GUN_RELOAD_BEGIN: BString =
+    BString::str("OSA_LightMachineGun_Reload_Begin");
+pub const OSA_LIGHT_MACHINE_GUN_RELOAD_BOLT_BACK: BString =
+    BString::str("OSA_LightMachineGun_Reload_Bolt_Back");
+pub const OSA_LIGHT_MACHINE_GUN_RELOAD_BOLT_RELEASE: BString =
+    BString::str("OSA_LightMachineGun_Reload_Bolt_Release");
+pub const OSA_LIGHT_MACHINE_GUN_RELOAD_MAGAZINE_LINEUP: BString =
+    BString::str("OSA_LightMachineGun_Reload_Magazine_Lineup");
+pub const OSA_LIGHT_MACHINE_GUN_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_LightMachineGun_Reload_Magazine_Out");
+pub const OSA_LIGHT_MACHINE_GUN_RELOAD_MAGAZINE_PULL: BString =
+    BString::str("OSA_LightMachineGun_Reload_Magazine_Pull");
+pub const OSA_LIGHT_MACHINE_GUN_RELOAD_MAGAZINE_SLAP: BString =
+    BString::str("OSA_LightMachineGun_Reload_Magazine_Slap");
+pub const OSA_MACHINE_GUN_FIRE: BString = BString::str("OSA_MachineGun_Fire");
+pub const OSA_MAGNUM_EQUIP: BString = BString::str("OSA_Magnum_Equip");
+pub const OSA_MAGNUM_FIRE: BString = BString::str("OSA_Magnum_Fire");
+pub const OSA_MAGNUM_RELOAD_MAGAZINE_IN: BString = BString::str("OSA_Magnum_Reload_Magazine_In");
+pub const OSA_MAGNUM_RELOAD_MAGAZINE_OUT: BString = BString::str("OSA_Magnum_Reload_Magazine_Out");
+pub const OSA_MAGNUM_RELOAD_SLIDE: BString = BString::str("OSA_Magnum_Reload_Slide");
+pub const OSA_MELEE_SHARED_SHARP_HEAVY_HIT: BString =
+    BString::str("OSA_Melee_Shared_Sharp_Heavy_Hit");
+pub const OSA_MELEE_SHARED_SHARP_LIGHT_HIT: BString =
+    BString::str("OSA_Melee_Shared_Sharp_Light_Hit");
+pub const OSA_MICRO_SMG_FIRE: BString = BString::str("OSA_MicroSMG_Fire");
+pub const OSA_MICRO_SMG_RELOAD_BOLT_BACK: BString = BString::str("OSA_MicroSMG_Reload_Bolt_Back");
+pub const OSA_MICRO_SMG_RELOAD_BOLT_FORWARD: BString =
+    BString::str("OSA_MicroSMG_Reload_Bolt_Forward");
+pub const OSA_MICRO_SMG_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_MicroSMG_Reload_Magazine_In");
+pub const OSA_MICRO_SMG_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_MicroSMG_Reload_Magazine_Out");
+pub const OSA_MINIGUN_EQUIP: BString = BString::str("OSA_Minigun_Equip");
+pub const OSA_MINIGUN_FIRE: BString = BString::str("OSA_Minigun_Fire");
+pub const OSA_PDW_FIRE: BString = BString::str("OSA_PDW_Fire");
+pub const OSA_PDW_RELOAD_BOLT_BACK: BString = BString::str("OSA_PDW_Reload_Bolt_Back");
+pub const OSA_PDW_RELOAD_END: BString = BString::str("OSA_PDW_Reload_End");
+pub const OSA_PDW_RELOAD_MAGAZINE_INSERT: BString = BString::str("OSA_PDW_Reload_Magazine_Insert");
+pub const OSA_PDW_RELOAD_MAGAZINE_REMOVE: BString = BString::str("OSA_PDW_Reload_Magazine_Remove");
+pub const OSA_PDW_RELOAD_SLAP: BString = BString::str("OSA_PDW_Reload_Slap");
+pub const OSA_PISTOL_DRYFIRE: BString = BString::str("OSA_Pistol_Dryfire");
+pub const OSA_PISTOL_EMPTIED: BString = BString::str("OSA_Pistol_Emptied");
+pub const OSA_PISTOL_EQUIP: BString = BString::str("OSA_Pistol_Equip");
+pub const OSA_PISTOL_FIRE: BString = BString::str("OSA_Pistol_Fire");
+pub const OSA_PISTOL_HOLSTER: BString = BString::str("OSA_Pistol_Holster");
+pub const OSA_PISTOL_RELOAD_BEGIN: BString = BString::str("OSA_Pistol_Reload_Begin");
+pub const OSA_PISTOL_RELOAD_MAG_IN: BString = BString::str("OSA_Pistol_Reload_Mag_In");
+pub const OSA_PISTOL_RELOAD_MAG_OUT: BString = BString::str("OSA_Pistol_Reload_Mag_Out");
+pub const OSA_PISTOL_RELOAD_SLIDE_BACK: BString = BString::str("OSA_Pistol_Reload_Slide_Back");
+pub const OSA_PISTOL_RELOAD_SLIDE_RELEASE: BString =
+    BString::str("OSA_Pistol_Reload_Slide_Release");
+pub const OSA_PLASMA_PISTOL_RELOAD_HISS: BString = BString::str("OSA_PlasmaPistol_Reload_Hiss");
+pub const OSA_PULSE_CARBINE_FIRE: BString = BString::str("OSA_PulseCarbine_Fire");
+pub const OSA_PULSE_CARBINE_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_PulseCarbine_Reload_Magazine_In");
+pub const OSA_PULSE_CARBINE_RELOAD_MAGAZINE_LOCK: BString =
+    BString::str("OSA_PulseCarbine_Reload_Magazine_Lock");
+pub const OSA_PULSE_CARBINE_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_PulseCarbine_Reload_Magazine_Out");
+pub const OSA_RAILGUN_FIRE: BString = BString::str("OSA_Railgun_Fire");
+pub const OSA_REVOLVER_FAN: BString = BString::str("OSA_Revolver_Fan");
+pub const OSA_REVOLVER_FIRE: BString = BString::str("OSA_Revolver_Fire");
+pub const OSA_REVOLVER_RELOAD_BEGIN: BString = BString::str("OSA_Revolver_Reload_Begin");
+pub const OSA_REVOLVER_RELOAD_CYLINDER_CLOSE: BString =
+    BString::str("OSA_Revolver_Reload_Cylinder_Close");
+pub const OSA_REVOLVER_RELOAD_REST: BString = BString::str("OSA_Revolver_Reload_Rest");
+pub const OSA_REVOLVER_RELOAD_SPEEDLOADER: BString =
+    BString::str("OSA_Revolver_Reload_Speedloader");
+pub const OSA_ROCKET_JUMPER_EXPLOSION: BString = BString::str("OSA_RocketJumper_Explosion");
+pub const OSA_ROCKET_JUMPER_FIRE: BString = BString::str("OSA_RocketJumper_Fire");
+pub const OSA_ROCKET_LAUNCHER_EQUIP: BString = BString::str("OSA_RocketLauncher_Equip");
+pub const OSA_ROCKET_LAUNCHER_FIRE: BString = BString::str("OSA_RocketLauncher_Fire");
+pub const OSA_ROCKET_LAUNCHER_RELOAD_CLICK: BString =
+    BString::str("OSA_RocketLauncher_Reload_Click");
+pub const OSA_ROCKET_LAUNCHER_RELOAD_SLIDE: BString =
+    BString::str("OSA_RocketLauncher_Reload_Slide");
+pub const OSA_ROCKET_LAUNCHER_RELOAD_START: BString =
+    BString::str("OSA_RocketLauncher_Reload_Start");
+pub const OSA_ROCKET_LAUNCHER_RELOAD_TILT: BString = BString::str("OSA_RocketLauncher_Reload_Tilt");
+pub const OSA_SEMI_AUTO_RIFLE_FIRE: BString = BString::str("OSA_SemiAutoRifle_Fire");
+pub const OSA_SEMI_AUTO_RIFLE_RELOAD_BOLT_BACK: BString =
+    BString::str("OSA_SemiAutoRifle_Reload_Bolt_Back");
+pub const OSA_SEMI_AUTO_RIFLE_RELOAD_BOLT_FORWARD: BString =
+    BString::str("OSA_SemiAutoRifle_Reload_Bolt_Forward");
+pub const OSA_SEMI_AUTO_RIFLE_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_SemiAutoRifle_Reload_Magazine_In");
+pub const OSA_SEMI_AUTO_RIFLE_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_SemiAutoRifle_Reload_Magazine_Out");
+pub const OSA_SERVICE_RIFLE_FIRE: BString = BString::str("OSA_ServiceRifle_Fire");
+pub const OSA_SERVICE_RIFLE_RELOAD_BOLT_PULL: BString =
+    BString::str("OSA_ServiceRifle_Reload_Bolt_Pull");
+pub const OSA_SERVICE_RIFLE_RELOAD_BOLT_RELEASE: BString =
+    BString::str("OSA_ServiceRifle_Reload_Bolt_Release");
+pub const OSA_SERVICE_RIFLE_RELOAD_INSERT: BString = BString::str("OSA_ServiceRifle_Reload_Insert");
+pub const OSA_SERVICE_RIFLE_RELOAD_MAG_DROP: BString =
+    BString::str("OSA_ServiceRifle_Reload_MagDrop");
+pub const OSA_SERVICE_RIFLE_RELOAD_SLAP: BString = BString::str("OSA_ServiceRifle_Reload_Slap");
+pub const OSA_SERVICE_RIFLE_RELOAD_START_FOLEY: BString =
+    BString::str("OSA_ServiceRifle_Reload_Start_Foley");
+pub const OSA_SHOTGUN_DRYFIRE: BString = BString::str("OSA_Shotgun_Dryfire");
+pub const OSA_SHOTGUN_EQUIP: BString = BString::str("OSA_Shotgun_Equip");
+pub const OSA_SHOTGUN_FIRE: BString = BString::str("OSA_Shotgun_Fire");
+pub const OSA_SHOTGUN_LAST_FIRE: BString = BString::str("OSA_Shotgun_Last_Fire");
+pub const OSA_SHOTGUN_RELOAD_PUMP_BACK: BString = BString::str("OSA_Shotgun_Reload_Pump_Back");
+pub const OSA_SHOTGUN_RELOAD_PUMP_FORWARD: BString =
+    BString::str("OSA_Shotgun_Reload_Pump_Forward");
+pub const OSA_SHOTGUN_RELOAD_SHELL: BString = BString::str("OSA_Shotgun_Reload_Shell");
+pub const OSA_SLUG_SHOTGUN_FIRE: BString = BString::str("OSA_SlugShotgun_Fire");
+pub const OSA_SLUG_SHOTGUN_LAST_FIRE: BString = BString::str("OSA_SlugShotgun_Last_Fire");
+pub const OSA_SLUG_SHOTGUN_RELOAD_INSERT_SHELL: BString =
+    BString::str("OSA_SlugShotgun_Reload_Insert_Shell");
+pub const OSA_SLUG_SHOTGUN_RELOAD_PUMP_BACK: BString =
+    BString::str("OSA_SlugShotgun_Reload_Pump_Back");
+pub const OSA_SLUG_SHOTGUN_RELOAD_PUMP_FORWARD: BString =
+    BString::str("OSA_SlugShotgun_Reload_Pump_Forward");
+pub const OSA_SNIPER_EQUIP: BString = BString::str("OSA_Sniper_Equip");
+pub const OSA_SNIPER_FIRE: BString = BString::str("OSA_Sniper_Fire");
+pub const OSA_SNIPER_RELOAD_BOLT_BACK: BString = BString::str("OSA_Sniper_Reload_BoltBack");
+pub const OSA_SNIPER_RELOAD_BOLT_FORWARD: BString = BString::str("OSA_Sniper_Reload_BoltForward");
+pub const OSA_SNIPER_RELOAD_MAG_FUTZ: BString = BString::str("OSA_Sniper_Reload_MagFutz");
+pub const OSA_SNIPER_RELOAD_MAG_OUT: BString = BString::str("OSA_Sniper_Reload_MagOut");
+pub const OSA_SNIPER_RELOAD_MAG_SLAP: BString = BString::str("OSA_Sniper_Reload_MagSlap");
+pub const OSA_STAMPED_SMG_FIRE: BString = BString::str("OSA_StampedSMG_Fire");
+pub const OSA_STAMPED_SMG_RELOAD_BEGIN: BString = BString::str("OSA_StampedSMG_Reload_Begin");
+pub const OSA_STAMPED_SMG_RELOAD_BOLT_RELEASE: BString =
+    BString::str("OSA_StampedSMG_Reload_Bolt_Release");
+pub const OSA_STAMPED_SMG_RELOAD_MAGAZINE_ALIGN: BString =
+    BString::str("OSA_StampedSMG_Reload_Magazine_Align");
+pub const OSA_STAMPED_SMG_RELOAD_MAGAZINE_INSERT: BString =
+    BString::str("OSA_StampedSMG_Reload_Magazine_Insert");
+pub const OSA_STAMPED_SMG_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_StampedSMG_Reload_Magazine_Out");
+pub const OSA_STICK_GRENADE_CHARGED: BString = BString::str("OSA_StickGrenade_Charged");
+pub const OSA_STICK_GRENADE_EQUIP: BString = BString::str("OSA_StickGrenade_Equip");
+pub const OSA_STICK_GRENADE_RAISE: BString = BString::str("OSA_StickGrenade_Raise");
+pub const OSA_STICK_GRENADE_THROW: BString = BString::str("OSA_StickGrenade_Throw");
+pub const OSA_SUBMACHINE_GUN_DRYFIRE: BString = BString::str("OSA_SubmachineGun_Dryfire");
+pub const OSA_SUBMACHINE_GUN_EQUIP: BString = BString::str("OSA_SubmachineGun_Equip");
+pub const OSA_SUBMACHINE_GUN_FIRE: BString = BString::str("OSA_SubmachineGun_Fire");
+pub const OSA_SUBMACHINE_GUN_RELOAD_BOLT_SLAP: BString =
+    BString::str("OSA_SubmachineGun_Reload_BoltSlap");
+pub const OSA_SUBMACHINE_GUN_RELOAD_BOLT_UP: BString =
+    BString::str("OSA_SubmachineGun_Reload_BoltUp");
+pub const OSA_SUBMACHINE_GUN_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_SubmachineGun_Reload_MagazineIn");
+pub const OSA_SUBMACHINE_GUN_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_SubmachineGun_Reload_MagazineOut");
+pub const OSA_SUPER_SHOTGUN_ALT_FIRE: BString = BString::str("OSA_SuperShotgun_AltFire");
+pub const OSA_SUPER_SHOTGUN_FIRE: BString = BString::str("OSA_SuperShotgun_Fire");
+pub const OSA_SUPER_SHOTGUN_RELOAD_CLOSE: BString = BString::str("OSA_SuperShotgun_Reload_Close");
+pub const OSA_SUPER_SHOTGUN_RELOAD_OPEN: BString = BString::str("OSA_SuperShotgun_Reload_Open");
+pub const OSA_SUPER_SHOTGUN_RELOAD_SHELL_INSERT: BString =
+    BString::str("OSA_SuperShotgun_Reload_Shell_Insert");
+pub const OSA_SUPER_SHOTGUN_RELOAD_SHELL_POP: BString =
+    BString::str("OSA_SuperShotgun_Reload_Shell_Pop");
+pub const OSA_SUPPRESSED_ASSAULT_RIFLE_FIRE: BString =
+    BString::str("OSA_SuppressedAssaultRifle_Fire");
+pub const OSA_SUPPRESSED_PISTOL_FIRE: BString = BString::str("OSA_SuppressedPistol_Fire");
+pub const OSA_TACTICAL_SMG_FIRE: BString = BString::str("OSA_TacticalSMG_Fire");
+pub const OSA_TACTICAL_SMG_RELOAD_BOLT_BACK: BString =
+    BString::str("OSA_TacticalSMG_Reload_Bolt_Back");
+pub const OSA_TACTICAL_SMG_RELOAD_BOLT_FORWARD: BString =
+    BString::str("OSA_TacticalSMG_Reload_Bolt_Forward");
+pub const OSA_TACTICAL_SMG_RELOAD_MAGAZINE_IN: BString =
+    BString::str("OSA_TacticalSMG_Reload_Magazine_In");
+pub const OSA_TACTICAL_SMG_RELOAD_MAGAZINE_OUT: BString =
+    BString::str("OSA_TacticalSMG_Reload_Magazine_Out");
+pub const OSA_TACTICAL_SHOTGUN_FIRE: BString = BString::str("OSA_TacticalShotgun_Fire");
+pub const OSA_TACTICAL_SHOTGUN_LAST_FIRE: BString = BString::str("OSA_TacticalShotgun_Last_Fire");
+pub const OSA_TACTICAL_SHOTGUN_RELOAD_BEGIN: BString =
+    BString::str("OSA_TacticalShotgun_Reload_Begin");
+pub const OSA_TACTICAL_SHOTGUN_RELOAD_BOLT_BACK: BString =
+    BString::str("OSA_TacticalShotgun_Reload_Bolt_Back");
+pub const OSA_TACTICAL_SHOTGUN_RELOAD_BOLT_RELEASE: BString =
+    BString::str("OSA_TacticalShotgun_Reload_Bolt_Release");
+pub const OSA_TACTICAL_SHOTGUN_RELOAD_END: BString = BString::str("OSA_TacticalShotgun_Reload_End");
+pub const OSA_TACTICAL_SHOTGUN_RELOAD_INSERT_SHELL: BString =
+    BString::str("OSA_TacticalShotgun_Reload_Insert_Shell");
+pub const OSA_TWIN_CANNON_FIRE_LEFT: BString = BString::str("OSA_TwinCannon_Fire_Left");
+pub const OSA_TWIN_CANNON_FIRE_RIGHT: BString = BString::str("OSA_TwinCannon_Fire_Right");
+pub const OSA_TWIN_CANNON_PROJECTILE_IMPACT: BString =
+    BString::str("OSA_TwinCannon_Projectile_Impact");
+pub const OSA_TYPEWRITER_DRYFIRE: BString = BString::str("OSA_Typewriter_Dryfire");
+pub const OSA_TYPEWRITER_EQUIP: BString = BString::str("OSA_Typewriter_Equip");
+pub const OSA_TYPEWRITER_FIRE: BString = BString::str("OSA_Typewriter_Fire");
+pub const OSA_TYPEWRITER_LAST_FIRE: BString = BString::str("OSA_Typewriter_LastFire");
+pub const OSA_TYPEWRITER_RELOAD_BEGIN: BString = BString::str("OSA_Typewriter_Reload_Begin");
+pub const OSA_TYPEWRITER_RELOAD_BOLT: BString = BString::str("OSA_Typewriter_Reload_Bolt");
+pub const OSA_TYPEWRITER_RELOAD_MAG_IN_CONNECT: BString =
+    BString::str("OSA_Typewriter_Reload_MagIn_Connect");
+pub const OSA_TYPEWRITER_RELOAD_MAG_IN_FINISH: BString =
+    BString::str("OSA_Typewriter_Reload_MagIn_Finish");
+pub const OSA_TYPEWRITER_RELOAD_MAG_OUT_FINISH: BString =
+    BString::str("OSA_Typewriter_Reload_MagOut_Finish");
+pub const OSA_TYPEWRITER_RELOAD_MAG_OUT_START: BString =
+    BString::str("OSA_Typewriter_Reload_MagOut_Start");
+pub const OSA_TYPEWRITER_RELOAD_RAISE_MAG: BString = BString::str("OSA_Typewriter_Reload_RaiseMag");
+pub const OSA_UNSUPPRESSED_SMG_FIRE: BString = BString::str("OSA_UnsuppressedSMG_Fire");
+pub const OSA_ZWEIHANDER_EQUIP: BString = BString::str("OSA_Zweihander_Equip");
+pub const OSA_ZWEIHANDER_SWING: BString = BString::str("OSA_Zweihander_Swing");
 
 pub const BRICK_ONE_SHOT_AUDIO_DESCRIPTOR_ASSETS: &[BString] = &[
-    BOSA_AMR_FIRE,
-    BOSA_AP_CARBINE_FIRE,
-    BOSA_AUTO_SHOTGUN_FIRE,
-    BOSA_AUTO_SHOTGUN_LAST_FIRE,
-    BOSA_BARRAGE_LAUNCHER_FIRE,
-    BOSA_BOLT_ACTION_RIFLE_FIRE,
-    BOSA_BOW_FIRE,
-    BOSA_BOX_PISTOL_FIRE,
-    BOSA_BULLPUP_RIFLE_FIRE,
-    BOSA_BULLPUP_SMG_FIRE,
     BOSA_BUTTONS_BUTTON_1_PRESS,
     BOSA_BUTTONS_BUTTON_1_RELEASE,
     BOSA_BUTTONS_BUTTON_2_PRESS,
     BOSA_BUTTONS_BUTTON_2_RELEASE,
     BOSA_BUTTONS_BUTTON_3_PRESS,
     BOSA_BUTTONS_BUTTON_3_RELEASE,
-    BOSA_DERRINGER_FIRE,
-    BOSA_FLINTLOCK_FIRE,
-    BOSA_GUARD_PISTOL_FIRE,
-    BOSA_GUARD_PISTOL_SUPPRESSED_FIRE,
-    BOSA_HEAVY_ASSAULT_RIFLE_FIRE,
-    BOSA_HEAVY_SMG_FIRE,
-    BOSA_HIGH_POWER_PISTOL_FIRE,
-    BOSA_HUNTING_SHOTGUN_FIRE,
-    BOSA_HUNTING_SHOTGUN_LAST_FIRE,
-    BOSA_LEVER_ACTION_FIRE,
-    BOSA_LIGHT_MACHINE_GUN_FIRE,
-    BOSA_MAGNUM_FIRE,
-    BOSA_MICRO_SMG_FIRE,
-    BOSA_MINIGUN_FIRE,
-    BOSA_PDW_FIRE,
-    BOSA_PISTOL_FIRE,
-    BOSA_PULSE_CARBINE_FIRE,
-    BOSA_RAILGUN_FIRE,
-    BOSA_REVOLVER_FIRE,
-    BOSA_SEMI_AUTO_RIFLE_FIRE,
-    BOSA_SERVICE_RIFLE_FIRE,
-    BOSA_SLUG_SHOTGUN_FIRE,
-    BOSA_SLUG_SHOTGUN_LAST_FIRE,
-    BOSA_STAMPED_SMG_FIRE,
-    BOSA_SUPER_SHOTGUN_FIRE,
-    BOSA_SUPPRESSED_ASSAULT_RIFLE_FIRE,
-    BOSA_TACTICAL_SMG_FIRE,
-    BOSA_TACTICAL_SHOTGUN_FIRE,
-    BOSA_TACTICAL_SHOTGUN_LAST_FIRE,
-    BOSA_TYPEWRITER_FIRE,
-    BOSA_UNSUPPRESSED_SMG_FIRE,
     OBA_AIR_BRAKE,
     OBA_BR_CHECKPOINT_ACQUIRE_CLICK_CUE,
     OBA_BEEP_1,
@@ -1247,15 +1612,283 @@ pub const BRICK_ONE_SHOT_AUDIO_DESCRIPTOR_ASSETS: &[BString] = &[
     OBA_WOOD_CREAK1_3,
     OBA_WOOD_CREAK1_4,
     OBA_TIM_SWEENEY,
+    OSA_AMR_EQUIP,
+    OSA_AMR_FIRE,
+    OSA_AMR_RELOAD_BEGIN,
+    OSA_AMR_RELOAD_BOLT_BACK,
+    OSA_AMR_RELOAD_BOLT_FORWARD,
+    OSA_AMR_RELOAD_MAGAZINE_IN,
+    OSA_AMR_RELOAD_MAGAZINE_OUT,
+    OSA_AP_CARBINE_FIRE,
+    OSA_ARMING_SWORD_EQUIP,
+    OSA_ARMING_SWORD_SWING,
+    OSA_ASSAULT_RIFLE_EQUIP,
+    OSA_ASSAULT_RIFLE_RELOAD_BOLT_BACK,
+    OSA_ASSAULT_RIFLE_RELOAD_CHAMBER,
+    OSA_ASSAULT_RIFLE_RELOAD_MAGAZINE_IN,
+    OSA_ASSAULT_RIFLE_RELOAD_MAGAZINE_OUT,
+    OSA_AUTO_SHOTGUN_FIRE,
+    OSA_AUTO_SHOTGUN_LAST_FIRE,
+    OSA_AUTO_SHOTGUN_RELOAD_BEGIN,
+    OSA_AUTO_SHOTGUN_RELOAD_BOLT_BACK,
+    OSA_AUTO_SHOTGUN_RELOAD_BOLT_FORWARD,
+    OSA_AUTO_SHOTGUN_RELOAD_MAGAZINE_IN,
+    OSA_AUTO_SHOTGUN_RELOAD_MAGAZINE_OUT,
+    OSA_BARRAGE_LAUNCHER_FIRE,
+    OSA_BATTLE_AXE_EQUIP,
+    OSA_BATTLE_AXE_SWING,
+    OSA_BOLT_ACTION_RIFLE_FIRE,
+    OSA_BOLT_ACTION_RIFLE_RELOAD_BEGIN,
+    OSA_BOLT_ACTION_RIFLE_RELOAD_BOLT_BACK,
+    OSA_BOLT_ACTION_RIFLE_RELOAD_BOLT_FORWARD,
+    OSA_BOLT_ACTION_RIFLE_RELOAD_BULLET,
+    OSA_BOLT_ACTION_RIFLE_RELOAD_END,
+    OSA_BOLT_ACTION_RIFLE_RELOAD_INSERT_BULLET,
+    OSA_BOLT_ACTION_RIFLE_RELOAD_PLACE_CLIP,
+    OSA_BOLT_ACTION_RIFLE_RELOAD_PUSH_CLIP,
+    OSA_BOW_EQUIP,
+    OSA_BOW_FIRE,
+    OSA_BOW_NOCK,
+    OSA_BOW_RELOAD,
+    OSA_BOX_PISTOL_FIRE,
+    OSA_BOX_PISTOL_RELOAD_MAGAZINE_IN,
+    OSA_BOX_PISTOL_RELOAD_MAGAZINE_OUT,
+    OSA_BOX_PISTOL_RELOAD_SLIDE,
+    OSA_BULLPUP_RIFLE_FIRE,
+    OSA_BULLPUP_RIFLE_RELOAD_BOLT_BACK,
+    OSA_BULLPUP_RIFLE_RELOAD_BOLT_FORWARD,
+    OSA_BULLPUP_RIFLE_RELOAD_MAGAZINE_IN,
+    OSA_BULLPUP_RIFLE_RELOAD_MAGAZINE_OUT,
+    OSA_BULLPUP_RIFLE_RELOAD_MAGAZINE_TAP,
+    OSA_BULLPUP_SMG_FIRE,
+    OSA_BULLPUP_SMG_RELOAD_BOLT_BACK,
+    OSA_BULLPUP_SMG_RELOAD_BOLT_RELEASE,
+    OSA_BULLPUP_SMG_RELOAD_MAGAZINE_IN,
+    OSA_BULLPUP_SMG_RELOAD_MAGAZINE_OUT,
+    OSA_COMBAT_SHOTGUN_FIRE,
+    OSA_COMBAT_SHOTGUN_LAST_FIRE,
+    OSA_DERRINGER_FIRE,
+    OSA_DERRINGER_RELOAD_CLOSE,
+    OSA_DERRINGER_RELOAD_COCK,
+    OSA_DERRINGER_RELOAD_INSERT,
+    OSA_DERRINGER_RELOAD_OPEN,
+    OSA_FLINTLOCK_FIRE,
+    OSA_FLINTLOCK_RELOAD_BEGIN,
+    OSA_FLINTLOCK_RELOAD_COCK,
+    OSA_FLINTLOCK_RELOAD_INSERT_BALL,
+    OSA_FLINTLOCK_RELOAD_PREP,
+    OSA_FLINTLOCK_RELOAD_ROD_IN,
+    OSA_FLINTLOCK_RELOAD_ROD_OUT,
+    OSA_FRAG_GRENADE_BOUNCE,
+    OSA_FRAG_GRENADE_EXPLOSION,
+    OSA_FRAG_GRENADE_RAISE,
+    OSA_FRAG_GRENADE_THROW,
+    OSA_GRENADE_LAUNCHER_FIRE,
+    OSA_GRENADE_LAUNCHER_RELOAD_CLOSE_CYLINDER,
+    OSA_GRENADE_LAUNCHER_RELOAD_INSERT_GRENADE,
+    OSA_GRENADE_LAUNCHER_RELOAD_OPEN_CYLINDER,
+    OSA_GUARD_PISTOL_FIRE,
+    OSA_GUARD_PISTOL_FIRE_LAST_SHOT,
+    OSA_GUARD_PISTOL_RELOAD_BOLT_RELEASE,
+    OSA_GUARD_PISTOL_RELOAD_MAGAZINE_INSERT,
+    OSA_GUARD_PISTOL_RELOAD_MAGAZINE_REMOVE,
+    OSA_GUARD_PISTOL_SUPPRESSED_FIRE,
+    OSA_GUARD_PISTOL_SUPPRESSED_FIRE_LAST_FIRE,
+    OSA_HEALTH_POTION_CONSUME,
+    OSA_HEALTH_POTION_EQUIP,
+    OSA_HEALTH_POTION_UNCORK,
+    OSA_HEAVY_ASSAULT_RIFLE_FIRE,
+    OSA_HEAVY_ASSAULT_RIFLE_RELOAD_BOLT_BACK,
+    OSA_HEAVY_ASSAULT_RIFLE_RELOAD_BOLT_RELEASE,
+    OSA_HEAVY_ASSAULT_RIFLE_RELOAD_MAG_IN,
+    OSA_HEAVY_ASSAULT_RIFLE_RELOAD_MAG_OUT,
+    OSA_HEAVY_SMG_FIRE,
+    OSA_HEAVY_SMG_RELOAD_MAGAZINE_IN,
+    OSA_HEAVY_SMG_RELOAD_MAGAZINE_OUT,
+    OSA_HEAVY_SMG_RELOAD_SLIDE_BACK,
+    OSA_HEAVY_SMG_RELOAD_SLIDE_FORWARD,
+    OSA_HIGH_POWER_PISTOL_FIRE,
+    OSA_HIGH_POWER_PISTOL_LAST_FIRE,
+    OSA_HIGH_POWER_PISTOL_RELOAD_MAG_IN,
+    OSA_HIGH_POWER_PISTOL_RELOAD_MAG_OUT,
+    OSA_HIGH_POWER_PISTOL_RELOAD_SLIDE_RACK,
+    OSA_HUNTING_SHOTGUN_FIRE,
+    OSA_HUNTING_SHOTGUN_LAST_FIRE,
+    OSA_KNIFE_EQUIP,
+    OSA_KNIFE_HEAVY_PREPARE,
+    OSA_KNIFE_HEAVY_RECOVER,
+    OSA_KNIFE_SWING_HEAVY,
+    OSA_KNIFE_SWING_LIGHT,
+    OSA_LASER_AXE_EQUIP,
+    OSA_LASER_AXE_SWING,
+    OSA_LASER_CLEAVER_EQUIP,
+    OSA_LASER_CLEAVER_SWING,
+    OSA_LEVER_ACTION_FIRE,
+    OSA_LEVER_ACTION_RELOAD_BEGIN,
+    OSA_LEVER_ACTION_RELOAD_CYCLE_IN,
+    OSA_LEVER_ACTION_RELOAD_CYCLE_OUT,
+    OSA_LEVER_ACTION_RELOAD_CYCLE_OUT_PING,
+    OSA_LEVER_ACTION_RELOAD_END_FOLEY,
+    OSA_LEVER_ACTION_RELOAD_INSERT_BULLET,
+    OSA_LIGHT_MACHINE_GUN_FIRE,
+    OSA_LIGHT_MACHINE_GUN_RELOAD_BEGIN,
+    OSA_LIGHT_MACHINE_GUN_RELOAD_BOLT_BACK,
+    OSA_LIGHT_MACHINE_GUN_RELOAD_BOLT_RELEASE,
+    OSA_LIGHT_MACHINE_GUN_RELOAD_MAGAZINE_LINEUP,
+    OSA_LIGHT_MACHINE_GUN_RELOAD_MAGAZINE_OUT,
+    OSA_LIGHT_MACHINE_GUN_RELOAD_MAGAZINE_PULL,
+    OSA_LIGHT_MACHINE_GUN_RELOAD_MAGAZINE_SLAP,
+    OSA_MACHINE_GUN_FIRE,
+    OSA_MAGNUM_EQUIP,
+    OSA_MAGNUM_FIRE,
+    OSA_MAGNUM_RELOAD_MAGAZINE_IN,
+    OSA_MAGNUM_RELOAD_MAGAZINE_OUT,
+    OSA_MAGNUM_RELOAD_SLIDE,
+    OSA_MELEE_SHARED_SHARP_HEAVY_HIT,
+    OSA_MELEE_SHARED_SHARP_LIGHT_HIT,
+    OSA_MICRO_SMG_FIRE,
+    OSA_MICRO_SMG_RELOAD_BOLT_BACK,
+    OSA_MICRO_SMG_RELOAD_BOLT_FORWARD,
+    OSA_MICRO_SMG_RELOAD_MAGAZINE_IN,
+    OSA_MICRO_SMG_RELOAD_MAGAZINE_OUT,
+    OSA_MINIGUN_EQUIP,
+    OSA_MINIGUN_FIRE,
+    OSA_PDW_FIRE,
+    OSA_PDW_RELOAD_BOLT_BACK,
+    OSA_PDW_RELOAD_END,
+    OSA_PDW_RELOAD_MAGAZINE_INSERT,
+    OSA_PDW_RELOAD_MAGAZINE_REMOVE,
+    OSA_PDW_RELOAD_SLAP,
+    OSA_PISTOL_DRYFIRE,
+    OSA_PISTOL_EMPTIED,
+    OSA_PISTOL_EQUIP,
+    OSA_PISTOL_FIRE,
+    OSA_PISTOL_HOLSTER,
+    OSA_PISTOL_RELOAD_BEGIN,
+    OSA_PISTOL_RELOAD_MAG_IN,
+    OSA_PISTOL_RELOAD_MAG_OUT,
+    OSA_PISTOL_RELOAD_SLIDE_BACK,
+    OSA_PISTOL_RELOAD_SLIDE_RELEASE,
+    OSA_PLASMA_PISTOL_RELOAD_HISS,
+    OSA_PULSE_CARBINE_FIRE,
+    OSA_PULSE_CARBINE_RELOAD_MAGAZINE_IN,
+    OSA_PULSE_CARBINE_RELOAD_MAGAZINE_LOCK,
+    OSA_PULSE_CARBINE_RELOAD_MAGAZINE_OUT,
+    OSA_RAILGUN_FIRE,
+    OSA_REVOLVER_FAN,
+    OSA_REVOLVER_FIRE,
+    OSA_REVOLVER_RELOAD_BEGIN,
+    OSA_REVOLVER_RELOAD_CYLINDER_CLOSE,
+    OSA_REVOLVER_RELOAD_REST,
+    OSA_REVOLVER_RELOAD_SPEEDLOADER,
+    OSA_ROCKET_JUMPER_EXPLOSION,
+    OSA_ROCKET_JUMPER_FIRE,
+    OSA_ROCKET_LAUNCHER_EQUIP,
+    OSA_ROCKET_LAUNCHER_FIRE,
+    OSA_ROCKET_LAUNCHER_RELOAD_CLICK,
+    OSA_ROCKET_LAUNCHER_RELOAD_SLIDE,
+    OSA_ROCKET_LAUNCHER_RELOAD_START,
+    OSA_ROCKET_LAUNCHER_RELOAD_TILT,
+    OSA_SEMI_AUTO_RIFLE_FIRE,
+    OSA_SEMI_AUTO_RIFLE_RELOAD_BOLT_BACK,
+    OSA_SEMI_AUTO_RIFLE_RELOAD_BOLT_FORWARD,
+    OSA_SEMI_AUTO_RIFLE_RELOAD_MAGAZINE_IN,
+    OSA_SEMI_AUTO_RIFLE_RELOAD_MAGAZINE_OUT,
+    OSA_SERVICE_RIFLE_FIRE,
+    OSA_SERVICE_RIFLE_RELOAD_BOLT_PULL,
+    OSA_SERVICE_RIFLE_RELOAD_BOLT_RELEASE,
+    OSA_SERVICE_RIFLE_RELOAD_INSERT,
+    OSA_SERVICE_RIFLE_RELOAD_MAG_DROP,
+    OSA_SERVICE_RIFLE_RELOAD_SLAP,
+    OSA_SERVICE_RIFLE_RELOAD_START_FOLEY,
+    OSA_SHOTGUN_DRYFIRE,
+    OSA_SHOTGUN_EQUIP,
+    OSA_SHOTGUN_FIRE,
+    OSA_SHOTGUN_LAST_FIRE,
+    OSA_SHOTGUN_RELOAD_PUMP_BACK,
+    OSA_SHOTGUN_RELOAD_PUMP_FORWARD,
+    OSA_SHOTGUN_RELOAD_SHELL,
+    OSA_SLUG_SHOTGUN_FIRE,
+    OSA_SLUG_SHOTGUN_LAST_FIRE,
+    OSA_SLUG_SHOTGUN_RELOAD_INSERT_SHELL,
+    OSA_SLUG_SHOTGUN_RELOAD_PUMP_BACK,
+    OSA_SLUG_SHOTGUN_RELOAD_PUMP_FORWARD,
+    OSA_SNIPER_EQUIP,
+    OSA_SNIPER_FIRE,
+    OSA_SNIPER_RELOAD_BOLT_BACK,
+    OSA_SNIPER_RELOAD_BOLT_FORWARD,
+    OSA_SNIPER_RELOAD_MAG_FUTZ,
+    OSA_SNIPER_RELOAD_MAG_OUT,
+    OSA_SNIPER_RELOAD_MAG_SLAP,
+    OSA_STAMPED_SMG_FIRE,
+    OSA_STAMPED_SMG_RELOAD_BEGIN,
+    OSA_STAMPED_SMG_RELOAD_BOLT_RELEASE,
+    OSA_STAMPED_SMG_RELOAD_MAGAZINE_ALIGN,
+    OSA_STAMPED_SMG_RELOAD_MAGAZINE_INSERT,
+    OSA_STAMPED_SMG_RELOAD_MAGAZINE_OUT,
+    OSA_STICK_GRENADE_CHARGED,
+    OSA_STICK_GRENADE_EQUIP,
+    OSA_STICK_GRENADE_RAISE,
+    OSA_STICK_GRENADE_THROW,
+    OSA_SUBMACHINE_GUN_DRYFIRE,
+    OSA_SUBMACHINE_GUN_EQUIP,
+    OSA_SUBMACHINE_GUN_FIRE,
+    OSA_SUBMACHINE_GUN_RELOAD_BOLT_SLAP,
+    OSA_SUBMACHINE_GUN_RELOAD_BOLT_UP,
+    OSA_SUBMACHINE_GUN_RELOAD_MAGAZINE_IN,
+    OSA_SUBMACHINE_GUN_RELOAD_MAGAZINE_OUT,
+    OSA_SUPER_SHOTGUN_ALT_FIRE,
+    OSA_SUPER_SHOTGUN_FIRE,
+    OSA_SUPER_SHOTGUN_RELOAD_CLOSE,
+    OSA_SUPER_SHOTGUN_RELOAD_OPEN,
+    OSA_SUPER_SHOTGUN_RELOAD_SHELL_INSERT,
+    OSA_SUPER_SHOTGUN_RELOAD_SHELL_POP,
+    OSA_SUPPRESSED_ASSAULT_RIFLE_FIRE,
+    OSA_SUPPRESSED_PISTOL_FIRE,
+    OSA_TACTICAL_SMG_FIRE,
+    OSA_TACTICAL_SMG_RELOAD_BOLT_BACK,
+    OSA_TACTICAL_SMG_RELOAD_BOLT_FORWARD,
+    OSA_TACTICAL_SMG_RELOAD_MAGAZINE_IN,
+    OSA_TACTICAL_SMG_RELOAD_MAGAZINE_OUT,
+    OSA_TACTICAL_SHOTGUN_FIRE,
+    OSA_TACTICAL_SHOTGUN_LAST_FIRE,
+    OSA_TACTICAL_SHOTGUN_RELOAD_BEGIN,
+    OSA_TACTICAL_SHOTGUN_RELOAD_BOLT_BACK,
+    OSA_TACTICAL_SHOTGUN_RELOAD_BOLT_RELEASE,
+    OSA_TACTICAL_SHOTGUN_RELOAD_END,
+    OSA_TACTICAL_SHOTGUN_RELOAD_INSERT_SHELL,
+    OSA_TWIN_CANNON_FIRE_LEFT,
+    OSA_TWIN_CANNON_FIRE_RIGHT,
+    OSA_TWIN_CANNON_PROJECTILE_IMPACT,
+    OSA_TYPEWRITER_DRYFIRE,
+    OSA_TYPEWRITER_EQUIP,
+    OSA_TYPEWRITER_FIRE,
+    OSA_TYPEWRITER_LAST_FIRE,
+    OSA_TYPEWRITER_RELOAD_BEGIN,
+    OSA_TYPEWRITER_RELOAD_BOLT,
+    OSA_TYPEWRITER_RELOAD_MAG_IN_CONNECT,
+    OSA_TYPEWRITER_RELOAD_MAG_IN_FINISH,
+    OSA_TYPEWRITER_RELOAD_MAG_OUT_FINISH,
+    OSA_TYPEWRITER_RELOAD_MAG_OUT_START,
+    OSA_TYPEWRITER_RELOAD_RAISE_MAG,
+    OSA_UNSUPPRESSED_SMG_FIRE,
+    OSA_ZWEIHANDER_EQUIP,
+    OSA_ZWEIHANDER_SWING,
 ];
 
-// === BrickWheelEngineAudioDescriptor (4) ===
+// === BrickWheelEngineAudioDescriptor (7) ===
+pub const WHEEL_ENGINE_AUDIO_BOMBER: BString = BString::str("WheelEngineAudio_Bomber");
+pub const WHEEL_ENGINE_AUDIO_CESSNA: BString = BString::str("WheelEngineAudio_Cessna");
+pub const WHEEL_ENGINE_AUDIO_DRONE: BString = BString::str("WheelEngineAudio_Drone");
 pub const WHEEL_ENGINE_AUDIO_FAMILY01: BString = BString::str("WheelEngineAudio_Family01");
 pub const WHEEL_ENGINE_AUDIO_MUSCLE_01: BString = BString::str("WheelEngineAudio_Muscle_01");
 pub const WHEEL_ENGINE_AUDIO_RALLY_CAR01: BString = BString::str("WheelEngineAudio_RallyCar01");
 pub const WHEEL_ENGINE_AUDIO_SEMI_01: BString = BString::str("WheelEngineAudio_Semi_01");
 
 pub const BRICK_WHEEL_ENGINE_AUDIO_DESCRIPTOR_ASSETS: &[BString] = &[
+    WHEEL_ENGINE_AUDIO_BOMBER,
+    WHEEL_ENGINE_AUDIO_CESSNA,
+    WHEEL_ENGINE_AUDIO_DRONE,
     WHEEL_ENGINE_AUDIO_FAMILY01,
     WHEEL_ENGINE_AUDIO_MUSCLE_01,
     WHEEL_ENGINE_AUDIO_RALLY_CAR01,
@@ -1269,6 +1902,12 @@ pub const ASSET_TYPES: &[(&str, &[BString])] = &[
     ("BRWeaponProjectile", BR_WEAPON_PROJECTILE_ASSETS),
     ("BrickAudioDescriptor", BRICK_AUDIO_DESCRIPTOR_ASSETS),
     ("BrickFontDescriptor", BRICK_FONT_DESCRIPTOR_ASSETS),
-    ("BrickOneShotAudioDescriptor", BRICK_ONE_SHOT_AUDIO_DESCRIPTOR_ASSETS),
-    ("BrickWheelEngineAudioDescriptor", BRICK_WHEEL_ENGINE_AUDIO_DESCRIPTOR_ASSETS),
+    (
+        "BrickOneShotAudioDescriptor",
+        BRICK_ONE_SHOT_AUDIO_DESCRIPTOR_ASSETS,
+    ),
+    (
+        "BrickWheelEngineAudioDescriptor",
+        BRICK_WHEEL_ENGINE_AUDIO_DESCRIPTOR_ASSETS,
+    ),
 ];

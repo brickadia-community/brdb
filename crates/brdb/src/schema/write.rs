@@ -2,19 +2,215 @@ use std::io::Write;
 
 mod cache;
 
-pub(crate) use cache::{PlanCache, TopLevelMemo};
 use cache::{FieldKind, FlatOp, PlanOp, StructPlan, VariantPlan};
+pub(crate) use cache::{PlanCache, TopLevelMemo};
 
 use crate::{
     errors::BrdbSchemaError,
     schema::{
-        BrdbEnum, BrdbInterned, BrdbSchema, BrdbSchemaEnum, BrdbSchemaStruct,
-        BrdbSchemaStructProperty, BrdbStruct, BrdbValue, WireArrayVariant, WireVariant,
+        BRICK_HANDLE, BrdbEnum, BrdbInterned, BrdbSchema, BrdbSchemaEnum, BrdbSchemaStruct,
+        BrdbSchemaStructProperty, BrdbStruct, BrdbValue, COMPONENT_HANDLE, DYNAMIC_ARRAY,
+        DYNAMIC_ENUM, DYNAMIC_MAP, EA3_WIRE_GRAPH_PRIM_MATH_VARIANT, EA3_WIRE_GRAPH_VARIANT,
+        EA3WireVariant,
         as_brdb::AsBrdbValue,
-        read::flat_type_size,
-        value::{WireMapKeyData, WireMapValueData, WireMapVariant},
+        builtin_alias,
+        read::{FlatKind, FlatLayout, flat_layout},
+        same_type,
     },
 };
+
+/// Type names the unplanned writers handle before consulting the schema's
+/// struct/enum/variant tables.
+fn is_builtin_type(ty: &str) -> bool {
+    matches!(
+        ty,
+        "nil"
+            | "bool"
+            | "u8"
+            | "u16"
+            | "u32"
+            | "u64"
+            | "i8"
+            | "i16"
+            | "i32"
+            | "i64"
+            | "f32"
+            | "f64"
+            | "str"
+            | "wire_graph_variant"
+            | "wire_graph_prim_math_variant"
+            | "bundle_path_ref"
+            | "class"
+            | "object"
+            | "weak_object"
+            | DYNAMIC_ARRAY
+            | DYNAMIC_MAP
+    )
+}
+
+/// Whether `ty` names a struct, enum or variant defined by the schema.
+fn is_schema_type(schema: &BrdbSchema, ty: &str) -> bool {
+    schema.intern.get(ty).is_some_and(|id| {
+        schema.get_struct_interned(id).is_some()
+            || schema.get_enum_interned(id).is_some()
+            || schema.get_variant_interned(id).is_some()
+    })
+}
+
+/// Selector and saved type name of the first alternative of `variant_ty`
+/// whose type matches one of `candidates` (in preference order). Alternatives
+/// are matched by type, not position, so `bool` finds a `Bool` alternative.
+fn find_alternative<'s>(
+    schema: &'s BrdbSchema,
+    variant_ty: &str,
+    candidates: &[&str],
+) -> Result<(usize, &'s str), BrdbSchemaError> {
+    let alternatives = schema
+        .get_variant(variant_ty)
+        .ok_or_else(|| BrdbSchemaError::UnknownType(variant_ty.to_owned()))?;
+    for candidate in candidates {
+        for (i, alt) in alternatives.iter().enumerate() {
+            if let Some(name) = schema.intern.lookup_ref(*alt)
+                && same_type(name, candidate)
+            {
+                return Ok((i, name));
+            }
+        }
+    }
+    Err(BrdbSchemaError::ExpectedType(
+        format!("{variant_ty} member"),
+        candidates.first().copied().unwrap_or("value").to_owned(),
+    ))
+}
+
+/// Candidate alternative types for a decoded value, most specific first.
+fn value_alternative_candidates(value: &BrdbValue) -> Result<Vec<&str>, BrdbSchemaError> {
+    Ok(match value {
+        BrdbValue::Nil => vec!["nil"],
+        BrdbValue::Bool(_) => vec!["bool"],
+        BrdbValue::U8(_) => vec!["u8"],
+        BrdbValue::U16(_) => vec!["u16"],
+        BrdbValue::U32(_) => vec!["u32"],
+        BrdbValue::U64(_) => vec!["u64"],
+        BrdbValue::I8(_) => vec!["i8"],
+        BrdbValue::I16(_) => vec!["i16"],
+        BrdbValue::I32(_) => vec!["i32"],
+        BrdbValue::I64(_) => vec!["i64"],
+        BrdbValue::F32(_) => vec!["f32"],
+        BrdbValue::F64(_) => vec!["f64"],
+        BrdbValue::String(_) => vec!["str", "bundle_path_ref"],
+        BrdbValue::Asset(_) => vec!["weak_object", "object", "class"],
+        BrdbValue::Enum(e) => vec![e.get_name(), DYNAMIC_ENUM],
+        BrdbValue::Struct(s) => vec![s.get_name()],
+        other => {
+            return Err(BrdbSchemaError::ExpectedType(
+                "variant alternative".to_owned(),
+                other.get_type().to_owned(),
+            ));
+        }
+    })
+}
+
+/// Index of a `types` entry for a value's selected type.
+fn dynamic_type_index(schema: &BrdbSchema, ty: &str) -> Result<usize, BrdbSchemaError> {
+    if ty == DYNAMIC_ARRAY || ty == DYNAMIC_MAP {
+        return Err(BrdbSchemaError::InvalidSchema(format!(
+            "dynamic containers cannot contain '{ty}'"
+        )));
+    }
+    schema.type_index(ty).ok_or_else(|| {
+        BrdbSchemaError::ExpectedType("a type in the types table".to_owned(), ty.to_owned())
+    })
+}
+
+/// The `types` entry used for an unset dynamic container: the first of
+/// `preferred` present (matching the game's own defaults for new array/map
+/// variables), else the first entry.
+fn default_type_index(schema: &BrdbSchema, preferred: &str) -> Result<usize, BrdbSchemaError> {
+    if schema.types.is_empty() {
+        return Err(BrdbSchemaError::InvalidTypeIndex { index: 0, len: 0 });
+    }
+    Ok(schema.type_index(preferred).unwrap_or(0))
+}
+
+/// Write a `dynamic_array` value: element type index, then the array.
+fn write_dynamic_array(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    let (element_type, items) = value.as_brdb_dynamic_array()?;
+    let index = dynamic_type_index(schema, element_type)?;
+    let element_type = schema.type_at(index).expect("index from the types table");
+    write_uint(buf, index as u64)?;
+    rmp::encode::write_array_len(buf, items.len() as u32)?;
+    for (i, item) in items.enumerate() {
+        write_brdb(schema, buf, element_type, item).map_err(|e| e.wrap(i))?;
+    }
+    Ok(())
+}
+
+/// Write a `dynamic_map` value: key type index, value type index, then the map.
+fn write_dynamic_map(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    let (key_type, value_type, entries) = value.as_brdb_dynamic_map()?;
+    let key_index = dynamic_type_index(schema, key_type)?;
+    let value_index = dynamic_type_index(schema, value_type)?;
+    let key_type = schema
+        .type_at(key_index)
+        .expect("index from the types table");
+    let value_type = schema
+        .type_at(value_index)
+        .expect("index from the types table");
+    write_uint(buf, key_index as u64)?;
+    write_uint(buf, value_index as u64)?;
+    rmp::encode::write_map_len(buf, entries.len() as u32)?;
+    for (k, v) in entries {
+        write_brdb(schema, buf, key_type, k).map_err(|e| e.wrap("map key"))?;
+        write_brdb(schema, buf, value_type, v).map_err(|e| e.wrap("map value"))?;
+    }
+    Ok(())
+}
+
+/// Write a `dynamic_enum` value: the enum's `types` index, then the value.
+fn write_dynamic_enum(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    let (enum_name, enum_value) = value.as_brdb_dynamic_enum()?;
+    if schema.get_enum(enum_name).is_none() {
+        return Err(BrdbSchemaError::ExpectedType(
+            "enum in types table".to_owned(),
+            enum_name.to_owned(),
+        ));
+    }
+    write_uint(buf, dynamic_type_index(schema, enum_name)? as u64)?;
+    write_int(buf, enum_value)
+}
+
+/// Types the unplanned writers resolve after the schema's own definitions:
+/// built-in aliases, `dynamic_enum`, and the handle types (whose encoding is
+/// unknown).
+fn write_extra_type(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    ty: &str,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    if let Some(alias) = builtin_alias(ty) {
+        write_brdb(schema, buf, alias, value)
+    } else if ty == DYNAMIC_ENUM {
+        write_dynamic_enum(schema, buf, value)
+    } else if ty == BRICK_HANDLE || ty == COMPONENT_HANDLE {
+        Err(BrdbSchemaError::UnsupportedType(ty.to_owned()))
+    } else {
+        Err(BrdbSchemaError::UnknownType(ty.to_owned()))
+    }
+}
 
 pub fn write_bool(buf: &mut impl Write, value: bool) -> Result<(), BrdbSchemaError> {
     rmp::encode::write_bool(buf, value)?;
@@ -33,8 +229,10 @@ pub fn write_type(
     value: &BrdbValue,
 ) -> Result<(), BrdbSchemaError> {
     Ok(match (ty, value) {
+        // `nil` has no payload.
+        ("nil", _) => {}
         ("bool", BrdbValue::Bool(v)) => write_bool(buf, *v)?,
-        ("u8", BrdbValue::U8(v)) => write_u8(buf, *v as u64)?,
+        ("u8", BrdbValue::U8(v)) => write_u8_for(schema, buf, *v)?,
         ("u16", BrdbValue::U16(v)) => write_uint(buf, *v as u64)?,
         ("u32", BrdbValue::U32(v)) => write_uint(buf, *v as u64)?,
         ("u64", BrdbValue::U64(v)) => write_uint(buf, *v)?,
@@ -44,14 +242,25 @@ pub fn write_type(
         ("i64", BrdbValue::I64(v)) => write_int(buf, *v)?,
         ("f32", BrdbValue::F32(v)) => write_float32(buf, *v)?,
         ("f64", BrdbValue::F64(v)) => write_float64(buf, *v)?,
-        ("str", BrdbValue::String(v)) => write_str(buf, &v)?,
-        ("wire_graph_variant", BrdbValue::WireVar(v)) => write_wire_var(buf, v)?,
-        ("wire_graph_prim_math_variant", BrdbValue::WireVar(v)) => match v {
-            WireVariant::Number(v) => {
+        ("str" | "bundle_path_ref", BrdbValue::String(v)) => write_str(buf, &v)?,
+        // Latest: non-persistent references are always written as -1; EA3
+        // keeps the asset index it was read with.
+        ("weak_object", BrdbValue::Asset(_) | BrdbValue::Nil) if schema.is_latest() => {
+            write_int(buf, -1)?
+        }
+        ("weak_object", BrdbValue::Asset(opt)) => {
+            write_int(buf, weak_object_payload(schema, *opt))?
+        }
+        (DYNAMIC_ARRAY | DYNAMIC_MAP, value) => write_brdb(schema, buf, ty, value)?,
+        (EA3_WIRE_GRAPH_VARIANT, BrdbValue::EA3WireVar(v)) => {
+            write_ea3_wire_graph_variant(buf, v, schema.is_latest())?
+        }
+        (EA3_WIRE_GRAPH_PRIM_MATH_VARIANT, BrdbValue::EA3WireVar(v)) => match v {
+            EA3WireVariant::Number(v) => {
                 write_uint(buf, 0)?;
                 write_float64(buf, *v)?;
             }
-            WireVariant::Int(v) => {
+            EA3WireVariant::Int(v) => {
                 write_uint(buf, 1)?;
                 write_int(buf, *v)?;
             }
@@ -85,8 +294,14 @@ pub fn write_type(
                 return Err(BrdbSchemaError::UnknownAsset(ty.to_owned(), *s));
             }
         }
-        (other, BrdbValue::Struct(_) | BrdbValue::Enum(_)) => {
+        (other, BrdbValue::Struct(_) | BrdbValue::Enum(_)) if is_schema_type(schema, other) => {
             write_named_type(schema, buf, other, value)?
+        }
+        (other, value) if !is_builtin_type(other) && !is_schema_type(schema, other) => {
+            match builtin_alias(other) {
+                Some(alias) => write_type(schema, buf, alias, value)?,
+                None => write_extra_type(schema, buf, other, value)?,
+            }
         }
         (expected, found) => {
             return Err(BrdbSchemaError::ExpectedType(
@@ -97,35 +312,43 @@ pub fn write_type(
     })
 }
 
-fn write_wire_var(buf: &mut impl Write, v: &WireVariant) -> Result<(), BrdbSchemaError> {
+/// Write the EA3 `wire_graph_variant` union: selectors `[f64, i64, bool,
+/// weak object, exec]`. EA3 stores an i64 asset index after selector 3;
+/// `Latest` follows the spec layout, where selectors 3 and 4 have no payload.
+fn write_ea3_wire_graph_variant(
+    buf: &mut impl Write,
+    v: &EA3WireVariant,
+    latest: bool,
+) -> Result<(), BrdbSchemaError> {
     match v {
-        WireVariant::Number(v) => {
+        EA3WireVariant::Number(v) => {
             write_uint(buf, 0)?;
             write_float64(buf, *v)?;
         }
-        WireVariant::Int(v) => {
+        EA3WireVariant::Int(v) => {
             write_uint(buf, 1)?;
             write_int(buf, *v)?;
         }
-        WireVariant::Bool(v) => {
+        EA3WireVariant::Bool(v) => {
             write_uint(buf, 2)?;
             write_bool(buf, *v)?;
         }
-        // Tag 3 is a `weak_object` (object/asset reference): an i64 index.
-        WireVariant::Object(opt) => {
+        EA3WireVariant::Object(opt) => {
             write_uint(buf, 3)?;
-            write_int(buf, opt.map(|i| i as i64).unwrap_or(-1))?;
+            if !latest {
+                write_int(buf, opt.map(|i| i as i64).unwrap_or(-1))?;
+            }
         }
-        WireVariant::Exec => {
+        EA3WireVariant::Exec => {
             write_uint(buf, 4)?;
         }
         // The legacy union has no string/vector/rotator/quat/color members
         // (those are only in the newer named `WireGraphVariant` table).
-        WireVariant::Str(_)
-        | WireVariant::Vector(_)
-        | WireVariant::Rotator { .. }
-        | WireVariant::Quat { .. }
-        | WireVariant::LinearColor { .. } => {
+        EA3WireVariant::Str(_)
+        | EA3WireVariant::Vector(_)
+        | EA3WireVariant::Rotator { .. }
+        | EA3WireVariant::Quat { .. }
+        | EA3WireVariant::LinearColor { .. } => {
             return Err(BrdbSchemaError::ExpectedType(
                 "wire_graph_variant".to_owned(),
                 v.to_string(),
@@ -135,75 +358,69 @@ fn write_wire_var(buf: &mut impl Write, v: &WireVariant) -> Result<(), BrdbSchem
     Ok(())
 }
 
-/// Find the tag (member index) of `member_name` within a named variant.
+/// Find the tag (member index) of `member_name` within a named variant,
+/// matching by type (so `bool` also finds a `Bool` alternative).
 fn variant_member_tag(
     schema: &BrdbSchema,
     variant_ty: &str,
     member_name: &str,
 ) -> Result<usize, BrdbSchemaError> {
-    let members = schema
-        .get_variant(variant_ty)
-        .ok_or_else(|| BrdbSchemaError::UnknownType(variant_ty.to_owned()))?;
-    let member_id = schema.intern.get(member_name);
-    member_id
-        .and_then(|id| members.iter().position(|m| *m == id))
-        .ok_or_else(|| {
-            BrdbSchemaError::ExpectedType(format!("{variant_ty} member"), member_name.to_owned())
-        })
+    find_alternative(schema, variant_ty, &[member_name]).map(|(tag, _)| tag)
 }
 
-/// Write a `WireVariant` into a named variant type (e.g. `WireGraphVariant`,
+/// Write a `EA3WireVariant` into a named variant type (e.g. `WireGraphVariant`,
 /// `WireGraphPrimMathVariant`) as `uint(tag) + member value`, where the tag is
 /// the member index resolved from the schema's variant table.
-fn write_named_wire_variant(
+fn write_ea3_wire_variant(
     schema: &BrdbSchema,
     buf: &mut impl Write,
     variant_ty: &str,
-    v: &WireVariant,
+    v: &EA3WireVariant,
 ) -> Result<(), BrdbSchemaError> {
     let member_name = match v {
-        WireVariant::Number(_) => "f64",
-        WireVariant::Int(_) => "i64",
-        WireVariant::Bool(_) => "bool",
-        WireVariant::Object(_) => "weak_object",
-        WireVariant::Exec => "WireGraphExec",
-        WireVariant::Vector(..) => "Vector",
-        WireVariant::Rotator { .. } => "Rotator",
-        WireVariant::Quat { .. } => "Quat",
-        WireVariant::Str(_) => "str",
-        WireVariant::LinearColor { .. } => "LinearColor",
+        EA3WireVariant::Number(_) => "f64",
+        EA3WireVariant::Int(_) => "i64",
+        EA3WireVariant::Bool(_) => "bool",
+        EA3WireVariant::Object(_) => "weak_object",
+        EA3WireVariant::Exec => "WireGraphExec",
+        EA3WireVariant::Vector(..) => "Vector",
+        EA3WireVariant::Rotator { .. } => "Rotator",
+        EA3WireVariant::Quat { .. } => "Quat",
+        EA3WireVariant::Str(_) => "str",
+        EA3WireVariant::LinearColor { .. } => "LinearColor",
     };
     let tag = variant_member_tag(schema, variant_ty, member_name)?;
     write_uint(buf, tag as u64)?;
     match v {
-        WireVariant::Number(n) => write_float64(buf, *n)?,
-        WireVariant::Int(i) => write_int(buf, *i)?,
-        WireVariant::Bool(b) => write_bool(buf, *b)?,
-        // weak_object: an asset-reference index (-1 is null).
-        WireVariant::Object(opt) => write_int(buf, opt.map(|i| i as i64).unwrap_or(-1))?,
-        WireVariant::Exec => {} // WireGraphExec: empty struct, no payload
+        EA3WireVariant::Number(n) => write_float64(buf, *n)?,
+        EA3WireVariant::Int(i) => write_int(buf, *i)?,
+        EA3WireVariant::Bool(b) => write_bool(buf, *b)?,
+        // weak_object: an asset-reference index (-1 is null); Latest writes
+        // -1 for every non-persistent reference.
+        EA3WireVariant::Object(opt) => write_int(buf, weak_object_payload(schema, *opt))?,
+        EA3WireVariant::Exec => {} // WireGraphExec: empty struct, no payload
         // Vector is a struct {X, Y, Z: f64}; structs are written field-by-field.
-        WireVariant::Vector(v) => {
+        EA3WireVariant::Vector(v) => {
             write_float64(buf, v.x as f64)?;
             write_float64(buf, v.y as f64)?;
             write_float64(buf, v.z as f64)?;
         }
         // Rotator is a struct {Pitch, Yaw, Roll: f64}.
-        WireVariant::Rotator { pitch, yaw, roll } => {
+        EA3WireVariant::Rotator { pitch, yaw, roll } => {
             write_float64(buf, *pitch)?;
             write_float64(buf, *yaw)?;
             write_float64(buf, *roll)?;
         }
         // Quat is a struct {X, Y, Z, W: f64}.
-        WireVariant::Quat { x, y, z, w } => {
+        EA3WireVariant::Quat { x, y, z, w } => {
             write_float64(buf, *x)?;
             write_float64(buf, *y)?;
             write_float64(buf, *z)?;
             write_float64(buf, *w)?;
         }
-        WireVariant::Str(s) => write_str(buf, s)?,
+        EA3WireVariant::Str(s) => write_str(buf, s)?,
         // LinearColor is a struct {R, G, B, A: f32}.
-        WireVariant::LinearColor { r, g, b, a } => {
+        EA3WireVariant::LinearColor { r, g, b, a } => {
             write_float32(buf, *r)?;
             write_float32(buf, *g)?;
             write_float32(buf, *b)?;
@@ -213,163 +430,7 @@ fn write_named_wire_variant(
     Ok(())
 }
 
-/// Write a `WireArrayVariant` into a named variant type (e.g.
-/// `WireGraphArrayVariant`) as `uint(tag) + array`. Each member is a
-/// `WireGraph*Array` struct holding a single `Values` array, which (having one
-/// field) encodes as just that array.
-/// Write a `WireGraphMapVariant` as the nested
-/// `uint(key_tag) + uint(value_tag) + {K:V} map`: pick the `KeyWrapper_<K>`
-/// member, then the inner `Map_<K>_<V>` member, then the `Values` map entries.
-fn write_named_map_variant(
-    schema: &BrdbSchema,
-    buf: &mut impl Write,
-    variant_ty: &str,
-    m: &WireMapVariant,
-) -> Result<(), BrdbSchemaError> {
-    let key_tag = variant_member_tag(schema, variant_ty, m.key_wrapper())?;
-    write_uint(buf, key_tag as u64)?;
-    let value_tag = variant_member_tag(schema, m.inner_variant(), &m.map_struct())?;
-    write_uint(buf, value_tag as u64)?;
-    // The concrete `WireGraphMap_<K>_<V>` struct is normally a single
-    // `Values: {K:V}` map (empty = `map_len(0)`). EXCEPT object-keyed
-    // (`FWeakObjectPtr`) structs, which the schema defines as EMPTY (no
-    // `Values` field) — the game reads nothing after the two tags, so a map
-    // header there would be a stray byte that desyncs the SoA column. Only
-    // emit the map when the resolved struct actually has a `Values` field.
-    let has_values = schema
-        .get_struct(&m.map_struct())
-        .is_some_and(|s| s.iter().any(|(k, _)| schema.intern.lookup_ref(*k) == Some("Values")));
-    if has_values {
-        write_map_values(buf, m)?;
-    }
-    Ok(())
-}
-
-/// Write the `Values: {K:V}` msgpack map: `map_len(n)` then each key then value,
-/// using the same low-level writers the array-variant path uses per element.
-pub(crate) fn write_map_values(
-    buf: &mut impl Write,
-    m: &WireMapVariant,
-) -> Result<(), BrdbSchemaError> {
-    rmp::encode::write_map_len(buf, m.entries.len() as u32)?;
-    for (k, v) in &m.entries {
-        match k {
-            WireMapKeyData::Int64(i) => write_int(buf, *i)?,
-            WireMapKeyData::Str(s) => write_str(buf, s)?,
-            WireMapKeyData::Object(o) => write_int(buf, o.map(|i| i as i64).unwrap_or(-1))?,
-        }
-        match v {
-            WireMapValueData::Number(x) => write_float64(buf, *x)?,
-            WireMapValueData::Int64(x) => write_int(buf, *x)?,
-            WireMapValueData::Bool(x) => write_bool(buf, *x)?,
-            WireMapValueData::Str(s) => write_str(buf, s)?,
-            WireMapValueData::Vector(vec) => {
-                write_float64(buf, vec.x as f64)?;
-                write_float64(buf, vec.y as f64)?;
-                write_float64(buf, vec.z as f64)?;
-            }
-            WireMapValueData::Rotator(p, y, r) => {
-                write_float64(buf, *p)?;
-                write_float64(buf, *y)?;
-                write_float64(buf, *r)?;
-            }
-            WireMapValueData::Quat(x, y, z, w) => {
-                write_float64(buf, *x)?;
-                write_float64(buf, *y)?;
-                write_float64(buf, *z)?;
-                write_float64(buf, *w)?;
-            }
-            WireMapValueData::LinearColor(r, g, b, a) => {
-                write_float32(buf, *r)?;
-                write_float32(buf, *g)?;
-                write_float32(buf, *b)?;
-                write_float32(buf, *a)?;
-            }
-            WireMapValueData::Object(o) => write_int(buf, o.map(|i| i as i64).unwrap_or(-1))?,
-        }
-    }
-    Ok(())
-}
-
-fn write_named_array_variant(
-    schema: &BrdbSchema,
-    buf: &mut impl Write,
-    variant_ty: &str,
-    arr: &WireArrayVariant,
-) -> Result<(), BrdbSchemaError> {
-    let tag = variant_member_tag(schema, variant_ty, arr.member_type())?;
-    write_uint(buf, tag as u64)?;
-    match arr {
-        WireArrayVariant::DoubleArray(v) => {
-            rmp::encode::write_array_len(buf, v.len() as u32)?;
-            for x in v {
-                write_float64(buf, *x)?;
-            }
-        }
-        WireArrayVariant::Int64Array(v) => {
-            rmp::encode::write_array_len(buf, v.len() as u32)?;
-            for x in v {
-                write_int(buf, *x)?;
-            }
-        }
-        WireArrayVariant::BoolArray(v) => {
-            rmp::encode::write_array_len(buf, v.len() as u32)?;
-            for x in v {
-                write_bool(buf, *x)?;
-            }
-        }
-        WireArrayVariant::ObjectArray(v) => {
-            rmp::encode::write_array_len(buf, v.len() as u32)?;
-            for o in v {
-                // weak_object: an asset-reference index (-1 is null).
-                write_int(buf, o.map(|i| i as i64).unwrap_or(-1))?;
-            }
-        }
-        WireArrayVariant::VectorArray(v) => {
-            rmp::encode::write_array_len(buf, v.len() as u32)?;
-            for vec in v {
-                write_float64(buf, vec.x as f64)?;
-                write_float64(buf, vec.y as f64)?;
-                write_float64(buf, vec.z as f64)?;
-            }
-        }
-        WireArrayVariant::RotatorArray(v) => {
-            rmp::encode::write_array_len(buf, v.len() as u32)?;
-            for (pitch, yaw, roll) in v {
-                write_float64(buf, *pitch)?;
-                write_float64(buf, *yaw)?;
-                write_float64(buf, *roll)?;
-            }
-        }
-        WireArrayVariant::QuatArray(v) => {
-            rmp::encode::write_array_len(buf, v.len() as u32)?;
-            for (x, y, z, w) in v {
-                write_float64(buf, *x)?;
-                write_float64(buf, *y)?;
-                write_float64(buf, *z)?;
-                write_float64(buf, *w)?;
-            }
-        }
-        WireArrayVariant::StringArray(v) => {
-            rmp::encode::write_array_len(buf, v.len() as u32)?;
-            for s in v {
-                write_str(buf, s)?;
-            }
-        }
-        WireArrayVariant::LinearColorArray(v) => {
-            rmp::encode::write_array_len(buf, v.len() as u32)?;
-            for (r, g, b, a) in v {
-                write_float32(buf, *r)?;
-                write_float32(buf, *g)?;
-                write_float32(buf, *b)?;
-                write_float32(buf, *a)?;
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Write an arbitrary `BrdbValue` into a named variant type. A `WireVar` maps to
+/// Write an arbitrary `BrdbValue` into a named variant type. A `EA3WireVar` maps to
 /// a member by its variant kind; a raw value (from a round-tripped read) maps to
 /// a member by its concrete type.
 fn write_variant_value(
@@ -378,29 +439,21 @@ fn write_variant_value(
     variant_ty: &str,
     val: &BrdbValue,
 ) -> Result<(), BrdbSchemaError> {
-    if let BrdbValue::WireVar(v) = val {
-        return write_named_wire_variant(schema, buf, variant_ty, v);
+    if let BrdbValue::EA3WireVar(v) = val {
+        return write_ea3_wire_variant(schema, buf, variant_ty, v);
     }
-    let member_name = match val {
-        BrdbValue::F64(_) => "f64",
-        BrdbValue::I64(_) => "i64",
-        BrdbValue::Bool(_) => "bool",
-        BrdbValue::String(_) => "str",
-        BrdbValue::Asset(_) => "weak_object",
-        BrdbValue::Struct(s) => schema
-            .intern
-            .lookup_ref(s.name)
-            .ok_or_else(|| BrdbSchemaError::UnknownType(s.name.0.to_string()))?,
-        other => {
-            return Err(BrdbSchemaError::ExpectedType(
-                variant_ty.to_owned(),
-                other.get_type().to_owned(),
-            ));
-        }
-    };
-    let tag = variant_member_tag(schema, variant_ty, member_name)?;
+    // A decoded variant carries its alternative's value, not the selector:
+    // pick the alternative of this variant whose type matches the value.
+    let candidates = value_alternative_candidates(val)
+        .map_err(|e| e.wrap(format!("{variant_ty} alternative")))?;
+    let (tag, alternative) = find_alternative(schema, variant_ty, &candidates)?;
     write_uint(buf, tag as u64)?;
-    write_type(schema, buf, member_name, val)
+    match (alternative, val) {
+        // A weak_object alternative's payload is always a signed integer, as
+        // for EA3 wire values.
+        ("weak_object", BrdbValue::Asset(opt)) => write_int(buf, weak_object_payload(schema, *opt)),
+        _ => write_brdb(schema, buf, alternative, val),
+    }
 }
 
 fn write_named_type(
@@ -480,24 +533,25 @@ fn write_struct_property(
 
     match (prop_schema, value) {
         (BrdbSchemaStructProperty::Type(ty), value) => {
-            write_named_type(schema, buf, &lookup(*ty)?, value)?
+            write_type(schema, buf, &lookup(*ty)?, value)?
         }
         (BrdbSchemaStructProperty::Array(ty), BrdbValue::Array(arr)) => {
             rmp::encode::write_array_len(buf, arr.len() as u32)?;
             // Write each item in the array
             let item_ty = &lookup(*ty)?;
             for item in arr {
-                write_named_type(schema, buf, item_ty, item)?;
+                write_type(schema, buf, item_ty, item)?;
             }
         }
         (BrdbSchemaStructProperty::FlatArray(ty), BrdbValue::FlatArray(arr_data)) => {
-            // Write the length of the buffer that will be allocated
-            let type_size = flat_type_size(schema, &lookup(*ty)?);
-            rmp::encode::write_bin_len(buf, (arr_data.len() * type_size) as u32)?;
-
-            let item_ty = &lookup(*ty)?;
+            let item_ty = lookup(*ty)?;
+            let layout = flat_layout(schema, item_ty)
+                .filter(|l| l.size > 0)
+                .ok_or_else(|| BrdbSchemaError::InvalidFlatType(item_ty.to_owned()))?;
+            // The bin length is the byte count of the whole memory dump.
+            rmp::encode::write_bin_len(buf, (arr_data.len() * layout.size) as u32)?;
             for item in arr_data {
-                write_flat_type(schema, buf, item_ty, item)?;
+                write_flat_value(schema, buf, &layout, item)?;
             }
         }
         (BrdbSchemaStructProperty::Map(k_ty, v_ty), BrdbValue::Map(map)) => {
@@ -505,8 +559,8 @@ fn write_struct_property(
             rmp::encode::write_map_len(buf, map.len() as u32)?;
             // Write each key-value pair
             for (key, val) in map {
-                write_named_type(schema, buf, &lookup(*k_ty)?, key)?;
-                write_named_type(schema, buf, &lookup(*v_ty)?, val)?;
+                write_type(schema, buf, &lookup(*k_ty)?, key)?;
+                write_type(schema, buf, &lookup(*v_ty)?, val)?;
             }
         }
         (ty, val) => {
@@ -593,6 +647,29 @@ pub fn write_uint(buf: &mut impl Write, value: u64) -> Result<(), BrdbSchemaErro
     Ok(())
 }
 
+/// Write a `u8` in the schema's format: EA3 builds only read the signed form
+/// ([`write_u8`]); `Latest` writes the unsigned value.
+fn write_u8_for(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    value: u8,
+) -> Result<(), BrdbSchemaError> {
+    if schema.is_latest() {
+        write_uint(buf, value as u64)
+    } else {
+        write_u8(buf, value as u64)
+    }
+}
+
+/// The integer a `weak_object` payload carries: the asset index (-1 for
+/// null) in EA3, always -1 in `Latest`.
+fn weak_object_payload(schema: &BrdbSchema, index: Option<usize>) -> i64 {
+    match index {
+        Some(i) if !schema.is_latest() => i as i64,
+        _ => -1,
+    }
+}
+
 pub fn write_float32(buf: &mut impl Write, value: f32) -> Result<(), BrdbSchemaError> {
     // Attempt to write as ints on whole numbers less than 8 or 16 bits
     if value.eq(&value.round()) && (value as u16) < u16::MAX && (value as i16) > i16::MIN {
@@ -619,69 +696,61 @@ pub fn write_flat_type(
     ty: &str,
     value: &BrdbValue,
 ) -> Result<(), BrdbSchemaError> {
-    match (ty, value) {
-        ("u8", BrdbValue::U8(v)) => write_flat_u8(buf, *v)?,
-        ("u16", BrdbValue::U16(v)) => write_flat_u16(buf, *v)?,
-        ("u32", BrdbValue::U32(v)) => write_flat_u32(buf, *v)?,
-        ("u64", BrdbValue::U64(v)) => write_flat_u64(buf, *v)?,
-        ("i8", BrdbValue::I8(v)) => write_flat_i8(buf, *v)?,
-        ("i16", BrdbValue::I16(v)) => write_flat_i16(buf, *v)?,
-        ("i32", BrdbValue::I32(v)) => write_flat_i32(buf, *v)?,
-        ("i64", BrdbValue::I64(v)) => write_flat_i64(buf, *v)?,
-        ("f32", BrdbValue::F32(v)) => write_flat_f32(buf, *v)?,
-        ("f64", BrdbValue::F64(v)) => write_flat_f64(buf, *v)?,
-        (other, BrdbValue::Struct(s)) => {
-            if let Some((intern, s_ty)) = schema
-                .intern
-                .get(other)
-                .and_then(|i| schema.structs.get(&i).map(|s| (i, s)))
-            {
-                if s.name != intern {
-                    return Err(BrdbSchemaError::ExpectedType(
-                        other.to_owned(),
-                        schema
-                            .intern
-                            .lookup(s.name)
-                            .unwrap_or_else(|| "unknown struct".to_owned()),
-                    ));
-                }
+    let layout = flat_layout(schema, ty)
+        .filter(|l| l.size > 0)
+        .ok_or_else(|| BrdbSchemaError::InvalidFlatType(ty.to_owned()))?;
+    write_flat_value(schema, buf, &layout, value)
+}
 
-                for (k, prop_schema) in s_ty {
-                    let prop_val = s.properties.get(k).ok_or_else(|| {
-                        BrdbSchemaError::MissingStructField(
-                            schema
-                                .intern
-                                .lookup(s.name)
-                                .unwrap_or_else(|| "unknown struct".to_owned()),
-                            schema
-                                .intern
-                                .lookup(*k)
-                                .unwrap_or_else(|| "unknown property".to_owned()),
-                        )
-                    })?;
-
-                    // Flat types can only write properties of type `Type`
-                    match prop_schema {
-                        BrdbSchemaStructProperty::Type(ty) => write_flat_type(
-                            schema,
-                            buf,
-                            schema.intern.lookup_ref(*ty).ok_or(
-                                BrdbSchemaError::UnknownStructPropertyType(ty.0.to_string()),
-                            )?,
-                            prop_val,
-                        )?,
-                        other => {
-                            return Err(BrdbSchemaError::InvalidFlatType(other.as_string(schema)));
-                        }
-                    }
-                }
-            } else {
-                return Err(BrdbSchemaError::UnknownType(other.to_owned()));
-            }
-        }
-        (other, _) => return Err(BrdbSchemaError::InvalidFlatType(other.to_owned())),
+fn write_padding(buf: &mut impl Write, len: usize) -> Result<(), BrdbSchemaError> {
+    const ZEROS: [u8; 16] = [0; 16];
+    let mut left = len;
+    while left > 0 {
+        let n = left.min(ZEROS.len());
+        buf.write_all(&ZEROS[..n])?;
+        left -= n;
     }
     Ok(())
+}
+
+/// Write one flat element in its C layout: each field at its aligned offset,
+/// zero padding between fields and up to the struct size.
+pub(crate) fn write_flat_value(
+    schema: &BrdbSchema,
+    buf: &mut impl Write,
+    layout: &FlatLayout,
+    value: &dyn AsBrdbValue,
+) -> Result<(), BrdbSchemaError> {
+    match &layout.kind {
+        FlatKind::U8 => write_flat_u8(buf, value.as_brdb_u8()?),
+        FlatKind::U16 => write_flat_u16(buf, value.as_brdb_u16()?),
+        FlatKind::U32 => write_flat_u32(buf, value.as_brdb_u32()?),
+        FlatKind::U64 => write_flat_u64(buf, value.as_brdb_u64()?),
+        FlatKind::I8 => write_flat_i8(buf, value.as_brdb_i8()?),
+        FlatKind::I16 => write_flat_i16(buf, value.as_brdb_i16()?),
+        FlatKind::I32 => write_flat_i32(buf, value.as_brdb_i32()?),
+        FlatKind::I64 => write_flat_i64(buf, value.as_brdb_i64()?),
+        FlatKind::F32 => write_flat_f32(buf, value.as_brdb_f32()?),
+        FlatKind::F64 => write_flat_f64(buf, value.as_brdb_f64()?),
+        FlatKind::Struct(s_id, fields) => {
+            if let Some(BrdbValue::Struct(s)) = value.as_brdb_value()
+                && s.name != *s_id
+            {
+                return Err(BrdbSchemaError::ExpectedType(
+                    s_id.get_or(schema, "unknown struct").to_owned(),
+                    s.get_name().to_owned(),
+                ));
+            }
+            let mut pos = 0;
+            for (prop_id, offset, field) in fields {
+                write_padding(buf, offset - pos)?;
+                let prop_val = value.as_brdb_struct_prop_value(schema, *s_id, *prop_id)?;
+                write_flat_value(schema, buf, field, prop_val)?;
+                pos = offset + field.size;
+            }
+            write_padding(buf, layout.size - pos)
+        }
+    }
 }
 
 fn write_flat_u8(buf: &mut impl Write, value: u8) -> Result<(), BrdbSchemaError> {
@@ -726,27 +795,45 @@ fn write_flat_f64(buf: &mut impl Write, value: f64) -> Result<(), BrdbSchemaErro
     Ok(())
 }
 
+type DefaultsMap = rustc_hash::FxHashMap<
+    &'static str,
+    rustc_hash::FxHashMap<&'static str, &'static dyn AsBrdbValue>,
+>;
+
+type DefaultsTable =
+    std::sync::LazyLock<Vec<(&'static str, Vec<(&'static str, Box<dyn AsBrdbValue>)>)>>;
+
+fn defaults_map(table: &'static DefaultsTable) -> DefaultsMap {
+    std::sync::LazyLock::force(table)
+        .iter()
+        .map(|(name, fields)| {
+            (
+                *name,
+                fields
+                    .iter()
+                    .map(|(n, v)| (*n, v.as_ref() as &'static dyn AsBrdbValue))
+                    .collect(),
+            )
+        })
+        .collect()
+}
+
 /// O(1) lookup into the generated `STRUCT_DEFAULTS` table, replacing a
-/// linear scan over all structs (and their fields) per unset field.
-fn struct_field_default(struct_name: &str, field: &str) -> Option<&'static dyn AsBrdbValue> {
-    use rustc_hash::FxHashMap;
+/// linear scan over all structs (and their fields) per unset field. Entity data structs fall back to the hand-kept
+/// `assets::entities::entity_field_default`.
+fn struct_field_default(
+    _schema: &BrdbSchema,
+    struct_name: &str,
+    field: &str,
+) -> Option<&'static dyn AsBrdbValue> {
     use std::sync::LazyLock;
-    static MAP: LazyLock<FxHashMap<&'static str, FxHashMap<&'static str, &'static dyn AsBrdbValue>>> =
-        LazyLock::new(|| {
-            LazyLock::force(&crate::wrapper::component_db::STRUCT_DEFAULTS)
-                .iter()
-                .map(|(name, fields)| {
-                    (
-                        *name,
-                        fields
-                            .iter()
-                            .map(|(n, v)| (*n, v.as_ref() as &'static dyn AsBrdbValue))
-                            .collect(),
-                    )
-                })
-                .collect()
-        });
-    MAP.get(struct_name).and_then(|m| m.get(field)).copied()
+    static CURRENT: LazyLock<DefaultsMap> =
+        LazyLock::new(|| defaults_map(&crate::wrapper::component_db::STRUCT_DEFAULTS));
+    CURRENT
+        .get(struct_name)
+        .and_then(|m| m.get(field))
+        .copied()
+        .or_else(|| crate::assets::entities::entity_field_default(struct_name, field))
 }
 
 /// Write the default (or zero) value for an unset struct field.
@@ -757,7 +844,7 @@ fn write_struct_field_default(
     field_name: &str,
     ty_str: &str,
 ) -> Result<(), BrdbSchemaError> {
-    if let Some(default_val) = struct_field_default(struct_name, field_name) {
+    if let Some(default_val) = struct_field_default(schema, struct_name, field_name) {
         write_brdb(schema, buf, ty_str, default_val)
     } else {
         write_brdb_zero(schema, buf, ty_str)
@@ -772,9 +859,7 @@ fn resolve_plain_struct<'a>(
     ty: &str,
 ) -> Option<(BrdbInterned, &'a BrdbSchemaStruct)> {
     match ty {
-        "bool" | "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64"
-        | "str" | "wire_graph_variant" | "wire_graph_prim_math_variant" | "bundle_path_ref"
-        | "class" | "object" => None,
+        ty if is_builtin_type(ty) => None,
         _ => {
             let id = schema.intern.get(ty)?;
             if schema.get_variant_interned(id).is_some() {
@@ -811,7 +896,13 @@ fn write_brdb_struct_fields(
                         write_brdb(schema, buf, ty_str, prop_value)?;
                     }
                     None => {
-                        write_struct_field_default(schema, buf, ty_name, lookup(*prop_id)?, ty_str)?;
+                        write_struct_field_default(
+                            schema,
+                            buf,
+                            ty_name,
+                            lookup(*prop_id)?,
+                            ty_str,
+                        )?;
                     }
                 }
             }
@@ -855,10 +946,14 @@ fn write_brdb_struct_fields(
                 match value.as_brdb_struct_prop_array(schema, s_id, *prop_id) {
                     Ok(prop_values) => {
                         let ty = lookup(*ty_id)?;
-                        let type_size = flat_type_size(schema, ty);
-                        rmp::encode::write_bin_len(buf, (prop_values.len() * type_size) as u32)?;
+                        let layout = flat_layout(schema, ty);
+                        let size = layout.as_ref().map_or(0, |l| l.size);
+                        rmp::encode::write_bin_len(buf, (prop_values.len() * size) as u32)?;
                         for prop_value in prop_values {
-                            write_brdb_flat(schema, buf, ty, &*prop_value)?;
+                            let Some(layout) = &layout else {
+                                return Err(BrdbSchemaError::InvalidFlatType(ty.to_owned()));
+                            };
+                            write_flat_value(schema, buf, layout, &*prop_value)?;
                         }
                     }
                     Err(BrdbSchemaError::MissingStructField(..)) => {
@@ -900,8 +995,10 @@ pub fn write_brdb(
     value: &dyn AsBrdbValue,
 ) -> Result<(), BrdbSchemaError> {
     match ty {
+        // `nil` has no payload.
+        "nil" => {}
         "bool" => write_bool(buf, value.as_brdb_bool()?)?,
-        "u8" => write_u8(buf, value.as_brdb_u8()? as u64)?,
+        "u8" => write_u8_for(schema, buf, value.as_brdb_u8()?)?,
         "u16" => write_uint(buf, value.as_brdb_u16()? as u64)?,
         "u32" => write_uint(buf, value.as_brdb_u32()? as u64)?,
         "u64" => write_uint(buf, value.as_brdb_u64()?)?,
@@ -912,25 +1009,31 @@ pub fn write_brdb(
         "f32" => write_float32(buf, value.as_brdb_f32()?)?,
         "f64" => write_float64(buf, value.as_brdb_f64()?)?,
         "str" => write_str(buf, value.as_brdb_str()?)?,
-        "wire_graph_variant" => write_wire_var(buf, &value.as_brdb_wire_variant()?)?,
-        "wire_graph_prim_math_variant" => match value.as_brdb_wire_variant()? {
-            WireVariant::Number(v) => {
+        EA3_WIRE_GRAPH_VARIANT => write_ea3_wire_graph_variant(
+            buf,
+            &value.as_brdb_ea3_wire_variant()?,
+            schema.is_latest(),
+        )?,
+        EA3_WIRE_GRAPH_PRIM_MATH_VARIANT => match value.as_brdb_ea3_wire_variant()? {
+            EA3WireVariant::Number(v) => {
                 write_uint(buf, 0)?;
                 write_float64(buf, v)?;
             }
-            WireVariant::Int(v) => {
+            EA3WireVariant::Int(v) => {
                 write_uint(buf, 1)?;
                 write_int(buf, v)?;
             }
             other => {
                 return Err(BrdbSchemaError::ExpectedType(
-                    "wire_graph_prim_math_variant".to_owned(),
+                    EA3_WIRE_GRAPH_PRIM_MATH_VARIANT.to_owned(),
                     other.to_string(),
                 ));
             }
         },
         "bundle_path_ref" => write_str(buf, value.as_brdb_str().unwrap_or(""))?,
-        "class" | "object" => {
+        // Latest: non-persistent references are always written as -1.
+        "weak_object" if schema.is_latest() => write_int(buf, -1)?,
+        "class" | "object" | "weak_object" => {
             let asset_index = value.as_brdb_asset(schema, ty)?;
             if let Some(asset_index) = asset_index {
                 write_uint(buf, asset_index as u64)?;
@@ -938,27 +1041,31 @@ pub fn write_brdb(
                 write_int(buf, -1)?;
             }
         }
+        DYNAMIC_ARRAY => write_dynamic_array(schema, buf, value)?,
+        DYNAMIC_MAP => write_dynamic_map(schema, buf, value)?,
         other => {
             // Resolve the type name through the interner once; variant, struct
             // and enum tables are then probed by interned id.
             let Some(s_id) = schema.intern.get(other) else {
-                return Err(BrdbSchemaError::UnknownType(other.to_owned()));
+                return write_extra_type(schema, buf, other, value);
             };
             if schema.get_variant_interned(s_id).is_some() {
-                // Struct-member variants (e.g. BRInventoryEntryVariant) self-identify
-                // by member struct name; map/array-valued variants via their
-                // dedicated accessors; everything else is a scalar variant.
+                // Struct-member variants (e.g. BRInventoryEntryVariant, or a
+                // `WireValue`) self-identify by member name; a decoded value
+                // picks the alternative matching its own type; everything
+                // else is an EA3 scalar wire variant.
                 if let Some(member) = value.as_brdb_variant_member() {
-                    let tag = variant_member_tag(schema, other, member)?;
+                    let (tag, alternative) = find_alternative(schema, other, &[member])?;
                     write_uint(buf, tag as u64)?;
-                    // `value` re-encodes as its member struct (write its fields).
-                    write_brdb(schema, buf, member, value)?;
-                } else if let Ok(m) = value.as_brdb_wire_map_variant() {
-                    write_named_map_variant(schema, buf, other, &m)?;
-                } else if let Ok(arr) = value.as_brdb_wire_array_variant() {
-                    write_named_array_variant(schema, buf, other, &arr)?;
+                    // `value` re-encodes as its member (e.g. its struct fields).
+                    write_brdb(schema, buf, alternative, value)?;
+                } else if let Some(raw) = value
+                    .as_brdb_value()
+                    .filter(|v| !matches!(v, BrdbValue::EA3WireVar(_)))
+                {
+                    write_variant_value(schema, buf, other, raw)?;
                 } else {
-                    write_named_wire_variant(schema, buf, other, &value.as_brdb_wire_variant()?)?;
+                    write_ea3_wire_variant(schema, buf, other, &value.as_brdb_ea3_wire_variant()?)?;
                 }
             } else if let Some(s_ty) = schema.get_struct_interned(s_id) {
                 write_brdb_struct_fields(schema, buf, s_id, s_ty, other, value)?;
@@ -972,7 +1079,7 @@ pub fn write_brdb(
                 }
                 write_uint(buf, enum_value as u64)?;
             } else {
-                return Err(BrdbSchemaError::UnknownType(other.to_owned()));
+                write_extra_type(schema, buf, other, value)?;
             }
         }
     }
@@ -1036,37 +1143,9 @@ pub fn write_brdb_flat(
     ty: &str,
     value: &dyn AsBrdbValue,
 ) -> Result<(), BrdbSchemaError> {
-    match ty {
-        "u8" => write_flat_u8(buf, value.as_brdb_u8()?)?,
-        "u16" => write_flat_u16(buf, value.as_brdb_u16()?)?,
-        "u32" => write_flat_u32(buf, value.as_brdb_u32()?)?,
-        "u64" => write_flat_u64(buf, value.as_brdb_u64()?)?,
-        "i8" => write_flat_i8(buf, value.as_brdb_i8()?)?,
-        "i16" => write_flat_i16(buf, value.as_brdb_i16()?)?,
-        "i32" => write_flat_i32(buf, value.as_brdb_i32()?)?,
-        "i64" => write_flat_i64(buf, value.as_brdb_i64()?)?,
-        "f32" => write_flat_f32(buf, value.as_brdb_f32()?)?,
-        "f64" => write_flat_f64(buf, value.as_brdb_f64()?)?,
-        other => {
-            let (Some(s_id), Some(s_ty)) = (schema.intern.get(other), schema.get_struct(other))
-            else {
-                return Err(BrdbSchemaError::InvalidFlatType(other.to_owned()));
-            };
-            for (prop_id, prop_schema) in s_ty {
-                let BrdbSchemaStructProperty::Type(prop_ty) = prop_schema else {
-                    return Err(BrdbSchemaError::InvalidFlatType(format!(
-                        "flat {other} struct property"
-                    )));
-                };
-                let prop_ty = prop_ty.get_ok(schema, || {
-                    BrdbSchemaError::UnknownStructPropertyType(prop_ty.0.to_string())
-                })?;
-                let prop_val = value.as_brdb_struct_prop_value(schema, s_id, *prop_id)?;
-                write_brdb_flat(schema, buf, prop_ty, &*prop_val)?;
-            }
-        }
-    }
-    Ok(())
+    let layout =
+        flat_layout(schema, ty).ok_or_else(|| BrdbSchemaError::InvalidFlatType(ty.to_owned()))?;
+    write_flat_value(schema, buf, &layout, value)
 }
 
 /// Write a zero/default value for any type. Used when a struct field is
@@ -1078,6 +1157,7 @@ pub fn write_brdb_zero(
     ty: &str,
 ) -> Result<(), BrdbSchemaError> {
     match ty {
+        "nil" => {}
         "bool" => write_bool(buf, false)?,
         "u8" => write_u8(buf, 0)?,
         "u16" | "u32" | "u64" => write_uint(buf, 0)?,
@@ -1085,16 +1165,27 @@ pub fn write_brdb_zero(
         "f32" => write_float32(buf, 0.0)?,
         "f64" => write_float64(buf, 0.0)?,
         "str" => write_str(buf, "")?,
-        "wire_graph_variant" => {
+        EA3_WIRE_GRAPH_VARIANT => {
             write_uint(buf, 0)?; // Number
             write_float64(buf, 0.0)?;
         }
-        "wire_graph_prim_math_variant" => {
+        EA3_WIRE_GRAPH_PRIM_MATH_VARIANT => {
             write_uint(buf, 0)?; // Number
             write_float64(buf, 0.0)?;
         }
         "bundle_path_ref" => write_str(buf, "")?,
-        "class" | "object" => write_int(buf, -1)?,
+        "class" | "object" | "weak_object" => write_int(buf, -1)?,
+        // An unset dynamic container is empty, with the element (key/value)
+        // types the game gives a new array (map) variable.
+        DYNAMIC_ARRAY => {
+            write_uint(buf, default_type_index(schema, "f64")? as u64)?;
+            rmp::encode::write_array_len(buf, 0)?;
+        }
+        DYNAMIC_MAP => {
+            write_uint(buf, default_type_index(schema, "i64")? as u64)?;
+            write_uint(buf, default_type_index(schema, "f64")? as u64)?;
+            rmp::encode::write_map_len(buf, 0)?;
+        }
         other if schema.get_variant(other).is_some() => {
             // Zero a named variant as tag 0 + the zero value of its first member.
             let members = schema.get_variant(other).unwrap();
@@ -1131,6 +1222,26 @@ pub fn write_brdb_zero(
                 }
             } else if schema.get_enum(other).is_some() {
                 write_uint(buf, 0)?;
+            } else if let Some(alias) = builtin_alias(other) {
+                write_brdb_zero(schema, buf, alias)?;
+            } else if other == DYNAMIC_ENUM {
+                // The first enum in the types table, value 0.
+                let index = (0..schema.types.len())
+                    .find(|i| {
+                        schema
+                            .type_at(*i)
+                            .is_some_and(|t| schema.get_enum(t).is_some())
+                    })
+                    .ok_or_else(|| {
+                        BrdbSchemaError::ExpectedType(
+                            "an enum in the types table".to_owned(),
+                            DYNAMIC_ENUM.to_owned(),
+                        )
+                    })?;
+                write_uint(buf, index as u64)?;
+                write_int(buf, 0)?;
+            } else if other == BRICK_HANDLE || other == COMPONENT_HANDLE {
+                return Err(BrdbSchemaError::UnsupportedType(other.to_owned()));
             } else {
                 return Err(BrdbSchemaError::UnknownType(other.to_owned()));
             }
@@ -1198,9 +1309,7 @@ pub(crate) fn write_brdb_cached<'a>(
         // Primitive and special names take the unplanned writer directly;
         // they must be checked before the interned tables to keep
         // `write_brdb`'s dispatch precedence.
-        "bool" | "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64"
-        | "str" | "wire_graph_variant" | "wire_graph_prim_math_variant" | "bundle_path_ref"
-        | "class" | "object" => write_brdb(schema, buf, ty, value),
+        ty if is_builtin_type(ty) => write_brdb(schema, buf, ty, value),
         other => {
             let Some(s_id) = schema.intern.get(other) else {
                 return Err(BrdbSchemaError::UnknownType(other.to_owned()));
@@ -1231,9 +1340,7 @@ pub(crate) fn write_brdb_memoized<'a>(
         }
     }
     match ty {
-        "bool" | "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64"
-        | "str" | "wire_graph_variant" | "wire_graph_prim_math_variant" | "bundle_path_ref"
-        | "class" | "object" => write_brdb(schema, buf, ty, value),
+        ty if is_builtin_type(ty) => write_brdb(schema, buf, ty, value),
         other => {
             let Some(s_id) = schema.intern.get(other) else {
                 return Err(BrdbSchemaError::UnknownType(other.to_owned()));
@@ -1256,8 +1363,9 @@ fn write_op<'a>(
     value: &dyn AsBrdbValue,
 ) -> Result<(), BrdbSchemaError> {
     match op {
+        PlanOp::Nil => Ok(()),
         PlanOp::Bool => write_bool(buf, value.as_brdb_bool()?),
-        PlanOp::U8 => write_u8(buf, value.as_brdb_u8()? as u64),
+        PlanOp::U8 => write_u8_for(schema, buf, value.as_brdb_u8()?),
         PlanOp::U16 => write_uint(buf, value.as_brdb_u16()? as u64),
         PlanOp::U32 => write_uint(buf, value.as_brdb_u32()? as u64),
         PlanOp::U64 => write_uint(buf, value.as_brdb_u64()?),
@@ -1268,25 +1376,29 @@ fn write_op<'a>(
         PlanOp::F32 => write_float32(buf, value.as_brdb_f32()?),
         PlanOp::F64 => write_float64(buf, value.as_brdb_f64()?),
         PlanOp::Str => write_str(buf, value.as_brdb_str()?),
-        PlanOp::WireVariantLegacy => match value.as_brdb_wire_variant_ref() {
-            Some(v) => write_wire_var(buf, v),
-            None => write_wire_var(buf, &value.as_brdb_wire_variant()?),
+        PlanOp::EA3WireGraphVariant => match value.as_brdb_ea3_wire_variant_ref() {
+            Some(v) => write_ea3_wire_graph_variant(buf, v, schema.is_latest()),
+            None => write_ea3_wire_graph_variant(
+                buf,
+                &value.as_brdb_ea3_wire_variant()?,
+                schema.is_latest(),
+            ),
         },
-        PlanOp::WirePrimMath => {
+        PlanOp::EA3WireGraphPrimMathVariant => {
             let owned;
-            let v = match value.as_brdb_wire_variant_ref() {
+            let v = match value.as_brdb_ea3_wire_variant_ref() {
                 Some(v) => v,
                 None => {
-                    owned = value.as_brdb_wire_variant()?;
+                    owned = value.as_brdb_ea3_wire_variant()?;
                     &owned
                 }
             };
             match v {
-                WireVariant::Number(v) => {
+                EA3WireVariant::Number(v) => {
                     write_uint(buf, 0)?;
                     write_float64(buf, *v)
                 }
-                WireVariant::Int(v) => {
+                EA3WireVariant::Int(v) => {
                     write_uint(buf, 1)?;
                     write_int(buf, *v)
                 }
@@ -1297,6 +1409,7 @@ fn write_op<'a>(
             }
         }
         PlanOp::BundlePathRef => write_str(buf, value.as_brdb_str().unwrap_or("")),
+        PlanOp::Asset("weak_object") if schema.is_latest() => write_int(buf, -1),
         PlanOp::Asset(ty) => match value.as_brdb_asset(schema, ty)? {
             Some(asset_index) => write_uint(buf, asset_index as u64),
             None => write_int(buf, -1),
@@ -1352,13 +1465,9 @@ fn write_struct_plan<'a>(
                 Some(prop_value) => write_op(schema, cache, buf, op, prop_value)?,
                 None => match default_bytes {
                     Some(bytes) => buf.write_all(bytes)?,
-                    None => write_struct_field_default(
-                        schema,
-                        buf,
-                        plan.name,
-                        field.prop_name,
-                        ty_str,
-                    )?,
+                    None => {
+                        write_struct_field_default(schema, buf, plan.name, field.prop_name, ty_str)?
+                    }
                 },
             },
             FieldKind::Array { elem } => {
@@ -1429,10 +1538,16 @@ fn write_variant_plan<'a>(
     value: &dyn AsBrdbValue,
 ) -> Result<(), BrdbSchemaError> {
     if let Some(member) = value.as_brdb_variant_member() {
+        // Alternatives match by type, so `bool` also finds `Bool`.
         let Some(tag) = plan
             .members
             .iter()
             .position(|(name, _)| *name == Some(member))
+            .or_else(|| {
+                plan.members
+                    .iter()
+                    .position(|(name, _)| name.is_some_and(|n| same_type(n, member)))
+            })
         else {
             return Err(BrdbSchemaError::ExpectedType(
                 format!("{} member", plan.name),
@@ -1442,33 +1557,35 @@ fn write_variant_plan<'a>(
         write_uint(buf, tag as u64)?;
         let op = plan.members[tag].1.clone();
         write_op(schema, cache, buf, &op, value)
-    } else if let Some(v) = value.as_brdb_wire_variant_ref() {
-        write_wire_variant_planned(buf, plan, v)
-    } else if let Ok(m) = value.as_brdb_wire_map_variant() {
-        write_named_map_variant(schema, buf, plan.name, &m)
-    } else if let Ok(arr) = value.as_brdb_wire_array_variant() {
-        write_named_array_variant(schema, buf, plan.name, &arr)
+    } else if let Some(raw) = value
+        .as_brdb_value()
+        .filter(|v| !matches!(v, BrdbValue::EA3WireVar(_)))
+    {
+        write_variant_value(schema, buf, plan.name, raw)
+    } else if let Some(v) = value.as_brdb_ea3_wire_variant_ref() {
+        write_ea3_wire_variant_planned(schema, buf, plan, v)
     } else {
-        write_wire_variant_planned(buf, plan, &value.as_brdb_wire_variant()?)
+        write_ea3_wire_variant_planned(schema, buf, plan, &value.as_brdb_ea3_wire_variant()?)
     }
 }
 
-fn write_wire_variant_planned(
+fn write_ea3_wire_variant_planned(
+    schema: &BrdbSchema,
     buf: &mut impl Write,
     plan: &VariantPlan,
-    v: &WireVariant,
+    v: &EA3WireVariant,
 ) -> Result<(), BrdbSchemaError> {
     let (tag, member_name) = match v {
-        WireVariant::Number(_) => (plan.wire.number, "f64"),
-        WireVariant::Int(_) => (plan.wire.int, "i64"),
-        WireVariant::Bool(_) => (plan.wire.boolean, "bool"),
-        WireVariant::Object(_) => (plan.wire.object, "weak_object"),
-        WireVariant::Exec => (plan.wire.exec, "WireGraphExec"),
-        WireVariant::Vector(..) => (plan.wire.vector, "Vector"),
-        WireVariant::Rotator { .. } => (plan.wire.rotator, "Rotator"),
-        WireVariant::Quat { .. } => (plan.wire.quat, "Quat"),
-        WireVariant::Str(_) => (plan.wire.string, "str"),
-        WireVariant::LinearColor { .. } => (plan.wire.linear_color, "LinearColor"),
+        EA3WireVariant::Number(_) => (plan.ea3_wire.number, "f64"),
+        EA3WireVariant::Int(_) => (plan.ea3_wire.int, "i64"),
+        EA3WireVariant::Bool(_) => (plan.ea3_wire.boolean, "bool"),
+        EA3WireVariant::Object(_) => (plan.ea3_wire.object, "weak_object"),
+        EA3WireVariant::Exec => (plan.ea3_wire.exec, "WireGraphExec"),
+        EA3WireVariant::Vector(..) => (plan.ea3_wire.vector, "Vector"),
+        EA3WireVariant::Rotator { .. } => (plan.ea3_wire.rotator, "Rotator"),
+        EA3WireVariant::Quat { .. } => (plan.ea3_wire.quat, "Quat"),
+        EA3WireVariant::Str(_) => (plan.ea3_wire.string, "str"),
+        EA3WireVariant::LinearColor { .. } => (plan.ea3_wire.linear_color, "LinearColor"),
     };
     let Some(tag) = tag else {
         return Err(BrdbSchemaError::ExpectedType(
@@ -1478,29 +1595,29 @@ fn write_wire_variant_planned(
     };
     write_uint(buf, tag)?;
     match v {
-        WireVariant::Number(n) => write_float64(buf, *n)?,
-        WireVariant::Int(i) => write_int(buf, *i)?,
-        WireVariant::Bool(b) => write_bool(buf, *b)?,
-        WireVariant::Object(opt) => write_int(buf, opt.map(|i| i as i64).unwrap_or(-1))?,
-        WireVariant::Exec => {}
-        WireVariant::Vector(v) => {
+        EA3WireVariant::Number(n) => write_float64(buf, *n)?,
+        EA3WireVariant::Int(i) => write_int(buf, *i)?,
+        EA3WireVariant::Bool(b) => write_bool(buf, *b)?,
+        EA3WireVariant::Object(opt) => write_int(buf, weak_object_payload(schema, *opt))?,
+        EA3WireVariant::Exec => {}
+        EA3WireVariant::Vector(v) => {
             write_float64(buf, v.x as f64)?;
             write_float64(buf, v.y as f64)?;
             write_float64(buf, v.z as f64)?;
         }
-        WireVariant::Rotator { pitch, yaw, roll } => {
+        EA3WireVariant::Rotator { pitch, yaw, roll } => {
             write_float64(buf, *pitch)?;
             write_float64(buf, *yaw)?;
             write_float64(buf, *roll)?;
         }
-        WireVariant::Quat { x, y, z, w } => {
+        EA3WireVariant::Quat { x, y, z, w } => {
             write_float64(buf, *x)?;
             write_float64(buf, *y)?;
             write_float64(buf, *z)?;
             write_float64(buf, *w)?;
         }
-        WireVariant::Str(s) => write_str(buf, s)?,
-        WireVariant::LinearColor { r, g, b, a } => {
+        EA3WireVariant::Str(s) => write_str(buf, s)?,
+        EA3WireVariant::LinearColor { r, g, b, a } => {
             write_float32(buf, *r)?;
             write_float32(buf, *g)?;
             write_float32(buf, *b)?;
@@ -1528,11 +1645,12 @@ fn write_flat_op(
         FlatOp::F32 => write_flat_f32(buf, value.as_brdb_f32()?),
         FlatOp::F64 => write_flat_f64(buf, value.as_brdb_f64()?),
         FlatOp::Struct(plan) => {
-            for (prop_id, prop_op) in &plan.props {
+            for (prop_id, prop_op, pad) in &plan.props {
+                write_padding(buf, *pad)?;
                 let prop_val = value.as_brdb_struct_prop_value(schema, plan.s_id, *prop_id)?;
                 write_flat_op(schema, buf, prop_op, &*prop_val)?;
             }
-            Ok(())
+            write_padding(buf, plan.tail_pad)
         }
         FlatOp::Fallback(ty) => write_brdb_flat(schema, buf, ty, value),
     }
@@ -1585,7 +1703,7 @@ mod tests {
 
     #[test]
     fn test_named_variant_round_trip() {
-        use crate::schema::{BrdbSchema, BrdbValue, WireVariant, read::read_type};
+        use crate::schema::{BrdbSchema, BrdbValue, EA3WireVariant, read::read_type};
         use std::sync::Arc;
 
         let schema = Arc::new(
@@ -1612,7 +1730,7 @@ struct Vector {
             &schema,
             &mut buf,
             "WireGraphVariant",
-            &BrdbValue::WireVar(WireVariant::Number(3.5)),
+            &BrdbValue::EA3WireVar(EA3WireVariant::Number(3.5)),
         )
         .unwrap();
         assert_eq!(buf[0], 0); // tag 0
@@ -1625,7 +1743,7 @@ struct Vector {
             &schema,
             &mut buf,
             "WireGraphVariant",
-            &BrdbValue::WireVar(WireVariant::Bool(true)),
+            &BrdbValue::EA3WireVar(EA3WireVariant::Bool(true)),
         )
         .unwrap();
         assert_eq!(buf[0], 2); // tag 2
@@ -1634,7 +1752,13 @@ struct Vector {
 
         // AsBrdbValue path (write_brdb, the authoring path): Int -> i64 member (tag 1).
         let mut buf = Vec::new();
-        super::write_brdb(&schema, &mut buf, "WireGraphVariant", &WireVariant::Int(7)).unwrap();
+        super::write_brdb(
+            &schema,
+            &mut buf,
+            "WireGraphVariant",
+            &EA3WireVariant::Int(7),
+        )
+        .unwrap();
         assert_eq!(buf[0], 1); // tag 1
         let val = read_type(&schema, "WireGraphVariant", &mut buf.as_slice()).unwrap();
         assert!(matches!(val, BrdbValue::I64(7)));
@@ -1651,7 +1775,7 @@ struct Vector {
         // The legacy literal `wire_graph_variant` tag 3 is a `weak_object`
         // (object/asset reference), an i64 index that must round-trip (it was
         // previously written/read as nothing, causing misalignment).
-        use crate::schema::{BrdbSchema, BrdbValue, WireVariant, read::read_type};
+        use crate::schema::{BrdbSchema, BrdbValue, EA3WireVariant, read::read_type};
         use std::sync::Arc;
 
         let schema = Arc::new(BrdbSchema::default());
@@ -1662,13 +1786,13 @@ struct Vector {
                 &schema,
                 &mut buf,
                 "wire_graph_variant",
-                &BrdbValue::WireVar(WireVariant::Object(obj)),
+                &BrdbValue::EA3WireVar(EA3WireVariant::Object(obj)),
             )
             .unwrap();
             assert_eq!(buf[0], 3); // tag 3
             let val = read_type(&schema, "wire_graph_variant", &mut buf.as_slice()).unwrap();
             match val {
-                BrdbValue::WireVar(WireVariant::Object(got)) => assert_eq!(got, obj),
+                BrdbValue::EA3WireVar(EA3WireVariant::Object(got)) => assert_eq!(got, obj),
                 other => panic!("expected Object, got {other:?}"),
             }
         }
@@ -1676,7 +1800,7 @@ struct Vector {
 
     #[test]
     fn test_named_variant_vector_and_str_round_trip() {
-        use crate::schema::{BrdbSchema, BrdbValue, WireVariant, read::read_type};
+        use crate::schema::{BrdbSchema, BrdbValue, EA3WireVariant, read::read_type};
         use crate::wrapper::Vector3f;
         use std::sync::Arc;
 
@@ -1709,7 +1833,7 @@ struct WireGraphExec {
             &schema,
             &mut buf,
             "WireGraphVariant",
-            &WireVariant::Str("hi".into()),
+            &EA3WireVariant::Str("hi".into()),
         )
         .unwrap();
         assert_eq!(buf[0], 6); // tag 6
@@ -1722,7 +1846,7 @@ struct WireGraphExec {
             &schema,
             &mut buf,
             "WireGraphVariant",
-            &WireVariant::Vector(Vector3f {
+            &EA3WireVariant::Vector(Vector3f {
                 x: 1.0,
                 y: 2.0,
                 z: 3.0,
@@ -1733,14 +1857,14 @@ struct WireGraphExec {
         let val = read_type(&schema, "WireGraphVariant", &mut buf.as_slice()).unwrap();
         assert!(matches!(val, BrdbValue::Struct(_)));
 
-        // A plain `String` authors via `as_brdb_wire_variant` -> str (tag 6).
+        // A plain `String` authors via `as_brdb_ea3_wire_variant` -> str (tag 6).
         let mut buf = Vec::new();
         super::write_brdb(&schema, &mut buf, "WireGraphVariant", &String::from("yo")).unwrap();
         assert_eq!(buf[0], 6);
         let val = read_type(&schema, "WireGraphVariant", &mut buf.as_slice()).unwrap();
         assert!(matches!(val, BrdbValue::String(s) if s == "yo"));
 
-        // A plain `Vector3f` authors via `as_brdb_wire_variant` -> Vector (tag 5).
+        // A plain `Vector3f` authors via `as_brdb_ea3_wire_variant` -> Vector (tag 5).
         let mut buf = Vec::new();
         super::write_brdb(
             &schema,
@@ -1754,213 +1878,5 @@ struct WireGraphExec {
         )
         .unwrap();
         assert_eq!(buf[0], 5);
-    }
-
-    #[test]
-    fn test_named_array_variant_round_trip() {
-        use crate::schema::{BrdbSchema, WireArrayVariant, read::read_type};
-        use std::sync::Arc;
-
-        let schema = Arc::new(
-            BrdbSchema::new_parsed(
-                "variant WireGraphArrayVariant {
-    WireGraphDoubleArray,
-    WireGraphStringArray,
-}
-struct WireGraphDoubleArray {
-    Values: f64[],
-}
-struct WireGraphStringArray {
-    Values: str[],
-}
-",
-            )
-            .unwrap(),
-        );
-
-        // DoubleArray -> WireGraphDoubleArray member (tag 0).
-        let mut buf = Vec::new();
-        super::write_brdb(
-            &schema,
-            &mut buf,
-            "WireGraphArrayVariant",
-            &WireArrayVariant::DoubleArray(vec![1.0, 2.0, 3.0]),
-        )
-        .unwrap();
-        assert_eq!(buf[0], 0); // tag 0
-        let val = read_type(&schema, "WireGraphArrayVariant", &mut buf.as_slice()).unwrap();
-        // Read back into a WireArrayVariant via TryFrom.
-        let back = WireArrayVariant::try_from(&val).unwrap();
-        assert_eq!(back, WireArrayVariant::DoubleArray(vec![1.0, 2.0, 3.0]));
-
-        // StringArray -> WireGraphStringArray member (tag 1), full round-trip.
-        let mut buf = Vec::new();
-        super::write_brdb(
-            &schema,
-            &mut buf,
-            "WireGraphArrayVariant",
-            &WireArrayVariant::StringArray(vec!["a".into(), "b".into()]),
-        )
-        .unwrap();
-        assert_eq!(buf[0], 1); // tag 1
-        let val = read_type(&schema, "WireGraphArrayVariant", &mut buf.as_slice()).unwrap();
-        let back = WireArrayVariant::try_from(&val).unwrap();
-        assert_eq!(
-            back,
-            WireArrayVariant::StringArray(vec!["a".into(), "b".into()])
-        );
-    }
-}
-
-#[cfg(test)]
-mod map_variant_tests {
-    use super::write_map_values;
-    use crate::schema::value::{
-        WireMapKey, WireMapKeyData, WireMapValue, WireMapValueData, WireMapVariant,
-    };
-
-    #[test]
-    fn write_map_values_int_to_int() {
-        // One entry {1: 10}: map_len(1) then key int(1) then value int(10).
-        let m = WireMapVariant {
-            key: WireMapKey::Int64,
-            value: WireMapValue::Int64,
-            entries: vec![(WireMapKeyData::Int64(1), WireMapValueData::Int64(10))],
-        };
-        let mut buf = Vec::new();
-        write_map_values(&mut buf, &m).unwrap();
-        // msgpack: fixmap len 1 = 0x81; positive fixints 1 = 0x01, 10 = 0x0A.
-        assert_eq!(buf, vec![0x81, 0x01, 0x0A]);
-    }
-
-    #[test]
-    fn write_map_values_int_to_str() {
-        let m = WireMapVariant {
-            key: WireMapKey::Int64,
-            value: WireMapValue::Str,
-            entries: vec![(WireMapKeyData::Int64(2), WireMapValueData::Str("hi".into()))],
-        };
-        let mut buf = Vec::new();
-        write_map_values(&mut buf, &m).unwrap();
-        // 0x81 map_len(1), 0x02 key int(2), then a msgpack str "hi" (0xA2 'h' 'i').
-        assert_eq!(buf, vec![0x81, 0x02, 0xA2, b'h', b'i']);
-    }
-
-    #[test]
-    fn write_map_values_empty_is_map_len_zero() {
-        let m = WireMapVariant {
-            key: WireMapKey::Int64,
-            value: WireMapValue::Number,
-            entries: vec![],
-        };
-        let mut buf = Vec::new();
-        write_map_values(&mut buf, &m).unwrap();
-        assert_eq!(buf, vec![0x80]); // fixmap len 0
-    }
-
-    #[test]
-    fn write_map_values_int_to_vector_struct_bytes() {
-        // One entry {1: Vector(1.5, -2.5, 3.75)}: map_len(1), key int(1), then
-        // the struct's x/y/z fields — the subtlest value arm (Vector/Rotator/
-        // Quat/LinearColor all frame a struct's fields inline, not a single
-        // scalar), uncovered by the int/str/empty cases above. Non-whole
-        // components so `write_float64`'s int-optimization doesn't kick in
-        // and the msgpack f64 encoding is actually exercised.
-        use crate::wrapper::Vector3f;
-        let m = WireMapVariant {
-            key: WireMapKey::Int64,
-            value: WireMapValue::Vector,
-            entries: vec![(
-                WireMapKeyData::Int64(1),
-                WireMapValueData::Vector(Vector3f {
-                    x: 1.5,
-                    y: -2.5,
-                    z: 3.75,
-                }),
-            )],
-        };
-        let mut buf = Vec::new();
-        write_map_values(&mut buf, &m).unwrap();
-
-        // Expected: fixmap len 1 (0x81), positive fixint key 1 (0x01), then
-        // the x/y/z fields, written with the same low-level `write_float64`
-        // the Vector arm calls (x, y, z in order).
-        let mut want = vec![0x81, 0x01];
-        super::write_float64(&mut want, 1.5).unwrap();
-        super::write_float64(&mut want, -2.5).unwrap();
-        super::write_float64(&mut want, 3.75).unwrap();
-        assert_eq!(buf, want);
-    }
-
-    #[test]
-    fn write_named_map_variant_object_key_omits_values_map() {
-        // The schema's `WireGraphMap_FWeakObjectPtr_<V>` structs are EMPTY (no
-        // `Values` field), so an object-keyed map must write ONLY the two
-        // variant tags — emitting a map header there is a stray byte that
-        // desyncs the shared SoA component column.
-        let schema = crate::wrapper::schemas::bricks_components_schema_max();
-        let m = WireMapVariant {
-            key: WireMapKey::Object,
-            value: WireMapValue::Int64,
-            entries: vec![],
-        };
-        let mut buf = Vec::new();
-        super::write_named_map_variant(schema, &mut buf, "WireGraphMapVariant", &m).unwrap();
-        // key_tag + value_tag only (both small fixint uints = 1 byte each);
-        // NO `0x80` map header after.
-        assert_eq!(
-            buf.len(),
-            2,
-            "object-keyed map must not emit a Values map header; got {buf:?}"
-        );
-    }
-
-    #[test]
-    fn non_empty_map_round_trips_write_then_read() {
-        // A populated int64->int64 map must survive write -> read. Previously
-        // impossible: the reader's `Map` arm used `read_named_type`, which
-        // rejects the primitive `i64` key/value. Exercises BOTH the writer
-        // (has-`Values` int64 struct -> writes the map) and the reader fix.
-        use crate::schema::read::read_type;
-        use crate::schema::value::BrdbValue;
-        use std::sync::Arc;
-
-        let schema = Arc::new(crate::wrapper::schemas::bricks_components_schema_max().clone());
-        let m = WireMapVariant {
-            key: WireMapKey::Int64,
-            value: WireMapValue::Int64,
-            entries: vec![
-                (WireMapKeyData::Int64(1), WireMapValueData::Int64(10)),
-                (WireMapKeyData::Int64(2), WireMapValueData::Int64(20)),
-            ],
-        };
-        let mut buf = Vec::new();
-        super::write_named_map_variant(&schema, &mut buf, "WireGraphMapVariant", &m).unwrap();
-
-        let val = read_type(&schema, "WireGraphMapVariant", &mut &buf[..]).unwrap();
-        // A named variant decodes to its member value directly: the KeyWrapper
-        // struct `{ Map: <inner variant> }`, whose `Map` is the
-        // `WireGraphMap_int64_int64` struct `{ Values: {i64:i64} }`.
-        let field = |v: &BrdbValue, name: &str| -> BrdbValue {
-            match v {
-                BrdbValue::Struct(s) => s
-                    .get(name)
-                    .cloned()
-                    .unwrap_or_else(|| panic!("missing field {name}")),
-                other => panic!("expected struct for field {name}, got {other:?}"),
-            }
-        };
-        let values = field(&field(&val, "Map"), "Values");
-        let BrdbValue::Map(entries) = values else {
-            panic!("Values is not a map: {values:?}");
-        };
-        let got: Vec<(i64, i64)> = entries
-            .iter()
-            .map(|(k, v)| match (k, v) {
-                (BrdbValue::I64(k), BrdbValue::I64(v)) => (*k, *v),
-                other => panic!("non-i64 map entry: {other:?}"),
-            })
-            .collect();
-        assert_eq!(got, vec![(1, 10), (2, 20)]);
     }
 }

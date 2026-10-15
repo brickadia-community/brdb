@@ -1,8 +1,9 @@
+//! Logic/math gates (`BrickComponentType_Expr_*`, `BCSComponentVertex_Expr_*`
+//! data).
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
-    assets,
-    schema::{BrdbSchema, BrdbSchemaMeta, WireVariant, as_brdb::AsBrdbValue},
+    schema::{BrdbSchema, BrdbSchemaMeta, WireValue, as_brdb::AsBrdbValue},
     wrapper::{BString, BrdbComponent, BrickType, WirePort},
 };
 
@@ -46,78 +47,56 @@ pub enum LogicGate {
 }
 
 impl LogicGate {
+    pub const COMPONENT_BOOL_AND: BString = BString::str("BrickComponentType_Expr_LogicalAND");
+    pub const COMPONENT_BOOL_OR: BString = BString::str("BrickComponentType_Expr_LogicalOR");
+    pub const COMPONENT_BOOL_XOR: BString = BString::str("BrickComponentType_Expr_LogicalXOR");
+    pub const COMPONENT_BOOL_NAND: BString = BString::str("BrickComponentType_Expr_LogicalNAND");
+    pub const COMPONENT_BOOL_NOR: BString = BString::str("BrickComponentType_Expr_LogicalNOR");
+    pub const COMPONENT_BOOL_NOT: BString = BString::str("BrickComponentType_Expr_LogicalNOT");
 
-    pub const COMPONENT_BOOL_AND: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_LogicalAND");
-    pub const COMPONENT_BOOL_OR: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_LogicalOR");
-    pub const COMPONENT_BOOL_XOR: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_LogicalXOR");
-    pub const COMPONENT_BOOL_NAND: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_LogicalNAND");
-    pub const COMPONENT_BOOL_NOR: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_LogicalNOR");
-    pub const COMPONENT_BOOL_NOT: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_LogicalNOT");
-
-    pub const COMPONENT_BIT_AND: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_BitwiseAND");
-    pub const COMPONENT_BIT_OR: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_BitwiseOR");
-    pub const COMPONENT_BIT_XOR: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_BitwiseXOR");
-    pub const COMPONENT_BIT_NAND: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_BitwiseNAND");
-    pub const COMPONENT_BIT_NOR: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_BitwiseNOR");
-    pub const COMPONENT_BIT_NOT: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_BitwiseNOT");
+    pub const COMPONENT_BIT_AND: BString = BString::str("BrickComponentType_Expr_BitwiseAND");
+    pub const COMPONENT_BIT_OR: BString = BString::str("BrickComponentType_Expr_BitwiseOR");
+    pub const COMPONENT_BIT_XOR: BString = BString::str("BrickComponentType_Expr_BitwiseXOR");
+    pub const COMPONENT_BIT_NAND: BString = BString::str("BrickComponentType_Expr_BitwiseNAND");
+    pub const COMPONENT_BIT_NOR: BString = BString::str("BrickComponentType_Expr_BitwiseNOR");
+    pub const COMPONENT_BIT_NOT: BString = BString::str("BrickComponentType_Expr_BitwiseNOT");
     pub const COMPONENT_BIT_SHIFT_LEFT: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_BitwiseShiftLeft");
+        BString::str("BrickComponentType_Expr_BitwiseShiftLeft");
     pub const COMPONENT_BIT_SHIFT_RIGHT: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_BitwiseShiftRight");
+        BString::str("BrickComponentType_Expr_BitwiseShiftRight");
 
-    pub const COMPONENT_SUB: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_MathSubtract");
-    pub const COMPONENT_MUL: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_MathMultiply");
+    pub const COMPONENT_SUB: BString = BString::str("BrickComponentType_Expr_MathSubtract");
+    pub const COMPONENT_MUL: BString = BString::str("BrickComponentType_Expr_MathMultiply");
     pub const COMPONENT_MOD_FLOORED: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_MathModuloFloored");
-    pub const COMPONENT_MOD: BString = BString::str("BrickComponentType_WireGraph_Expr_MathModulo");
-    pub const COMPONENT_DIV: BString = BString::str("BrickComponentType_WireGraph_Expr_MathDivide");
-    pub const COMPONENT_ADD: BString = BString::str("BrickComponentType_WireGraph_Expr_MathAdd");
-    pub const COMPONENT_CEIL: BString = BString::str("BrickComponentType_WireGraph_Expr_Ceil");
-    pub const COMPONENT_FLOOR: BString = BString::str("BrickComponentType_WireGraph_Expr_Floor");
+        BString::str("BrickComponentType_Expr_MathModuloFloored");
+    pub const COMPONENT_MOD: BString = BString::str("BrickComponentType_Expr_MathModulo");
+    pub const COMPONENT_DIV: BString = BString::str("BrickComponentType_Expr_MathDivide");
+    pub const COMPONENT_ADD: BString = BString::str("BrickComponentType_Expr_MathAdd");
+    pub const COMPONENT_CEIL: BString = BString::str("BrickComponentType_Expr_Ceil");
+    pub const COMPONENT_FLOOR: BString = BString::str("BrickComponentType_Expr_Floor");
 
-    pub const COMPONENT_EQ: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_CompareEqual");
-    pub const COMPONENT_NEQ: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_CompareNotEqual");
-    pub const COMPONENT_LT: BString = BString::str("BrickComponentType_WireGraph_Expr_CompareLess");
-    pub const COMPONENT_LEQ: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_CompareLessOrEqual");
-    pub const COMPONENT_GT: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_CompareGreater");
+    pub const COMPONENT_EQ: BString = BString::str("BrickComponentType_Expr_CompareEqual");
+    pub const COMPONENT_NEQ: BString = BString::str("BrickComponentType_Expr_CompareNotEqual");
+    pub const COMPONENT_LT: BString = BString::str("BrickComponentType_Expr_CompareLess");
+    pub const COMPONENT_LEQ: BString = BString::str("BrickComponentType_Expr_CompareLessOrEqual");
+    pub const COMPONENT_GT: BString = BString::str("BrickComponentType_Expr_CompareGreater");
     pub const COMPONENT_GEQ: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_CompareGreaterOrEqual");
+        BString::str("BrickComponentType_Expr_CompareGreaterOrEqual");
 
-    pub const COMPONENT_BLEND: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_MathBlend");
+    pub const COMPONENT_BLEND: BString = BString::str("BrickComponentType_Expr_MathBlend");
     pub const COMPONENT_EDGE_DETECTOR: BString =
-        BString::str("BrickComponentType_WireGraph_Expr_EdgeDetector");
+        BString::str("BrickComponentType_Expr_EdgeDetector");
 
-    pub const STRUCT_BOOL_BOOL_STR: &str = "BrickComponentData_WireGraph_Expr_Bool_Bool";
-    pub const STRUCT_BINARY_BOOLBOOL_BOOL_STR: &str =
-        "BrickComponentData_WireGraph_Expr_BoolBool_Bool";
-    pub const STRUCT_COMPARE_STR: &str = "BrickComponentData_WireGraph_Expr_Compare";
-    pub const STRUCT_FLOAT_FLOAT_STR: &str = "BrickComponentData_WireGraph_Expr_Float_Float";
-    pub const STRUCT_INT_INT_STR: &str = "BrickComponentData_WireGraph_Expr_Int_Int";
-    pub const STRUCT_BINARY_INTINT_INT_STR: &str = "BrickComponentData_WireGraph_Expr_IntInt_Int";
-    pub const STRUCT_MATH_COMPARE_STR: &str = "BrickComponentData_WireGraph_Expr_MathCompare";
-    pub const STRUCT_NUMNUM_NUM_STR: &str =
-        "BrickComponentData_WireGraph_Expr_PrimMathVariantPrimMathVariant_PrimMathVariant";
-    pub const STRUCT_BLEND_STR: &str = "BrickComponentData_WireGraph_Expr_MathBlend";
-    pub const STRUCT_EDGE_DETECTOR_STR: &str = "BrickComponentData_WireGraph_Expr_EdgeDetector";
+    pub const STRUCT_BOOL_BOOL_STR: &str = "BCSComponentVertex_Expr_Bool_Bool";
+    pub const STRUCT_BINARY_BOOLBOOL_BOOL_STR: &str = "BCSComponentVertex_Expr_BoolBool_Bool";
+    pub const STRUCT_COMPARE_STR: &str = "BCSComponentVertex_Expr_Compare";
+    pub const STRUCT_FLOAT_FLOAT_STR: &str = "BCSComponentVertex_Expr_Float_Float";
+    pub const STRUCT_INT_INT_STR: &str = "BCSComponentVertex_Expr_Int_Int";
+    pub const STRUCT_BINARY_INTINT_INT_STR: &str = "BCSComponentVertex_Expr_IntInt_Int";
+    pub const STRUCT_MATH_COMPARE_STR: &str = "BCSComponentVertex_Expr_MathCompare";
+    pub const STRUCT_NUMNUM_NUM_STR: &str = "BCSComponentVertex_Expr_ArithmeticArithmetic_Value";
+    pub const STRUCT_BLEND_STR: &str = "BCSComponentVertex_Expr_MathBlend";
+    pub const STRUCT_EDGE_DETECTOR_STR: &str = "BCSComponentVertex_Expr_EdgeDetector";
 
     pub const STRUCT_BOOL_BOOL: BString = BString::str(Self::STRUCT_BOOL_BOOL_STR);
     pub const STRUCT_BINARY_BOOLBOOL_BOOL: BString =
@@ -233,21 +212,37 @@ impl LogicGate {
 
     pub fn schema(&self) -> BrdbSchemaMeta {
         let schema_str = match self.struct_name().as_ref() {
-            Self::STRUCT_BOOL_BOOL_STR => "struct BrickComponentData_WireGraph_Expr_Bool_Bool { bInput: bool }",
-            Self::STRUCT_BINARY_BOOLBOOL_BOOL_STR => "struct BrickComponentData_WireGraph_Expr_BoolBool_Bool { bInputA: bool, bInputB: bool }",
-            Self::STRUCT_COMPARE_STR => "struct BrickComponentData_WireGraph_Expr_Compare { InputA: WireGraphVariant, InputB: WireGraphVariant }",
-            Self::STRUCT_FLOAT_FLOAT_STR => "struct BrickComponentData_WireGraph_Expr_Float_Float { Input: f64 }",
-            Self::STRUCT_INT_INT_STR => "struct BrickComponentData_WireGraph_Expr_Int_Int { Input: i64 }",
-            Self::STRUCT_BINARY_INTINT_INT_STR => "struct BrickComponentData_WireGraph_Expr_IntInt_Int { InputA: i64, InputB: i64 }",
-            Self::STRUCT_MATH_COMPARE_STR => "struct BrickComponentData_WireGraph_Expr_MathCompare { InputA: WireGraphPrimMathVariant, InputB: WireGraphPrimMathVariant }",
+            Self::STRUCT_BOOL_BOOL_STR => {
+                "struct BCSComponentVertex_Expr_Bool_Bool { bInput: bool }"
+            }
+            Self::STRUCT_BINARY_BOOLBOOL_BOOL_STR => {
+                "struct BCSComponentVertex_Expr_BoolBool_Bool { bInputA: bool, bInputB: bool }"
+            }
+            Self::STRUCT_COMPARE_STR => {
+                "struct BCSComponentVertex_Expr_Compare { InputA: WireValue, InputB: WireValue }"
+            }
+            Self::STRUCT_FLOAT_FLOAT_STR => {
+                "struct BCSComponentVertex_Expr_Float_Float { Input: f64 }"
+            }
+            Self::STRUCT_INT_INT_STR => "struct BCSComponentVertex_Expr_Int_Int { Input: i64 }",
+            Self::STRUCT_BINARY_INTINT_INT_STR => {
+                "struct BCSComponentVertex_Expr_IntInt_Int { InputA: i64, InputB: i64 }"
+            }
+            Self::STRUCT_MATH_COMPARE_STR => {
+                "struct BCSComponentVertex_Expr_MathCompare { InputA: WireValue, InputB: WireValue }"
+            }
             Self::STRUCT_NUMNUM_NUM_STR => {
-                "struct BrickComponentData_WireGraph_Expr_PrimMathVariantPrimMathVariant_PrimMathVariant {
-                    InputA: WireGraphPrimMathVariant,
-                    InputB: WireGraphPrimMathVariant
+                "struct BCSComponentVertex_Expr_ArithmeticArithmetic_Value {
+                    InputA: WireValue,
+                    InputB: WireValue
                 }"
             }
-            Self::STRUCT_BLEND_STR => "struct BrickComponentData_WireGraph_Expr_MathBlend { Blend: f64, bClampAlpha: bool, InputA: WireGraphPrimMathVariant, InputB: WireGraphPrimMathVariant }",
-            Self::STRUCT_EDGE_DETECTOR_STR => "struct BrickComponentData_WireGraph_Expr_EdgeDetector { Input: f64, bPulseOnRisingEdge: bool, bPulseOnFallingEdge: bool }",
+            Self::STRUCT_BLEND_STR => {
+                "struct BCSComponentVertex_Expr_MathBlend { Blend: f64, bClampAlpha: bool, InputA: WireValue, InputB: WireValue }"
+            }
+            Self::STRUCT_EDGE_DETECTOR_STR => {
+                "struct BCSComponentVertex_Expr_EdgeDetector { Input: f64, bPulseOnRisingEdge: bool, bPulseOnFallingEdge: bool }"
+            }
             n => unimplemented!("unimplemented struct {n}"),
         };
         BrdbSchema::parse_to_meta(schema_str).unwrap()
@@ -326,10 +321,10 @@ impl LogicGate {
                 vec![Box::new(0.0f64), Box::new(0.0f64)]
             }
             Self::Blend => vec![
-                Box::new(WireVariant::Number(0.0)), // InputA (index 0)
-                Box::new(WireVariant::Number(0.0)), // InputB (index 1)
-                Box::new(0.5f64),                   // Blend  (index 2)
-                Box::new(false),                    // bClampAlpha (index 3)
+                Box::new(WireValue::Number(0.0)), // InputA (index 0)
+                Box::new(WireValue::Number(0.0)), // InputB (index 1)
+                Box::new(0.5f64),                 // Blend  (index 2)
+                Box::new(false),                  // bClampAlpha (index 3)
             ],
             Self::EdgeDetector => vec![
                 Box::new(0.0f64), // Default input value
@@ -448,43 +443,39 @@ impl LogicGate {
         }
     }
 
-    pub fn brick(self) -> BrickType {
+    /// The gate's host brick.
+    pub const fn brick(self) -> BrickType {
         match self {
-            Self::BoolAnd => assets::bricks::B_GATE_BOOL_AND,
-            Self::BoolOr => assets::bricks::B_GATE_BOOL_OR,
-            Self::BoolXor => assets::bricks::B_GATE_BOOL_XOR,
-            Self::BoolNand => assets::bricks::B_GATE_BOOL_NAND,
-            Self::BoolNor => assets::bricks::B_GATE_BOOL_NOR,
-            Self::BoolNot => assets::bricks::B_GATE_BOOL_NOT,
-
-            Self::BitAnd => assets::bricks::B_GATE_BIT_AND,
-            Self::BitOr => assets::bricks::B_GATE_BIT_OR,
-            Self::BitXor => assets::bricks::B_GATE_BIT_XOR,
-            Self::BitNand => assets::bricks::B_GATE_BIT_NAND,
-            Self::BitNor => assets::bricks::B_GATE_BIT_NOR,
-            Self::BitNot => assets::bricks::B_GATE_BIT_NOT,
-
-            Self::BitShiftLeft => assets::bricks::B_GATE_BIT_SHIFT_LEFT,
-            Self::BitShiftRight => assets::bricks::B_GATE_BIT_SHIFT_RIGHT,
-
-            Self::Add => assets::bricks::B_GATE_ADD,
-            Self::Sub => assets::bricks::B_GATE_SUBTRACT,
-            Self::Mul => assets::bricks::B_GATE_MULTIPLY,
-            Self::ModFloored => assets::bricks::B_GATE_MOD_FLOORED,
-            Self::Mod => assets::bricks::B_GATE_MOD,
-            Self::Div => assets::bricks::B_GATE_DIVIDE,
-            Self::Ceil => assets::bricks::B_GATE_CEILING,
-            Self::Floor => assets::bricks::B_GATE_FLOOR,
-
-            Self::Eq => assets::bricks::B_GATE_EQUAL,
-            Self::Neq => assets::bricks::B_GATE_NOT_EQUAL,
-            Self::Lt => assets::bricks::B_GATE_LESS_THAN,
-            Self::Leq => assets::bricks::B_GATE_LESS_THAN_EQUAL,
-            Self::Gt => assets::bricks::B_GATE_GREATER_THAN,
-            Self::Geq => assets::bricks::B_GATE_GREATER_THAN_EQUAL,
-
-            Self::Blend => assets::bricks::B_GATE_BLEND,
-            Self::EdgeDetector => assets::bricks::B_GATE_EDGE_DETECTOR,
+            Self::BoolAnd => BrickType::str("B_1x1_Gate_Expr_LogicalAND"),
+            Self::BoolOr => BrickType::str("B_1x1_Gate_Expr_LogicalOR"),
+            Self::BoolXor => BrickType::str("B_1x1_Gate_Expr_LogicalXOR"),
+            Self::BoolNand => BrickType::str("B_1x1_Gate_Expr_LogicalNAND"),
+            Self::BoolNor => BrickType::str("B_1x1_Gate_Expr_LogicalNOR"),
+            Self::BoolNot => BrickType::str("B_1x1_Gate_Expr_LogicalNOT"),
+            Self::BitAnd => BrickType::str("B_1x1_Gate_Expr_BitwiseAND"),
+            Self::BitOr => BrickType::str("B_1x1_Gate_Expr_BitwiseOR"),
+            Self::BitXor => BrickType::str("B_1x1_Gate_Expr_BitwiseXOR"),
+            Self::BitNand => BrickType::str("B_1x1_Gate_Expr_BitwiseNAND"),
+            Self::BitNor => BrickType::str("B_1x1_Gate_Expr_BitwiseNOR"),
+            Self::BitNot => BrickType::str("B_1x1_Gate_Expr_BitwiseNOT"),
+            Self::BitShiftLeft => BrickType::str("B_1x1_Gate_Expr_BitwiseShiftLeft"),
+            Self::BitShiftRight => BrickType::str("B_1x1_Gate_Expr_BitwiseShiftRight"),
+            Self::Add => BrickType::str("B_1x1_Gate_Expr_MathAdd"),
+            Self::Sub => BrickType::str("B_1x1_Gate_Expr_MathSubtract"),
+            Self::Mul => BrickType::str("B_1x1_Gate_Expr_MathMultiply"),
+            Self::ModFloored => BrickType::str("B_1x1_Gate_Expr_MathModuloFloored"),
+            Self::Mod => BrickType::str("B_1x1_Gate_Expr_MathModulo"),
+            Self::Div => BrickType::str("B_1x1_Gate_Expr_MathDivide"),
+            Self::Ceil => BrickType::str("B_1x1_Gate_Expr_Ceil"),
+            Self::Floor => BrickType::str("B_1x1_Gate_Expr_Floor"),
+            Self::Eq => BrickType::str("B_1x1_Gate_Expr_CompareEqual"),
+            Self::Neq => BrickType::str("B_1x1_Gate_Expr_CompareNotEqual"),
+            Self::Lt => BrickType::str("B_1x1_Gate_Expr_CompareLess"),
+            Self::Leq => BrickType::str("B_1x1_Gate_Expr_CompareLessOrEqual"),
+            Self::Gt => BrickType::str("B_1x1_Gate_Expr_CompareGreater"),
+            Self::Geq => BrickType::str("B_1x1_Gate_Expr_CompareGreaterOrEqual"),
+            Self::Blend => BrickType::str("B_1x1_Gate_Expr_MathBlend"),
+            Self::EdgeDetector => BrickType::str("B_1x1_Gate_Expr_EdgeDetector"),
         }
     }
 }

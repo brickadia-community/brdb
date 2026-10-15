@@ -12,6 +12,29 @@ pub fn dynamic_grid_entity() -> Arc<Box<dyn BrdbComponent>> {
     Arc::new(Box::new(LiteralComponent::new(DYNAMIC_GRID)))
 }
 
+/// Game defaults for unset entity data fields whose zero value differs from
+/// what the game writes for a fresh grid (zero would save an invisible,
+/// massless, gravity-free grid). Entity data structs have no generated
+/// `STRUCT_DEFAULTS` entry, so the writer falls back to this table before
+/// writing a zero. Fields whose game default is zero are omitted.
+pub(crate) fn entity_field_default(
+    struct_name: &str,
+    field: &str,
+) -> Option<&'static dyn AsBrdbValue> {
+    static TRUE: bool = true;
+    static ONE: f32 = 1.0;
+    static BUOYANCY: f32 = 0.2;
+    match (struct_name, field) {
+        ("BrickGridDynamicActor", "BouyancyScale") => Some(&BUOYANCY),
+        ("BrickGridDynamicActor", "MassScale") => Some(&ONE),
+        (
+            "BrickGridDynamicActor",
+            "bEnableGravity" | "bUseNewMassCalculation" | "bReceivesDecals" | "bVisible",
+        ) => Some(&TRUE),
+        _ => None,
+    }
+}
+
 /// Entity surface type name (goes in `EntityTypeNames`) for the inner grid
 /// of a microchip brick. Each microchip brick links to exactly one of these
 /// via `ComponentChunkSoA`'s `microchip_brick_indices` /

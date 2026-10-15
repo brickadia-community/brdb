@@ -1,16 +1,21 @@
 //! Deterministic fixture generator for the brs-js cross-language test suite.
-//! Writes into crates/brdb/fixtures/: six worlds as raw + zstd-14 .brz,
-//! hashes.json (per-path BLAKE3 of decompressed payloads), and the nine
+//! Writes into crates/brdb/fixtures/: the worlds below as raw + zstd-14 .brz
+//! and .brdb, hashes.json (per-path BLAKE3 of decompressed payloads), and the
 //! embedded schemas serialized to binary msgpack.
+//!
+//! Worlds use the default (Latest) schema format; the `*_latest` worlds pin
+//! it explicitly.
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::PathBuf;
 
 use brdb::fs::BrFs;
-use brdb::schema::WireVariant;
+use brdb::schema::{
+    BrdbDynamicArray, BrdbDynamicEnum, BrdbDynamicMap, BrdbSchemaFormat, BrdbValue, WireValue,
+};
 use brdb::{
-    assets, schemas, AsBrdbValue, BrFsReader, Brdb, Brick, BrickSize, BrickType, Brz,
-    Collision, Direction, Entity, Guid, IntoReader, Owner, Rotation, SavedBrickColor, World,
+    AsBrdbValue, BrFsReader, Brdb, Brick, BrickSize, BrickType, Brz, Collision, Direction, Entity,
+    Guid, IntoReader, Owner, Rotation, SavedBrickColor, World, assets, schemas,
 };
 
 const ALICE_UUID: &str = "a1b2c3d4-e5f6-4789-8abc-def012345678";
@@ -37,20 +42,30 @@ fn features_world() -> World {
 
     let alice = Guid::from_uuid(uuid::Uuid::parse_str(ALICE_UUID).unwrap());
     let bob = Guid::from_uuid(uuid::Uuid::parse_str(BOB_UUID).unwrap());
-    world.owners.insert(alice, Owner {
-        user_id: alice,
-        user_name: "alice".to_string(),
-        display_name: "Alice".to_string(),
-    });
-    world.owners.insert(bob, Owner {
-        user_id: bob,
-        user_name: "bob".to_string(),
-        display_name: "Bob".to_string(),
-    });
+    world.owners.insert(
+        alice,
+        Owner {
+            user_id: alice,
+            user_name: "alice".to_string(),
+            display_name: "Alice".to_string(),
+        },
+    );
+    world.owners.insert(
+        bob,
+        Owner {
+            user_id: bob,
+            user_name: "bob".to_string(),
+            display_name: "Bob".to_string(),
+        },
+    );
 
     let tile = |size: (u16, u16, u16)| BrickType::Procedural {
         asset: assets::bricks::PB_DEFAULT_TILE, // "PB_DefaultTile"
-        size: BrickSize { x: size.0, y: size.1, z: size.2 },
+        size: BrickSize {
+            x: size.0,
+            y: size.1,
+            z: size.2,
+        },
     };
 
     // 1: default brick (PB_DefaultBrick 5x5x6, plastic, intensity 5) — new size slot
@@ -104,7 +119,10 @@ fn features_world() -> World {
         material_intensity: 3,
         direction: Direction::YNegative,
         rotation: Rotation::Deg180,
-        collision: Collision { player: false, ..Default::default() },
+        collision: Collision {
+            player: false,
+            ..Default::default()
+        },
         ..Default::default()
     });
     // 7: invisible, all-collision-off, tiny proc brick
@@ -140,7 +158,7 @@ fn chunks_world() -> World {
     for (pos, color) in [
         ((0, 0, 0), (1, 2, 3)),
         ((-1, -1, -1), (4, 5, 6)),
-        ((2048, 0, 0), (1, 2, 3)),      // same rel pos + color as brick 1
+        ((2048, 0, 0), (1, 2, 3)), // same rel pos + color as brick 1
         ((-2048, 4096, 10), (10, 11, 12)),
         ((500, 500, 500), (42, 42, 42)),
         ((2548, 500, 500), (42, 42, 42)), // same rel pos + color as brick 5
@@ -205,10 +223,10 @@ fn wires_world() -> World {
 fn components_world() -> World {
     // Single grid, single chunk (all positions < 2048) — fully deterministic.
     // register_all_components() embeds the full component catalog so every
-    // type below (light/interact/wiregraph-pseudo/expr) resolves; each
+    // type below (light/interact/buffer/expr) resolves; each
     // component below carries non-default property values, and #4/#5 exercise
-    // a WireGraphVariant-typed property (BufferTicks' Input/Output, and the
-    // Constant gate's Value).
+    // a WireValue-typed property (BufferTicks' Input/Output, and the Blend
+    // gate's inputs).
     let mut world = World::new();
     world.register_all_components();
     world.meta.bundle.description = "Component fixture".to_string();
@@ -221,18 +239,25 @@ fn components_world() -> World {
             color: (255, 255, 255).into(),
             ..Default::default()
         }
-        .with_component(assets::LiteralComponent::new("Component_PointLight").with_data([
-            ("bMatchBrickShape", Box::new(false) as Box<dyn AsBrdbValue>),
-            ("bEnabled", Box::new(true)),
-            ("Brightness", Box::new(500.0f32)),
-            ("Radius", Box::new(800.0f32)),
-            (
-                "Color",
-                Box::new(SavedBrickColor { r: 10, g: 20, b: 30, a: 255 }),
-            ),
-            ("bUseBrickColor", Box::new(false)),
-            ("bCastShadows", Box::new(true)),
-        ])),
+        .with_component(
+            assets::LiteralComponent::new("Component_PointLight").with_data([
+                ("bMatchBrickShape", Box::new(false) as Box<dyn AsBrdbValue>),
+                ("bEnabled", Box::new(true)),
+                ("Brightness", Box::new(500.0f32)),
+                ("Radius", Box::new(800.0f32)),
+                (
+                    "Color",
+                    Box::new(SavedBrickColor {
+                        r: 10,
+                        g: 20,
+                        b: 30,
+                        a: 255,
+                    }),
+                ),
+                ("bUseBrickColor", Box::new(false)),
+                ("bCastShadows", Box::new(true)),
+            ]),
+        ),
     );
 
     // 2: Spot light — narrow cone, non-default brightness/color.
@@ -242,19 +267,26 @@ fn components_world() -> World {
             color: (255, 255, 0).into(),
             ..Default::default()
         }
-        .with_component(assets::LiteralComponent::new("Component_SpotLight").with_data([
-            ("InnerConeAngle", Box::new(15.0f32) as Box<dyn AsBrdbValue>),
-            ("OuterConeAngle", Box::new(45.0f32)),
-            ("bEnabled", Box::new(true)),
-            ("Brightness", Box::new(300.0f32)),
-            ("Radius", Box::new(600.0f32)),
-            (
-                "Color",
-                Box::new(SavedBrickColor { r: 255, g: 0, b: 0, a: 255 }),
-            ),
-            ("bUseBrickColor", Box::new(false)),
-            ("bCastShadows", Box::new(true)),
-        ])),
+        .with_component(
+            assets::LiteralComponent::new("Component_SpotLight").with_data([
+                ("InnerConeAngle", Box::new(15.0f32) as Box<dyn AsBrdbValue>),
+                ("OuterConeAngle", Box::new(45.0f32)),
+                ("bEnabled", Box::new(true)),
+                ("Brightness", Box::new(300.0f32)),
+                ("Radius", Box::new(600.0f32)),
+                (
+                    "Color",
+                    Box::new(SavedBrickColor {
+                        r: 255,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    }),
+                ),
+                ("bUseBrickColor", Box::new(false)),
+                ("bCastShadows", Box::new(true)),
+            ]),
+        ),
     );
 
     // 3: Interact — custom prompt text, hidden interaction.
@@ -264,20 +296,22 @@ fn components_world() -> World {
             color: (0, 255, 255).into(),
             ..Default::default()
         }
-        .with_component(assets::LiteralComponent::new("Component_Interact").with_data([
-            (
-                "Message",
-                Box::new("You interacted!".to_string()) as Box<dyn AsBrdbValue>,
-            ),
-            ("ConsoleTag", Box::new("fixture_interact".to_string())),
-            ("bAllowNearbyInteraction", Box::new(false)),
-            ("bHiddenInteraction", Box::new(true)),
-            ("PromptCustomLabel", Box::new("Open Door".to_string())),
-        ])),
+        .with_component(
+            assets::LiteralComponent::new("Component_Interact").with_data([
+                (
+                    "Message",
+                    Box::new("You interacted!".to_string()) as Box<dyn AsBrdbValue>,
+                ),
+                ("ConsoleTag", Box::new("fixture_interact".to_string())),
+                ("bAllowNearbyInteraction", Box::new(false)),
+                ("bHiddenInteraction", Box::new(true)),
+                ("PromptCustomLabel", Box::new("Open Door".to_string())),
+            ]),
+        ),
     );
 
-    // 4: Buffer (ticks) — WireGraphPseudo component whose Input/Output are
-    // WireGraphVariant; non-default counters plus a Number/Bool variant pair.
+    // 4: Buffer (ticks) — Input/Output are WireValue; non-default counters
+    // plus a Number/Bool value pair.
     world.bricks.push(
         Brick {
             position: (60, 0, 1).into(),
@@ -288,14 +322,15 @@ fn components_world() -> World {
         .with_component(assets::components::BufferTicks {
             current_ticks: 3,
             ticks_to_wait: 10,
-            input: WireVariant::Number(2.5),
-            output: WireVariant::Bool(true),
+            input: WireValue::Number(2.5),
+            output: WireValue::Bool(true),
+            ..Default::default()
         }),
     );
 
-    // 5: Blend gate — WireGraph_Expr_MathBlend's InputA/InputB are each a
-    // WireGraphPrimMathVariant (here an f64 and an i64 tag, showing the
-    // variant is polymorphic per-port); Blend itself is a plain f64.
+    // 5: Blend gate — Expr_MathBlend's InputA/InputB are each a WireValue
+    // (here an f64 and an i64, showing the value is polymorphic per-port);
+    // Blend itself is a plain f64.
     world.bricks.push(
         Brick {
             position: (80, 0, 1).into(),
@@ -303,16 +338,16 @@ fn components_world() -> World {
             asset: assets::components::LogicGate::Blend.brick(),
             ..Default::default()
         }
-        .with_component(assets::components::LogicGate::Blend.component_with_overrides(
-            HashMap::from([
+        .with_component(
+            assets::components::LogicGate::Blend.component_with_overrides(HashMap::from([
                 (
                     "InputA".into(),
-                    Box::new(WireVariant::Number(10.0)) as Box<dyn AsBrdbValue>,
+                    Box::new(WireValue::Number(10.0)) as Box<dyn AsBrdbValue>,
                 ),
-                ("InputB".into(), Box::new(WireVariant::Int(7))),
+                ("InputB".into(), Box::new(WireValue::Int(7))),
                 ("Blend".into(), Box::new(0.75f64)),
-            ]),
-        )),
+            ])),
+        ),
     );
 
     world
@@ -398,24 +433,158 @@ fn spawner_world() -> World {
             ..Default::default()
         }
         .with_component(
-            assets::LiteralComponent::new("BrickComponentType_WireGraph_Exec_PrefabSpawner")
-                .with_data([(
-                    "Prefab",
-                    Box::new(prefab_path) as Box<dyn AsBrdbValue>,
-                )]),
+            assets::LiteralComponent::new("BrickComponentType_Exec_PrefabSpawner")
+                .with_data([("Prefab", Box::new(prefab_path) as Box<dyn AsBrdbValue>)]),
         ),
     );
     world.make_prefab();
     world
 }
 
-fn hash_archive(path: &PathBuf) -> Result<BTreeMap<String, serde_json::Value>, Box<dyn std::error::Error>> {
+/// `features_world` written in the Latest format.
+fn features_latest_world() -> World {
+    let mut world = features_world();
+    world.schema_format = BrdbSchemaFormat::Latest;
+    world
+}
+
+/// `entities_world` with the current build's schemas in the Latest format.
+fn entities_latest_world() -> World {
+    let mut world = World::new();
+    world.schema_format = BrdbSchemaFormat::Latest;
+    world.register_all_components();
+    world.meta.bundle.description = "Entity fixture".to_string();
+    world.bricks.push(Brick {
+        position: (0, 0, 6).into(),
+        color: (200, 50, 50).into(),
+        ..Default::default()
+    });
+    world.add_brick_grid(
+        Entity {
+            frozen: true,
+            location: (0.0, 0.0, 40.0).into(),
+            ..Default::default()
+        },
+        [Brick {
+            position: (0, 0, 3).into(),
+            color: (0, 255, 0).into(),
+            ..Default::default()
+        }],
+    );
+    world
+}
+
+/// Current-build components in the Latest format: WireValue fields, dynamic
+/// arrays/maps (typed and empty) and a dynamic enum, plus a wire.
+fn components_latest_world() -> World {
+    let mut world = World::new();
+    world.meta.bundle.description = "Latest component fixture".to_string();
+    let gate = |x: i32, asset: &'static str| Brick {
+        position: (x, 0, 1).into(),
+        asset: BrickType::str(asset),
+        ..Default::default()
+    };
+
+    // 1: Blend gate with WireValue inputs (f64 and i64 alternatives).
+    let (blend, blend_id) = gate(0, "B_1x1_Gate_Expr_MathBlend")
+        .with_component(
+            assets::components::LogicGate::Blend.component_with_overrides(HashMap::from([
+                (
+                    "InputA".into(),
+                    Box::new(WireValue::Number(1.5)) as Box<dyn AsBrdbValue>,
+                ),
+                ("InputB".into(), Box::new(WireValue::Int(-3))),
+                ("Blend".into(), Box::new(0.25f64)),
+            ])),
+        )
+        .with_id_split();
+    // 2: Buffer with Str / Bool alternatives.
+    let buffer =
+        gate(20, "B_1x1_Gate_BufferTicks").with_component(assets::components::BufferTicks {
+            ticks_to_wait: 4,
+            input: WireValue::Str("hello".into()),
+            output: WireValue::Bool(true),
+            buffered: WireValue::Vector {
+                x: 1.0,
+                y: -2.0,
+                z: 0.5,
+            },
+            ..Default::default()
+        });
+    // 3: Array variable holding i64 elements.
+    let array = gate(40, "B_1x1_Gate_Variable_Array").with_component(
+        assets::LiteralComponent::new("BrickComponentType_ArrayVar").with_data([(
+            "Value",
+            Box::new(BrdbDynamicArray::new(
+                "i64",
+                vec![BrdbValue::I64(7), BrdbValue::I64(300)],
+            )) as Box<dyn AsBrdbValue>,
+        )]),
+    );
+    // 4: Map variable from Str keys to f64 values.
+    let map = gate(60, "B_1x1_Gate_Variable_Map").with_component(
+        assets::LiteralComponent::new("BrickComponentType_MapVar").with_data([(
+            "Value",
+            Box::new(BrdbDynamicMap::new(
+                "Str",
+                "f64",
+                [(BrdbValue::String("k".into()), BrdbValue::F64(2.5))]
+                    .into_iter()
+                    .collect(),
+            )) as Box<dyn AsBrdbValue>,
+        )]),
+    );
+    // 5: Unset array variable: the default empty container.
+    let empty_array = gate(80, "B_1x1_Gate_Variable_Array")
+        .with_component(assets::LiteralComponent::new("BrickComponentType_ArrayVar"));
+    // 6: Integer to enum: a dynamic enum field and an enum WireValue.
+    let to_enum = gate(100, "B_1x1_Gate_Expr_IntegerToEnum").with_component(
+        assets::LiteralComponent::new("BrickComponentType_Expr_IntegerToEnum").with_data([
+            ("Input", Box::new(2i64) as Box<dyn AsBrdbValue>),
+            (
+                "TargetType",
+                Box::new(BrdbDynamicEnum::new("EBrickAxis", 0)),
+            ),
+            (
+                "Output",
+                Box::new(WireValue::Enum(BrdbDynamicEnum::new("EBrickAxis", 2))),
+            ),
+        ]),
+    );
+    // 7: A rerouter fed by the blend gate.
+    let (reroute, reroute_id) = Brick {
+        position: (120, 0, 1).into(),
+        asset: assets::bricks::B_REROUTE,
+        ..Default::default()
+    }
+    .with_component(assets::components::Rerouter)
+    .with_id_split();
+
+    world.add_bricks([blend, buffer, array, map, empty_array, to_enum, reroute]);
+    world.add_wire_connection(
+        assets::components::LogicGate::Blend.output_of(blend_id),
+        assets::components::Rerouter::input_of(reroute_id),
+    );
+    // Embed only the structs these components use (what brs-js writes).
+    world.register_used_components();
+    world
+}
+
+fn hash_archive(
+    path: &PathBuf,
+) -> Result<BTreeMap<String, serde_json::Value>, Box<dyn std::error::Error>> {
     fn collect(fs: &BrFs, prefix: &str, out: &mut Vec<(String, Option<i64>)>) {
         match fs {
-            BrFs::Root(children) => for (n, c) in children { collect(c, n, out); },
-            BrFs::Folder(_, children) => for (n, c) in children {
-                collect(c, &format!("{prefix}/{n}"), out);
-            },
+            BrFs::Root(children) => {
+                for (n, c) in children {
+                    collect(c, n, out);
+                }
+            }
+            BrFs::Folder(_, children) => {
+                for (n, c) in children {
+                    collect(c, &format!("{prefix}/{n}"), out);
+                }
+            }
             BrFs::File(f) => out.push((prefix.to_string(), f.content_id)),
         }
     }
@@ -429,10 +598,13 @@ fn hash_archive(path: &PathBuf) -> Result<BTreeMap<String, serde_json::Value>, B
             Some(id) => reader.find_blob(id)?.read()?,
             None => Vec::new(),
         };
-        out.insert(p, serde_json::json!({
-            "blake3": blake3::hash(&content).to_hex().to_string(),
-            "len": content.len(),
-        }));
+        out.insert(
+            p,
+            serde_json::json!({
+                "blake3": blake3::hash(&content).to_hex().to_string(),
+                "len": content.len(),
+            }),
+        );
     }
     Ok(out)
 }
@@ -450,6 +622,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("components", components_world()),
         ("entities", entities_world()),
         ("spawner", spawner_world()),
+        ("features_latest", features_latest_world()),
+        ("components_latest", components_latest_world()),
+        ("entities_latest", entities_latest_world()),
     ] {
         let pending = world.to_unsaved()?.to_pending()?;
         // raw variant: no zstd anywhere — byte-comparable across languages
@@ -468,21 +643,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         hashes.insert(name.to_string(), hash_archive(&raw_path)?);
     }
-    fs::write(dir.join("hashes.json"), serde_json::to_string_pretty(&hashes)?)?;
+    fs::write(
+        dir.join("hashes.json"),
+        serde_json::to_string_pretty(&hashes)?,
+    )?;
 
     // The nine embedded schemas as binary msgpack (the exact bytes the
     // writer embeds as *.schema files inside archives).
     for (name, schema) in [
         ("BRSavedGlobalDataSoA", schemas::global_data_schema()),
         ("BRSavedOwnerTableSoA", schemas::owners_schema()),
-        ("BRSavedBrickChunkIndexSoA", schemas::bricks_chunk_index_schema()),
+        (
+            "BRSavedBrickChunkIndexSoA",
+            schemas::bricks_chunk_index_schema(),
+        ),
         ("BRSavedBrickChunkSoA", schemas::bricks_chunks_schema()),
         ("BRSavedWireChunkSoA", schemas::bricks_wires_schema()),
-        ("BRSavedComponentChunkSoA", schemas::bricks_components_schema_min()),
-        ("BRSavedComponentChunkSoA_max", schemas::bricks_components_schema_max()),
-        ("BRSavedEntityChunkIndexSoA", schemas::entities_chunk_index_schema()),
+        (
+            "BRSavedComponentChunkSoA",
+            schemas::bricks_components_schema_min(),
+        ),
+        (
+            "BRSavedComponentChunkSoA_max",
+            schemas::bricks_components_schema_max(),
+        ),
+        (
+            "BRSavedEntityChunkIndexSoA",
+            schemas::entities_chunk_index_schema(),
+        ),
         ("BRSavedEntityChunkSoA", schemas::entities_chunks_schema()),
     ] {
+        // Each schema in its own format (the current max schema has a
+        // types table, so it is written in the Latest form).
         fs::write(dir.join(format!("schemas/{name}.bin")), schema.to_bytes()?)?;
     }
     eprintln!("fixtures written to {}", dir.display());
