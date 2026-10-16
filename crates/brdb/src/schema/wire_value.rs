@@ -4,7 +4,9 @@
 use crate::{
     errors::BrdbSchemaError,
     schema::{
-        BrdbDynamicEnum, BrdbInterned, BrdbSchema, BrdbValue, EA3WireVariant, as_brdb::AsBrdbValue,
+        BRICK_HANDLE, BrdbDynamicEnum, BrdbInterned, BrdbSchema, BrdbValue, COMPONENT_HANDLE,
+        EA3WireVariant,
+        as_brdb::{AsBrdbValue, BrdbArrayIter},
     },
     wrapper::ChunkIndex,
 };
@@ -271,6 +273,51 @@ fn saved_brick_ref(value: &BrdbValue) -> Result<SavedBrickRef, BrdbSchemaError> 
     })
 }
 
+impl TryFrom<&BrdbValue> for SavedBrickRef {
+    type Error = BrdbSchemaError;
+    fn try_from(value: &BrdbValue) -> Result<Self, Self::Error> {
+        saved_brick_ref(value)
+    }
+}
+
+impl TryFrom<&BrdbValue> for SavedComponentRef {
+    type Error = BrdbSchemaError;
+    fn try_from(value: &BrdbValue) -> Result<Self, Self::Error> {
+        Ok(SavedComponentRef {
+            brick: saved_brick_ref(value.prop("Brick")?)?,
+            component_type_index: value.prop("ComponentTypeIndex")?.as_brdb_u16()?,
+        })
+    }
+}
+
+/// A `dynamic_array` value of brick refs (`brick_handle` elements), such as
+/// the `Value` of an `ArrayVar` holding bricks.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct BrickRefArray(pub Vec<SavedBrickRef>);
+
+impl AsBrdbValue for BrickRefArray {
+    fn as_brdb_dynamic_array(&self) -> Result<(&str, BrdbArrayIter<'_>), BrdbSchemaError> {
+        Ok((
+            BRICK_HANDLE,
+            Box::new(self.0.iter().map(|r| r as &dyn AsBrdbValue)),
+        ))
+    }
+}
+
+/// A `dynamic_array` value of component refs (`component_handle` elements).
+/// An array of arrays is one of these holding refs to other `ArrayVar`s.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ComponentRefArray(pub Vec<SavedComponentRef>);
+
+impl AsBrdbValue for ComponentRefArray {
+    fn as_brdb_dynamic_array(&self) -> Result<(&str, BrdbArrayIter<'_>), BrdbSchemaError> {
+        Ok((
+            COMPONENT_HANDLE,
+            Box::new(self.0.iter().map(|r| r as &dyn AsBrdbValue)),
+        ))
+    }
+}
+
 /// Convert a decoded `WireValue` alternative (the raw member value a variant
 /// read produces) back into a `WireValue`. EA3 wire values convert too.
 impl TryFrom<&BrdbValue> for WireValue {
@@ -312,10 +359,7 @@ impl TryFrom<&BrdbValue> for WireValue {
                     w: f64_of("W")?,
                 },
                 "BRSavedBrickRef" => WireValue::BrickRef(saved_brick_ref(value)?),
-                "BRSavedComponentRef" => WireValue::ComponentRef(SavedComponentRef {
-                    brick: saved_brick_ref(value.prop("Brick")?)?,
-                    component_type_index: value.prop("ComponentTypeIndex")?.as_brdb_u16()?,
-                }),
+                "BRSavedComponentRef" => WireValue::ComponentRef(value.try_into()?),
                 "WireGraphExec" => WireValue::Exec,
                 other => {
                     return Err(BrdbSchemaError::ExpectedType(

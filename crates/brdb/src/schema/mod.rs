@@ -58,11 +58,22 @@ pub const DYNAMIC_ENUM: &str = "dynamic_enum";
 /// Type names the game writes that are not declared in the schema and are not
 /// in the draft spec. `Bool` and `Str` are read and written like `bool` and
 /// `str` (assumed: a recent game update writes them, but no saved instance
-/// has been observed). The handle types have no known payload encoding, so
-/// reading or writing a value of those types is an error; containers of them
-/// that are empty still round-trip.
+/// has been observed). The handle types are array, map key and map value
+/// types for references; see [`handle_struct`] for their payload.
 pub const BRICK_HANDLE: &str = "brick_handle";
 pub const COMPONENT_HANDLE: &str = "component_handle";
+
+/// The struct a handle type's payload is encoded as, inline with no tag. A
+/// game-saved `component_handle` array holds `BRSavedComponentRef` elements
+/// (grid, chunk, brick index, component type index); a `brick_handle` array
+/// written as `BRSavedBrickRef` elements resolves in game.
+pub fn handle_struct(ty: &str) -> Option<&'static str> {
+    match ty {
+        BRICK_HANDLE => Some("BRSavedBrickRef"),
+        COMPONENT_HANDLE => Some("BRSavedComponentRef"),
+        _ => None,
+    }
+}
 
 /// EA3 wire graph union used directly as a field type, without a variant
 /// declaration: selectors `[f64, i64, bool, weak object, exec]`.

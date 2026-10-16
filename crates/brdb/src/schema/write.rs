@@ -8,12 +8,11 @@ pub(crate) use cache::{PlanCache, TopLevelMemo};
 use crate::{
     errors::BrdbSchemaError,
     schema::{
-        BRICK_HANDLE, BrdbEnum, BrdbInterned, BrdbSchema, BrdbSchemaEnum, BrdbSchemaStruct,
-        BrdbSchemaStructProperty, BrdbStruct, BrdbValue, COMPONENT_HANDLE, DYNAMIC_ARRAY,
-        DYNAMIC_ENUM, DYNAMIC_MAP, EA3_WIRE_GRAPH_PRIM_MATH_VARIANT, EA3_WIRE_GRAPH_VARIANT,
-        EA3WireVariant,
+        BrdbEnum, BrdbInterned, BrdbSchema, BrdbSchemaEnum, BrdbSchemaStruct,
+        BrdbSchemaStructProperty, BrdbStruct, BrdbValue, DYNAMIC_ARRAY, DYNAMIC_ENUM, DYNAMIC_MAP,
+        EA3_WIRE_GRAPH_PRIM_MATH_VARIANT, EA3_WIRE_GRAPH_VARIANT, EA3WireVariant,
         as_brdb::AsBrdbValue,
-        builtin_alias,
+        builtin_alias, handle_struct,
         read::{FlatKind, FlatLayout, flat_layout},
         same_type,
     },
@@ -193,8 +192,7 @@ fn write_dynamic_enum(
 }
 
 /// Types the unplanned writers resolve after the schema's own definitions:
-/// built-in aliases, `dynamic_enum`, and the handle types (whose encoding is
-/// unknown).
+/// built-in aliases, `dynamic_enum`, and the handle types.
 fn write_extra_type(
     schema: &BrdbSchema,
     buf: &mut impl Write,
@@ -205,8 +203,11 @@ fn write_extra_type(
         write_brdb(schema, buf, alias, value)
     } else if ty == DYNAMIC_ENUM {
         write_dynamic_enum(schema, buf, value)
-    } else if ty == BRICK_HANDLE || ty == COMPONENT_HANDLE {
-        Err(BrdbSchemaError::UnsupportedType(ty.to_owned()))
+    } else if let Some(payload) = handle_struct(ty) {
+        if schema.get_struct(payload).is_none() {
+            return Err(BrdbSchemaError::UnsupportedType(ty.to_owned()));
+        }
+        write_brdb(schema, buf, payload, value)
     } else {
         Err(BrdbSchemaError::UnknownType(ty.to_owned()))
     }
@@ -1240,8 +1241,11 @@ pub fn write_brdb_zero(
                     })?;
                 write_uint(buf, index as u64)?;
                 write_int(buf, 0)?;
-            } else if other == BRICK_HANDLE || other == COMPONENT_HANDLE {
-                return Err(BrdbSchemaError::UnsupportedType(other.to_owned()));
+            } else if let Some(payload) = handle_struct(other) {
+                if schema.get_struct(payload).is_none() {
+                    return Err(BrdbSchemaError::UnsupportedType(other.to_owned()));
+                }
+                write_brdb_zero(schema, buf, payload)?;
             } else {
                 return Err(BrdbSchemaError::UnknownType(other.to_owned()));
             }

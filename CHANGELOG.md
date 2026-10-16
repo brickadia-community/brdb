@@ -4,6 +4,22 @@ All notable changes to the `brdb` crate are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the crate follows
 [Semantic Versioning](https://semver.org/) from 1.0.0 on.
 
+## 1.0.1 - 2026-10-15
+
+### Added
+
+- `schema::{BrickRefArray, ComponentRefArray}`: brick and component ref
+  arrays, for an `ArrayVar`'s `Value`. An array of arrays is a
+  `ComponentRefArray` of refs to other `ArrayVar`s.
+- `TryFrom<&BrdbValue>` for `SavedBrickRef` and `SavedComponentRef`.
+- `schema::handle_struct`, the struct a handle type is stored as.
+
+### Fixed
+
+- `brick_handle` and `component_handle` values are now read and written, so
+  saves with populated component arrays decode. Refs are stored as given;
+  write them relative to the array, as the game does.
+
 ## 1.0.0 - 2026-10-15
 
 Brickadia's current game builds rewrote the wire and component system. Saves

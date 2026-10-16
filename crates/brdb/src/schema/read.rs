@@ -6,10 +6,10 @@ use rmp::{Marker, decode::RmpRead};
 use crate::{
     errors::BrdbSchemaError,
     schema::{
-        BRICK_HANDLE, BrdbDynamicArray, BrdbDynamicMap, BrdbEnum, BrdbInterned, BrdbSchema,
-        BrdbSchemaEnum, BrdbSchemaStruct, BrdbSchemaStructProperty, BrdbStruct, BrdbValue,
-        COMPONENT_HANDLE, DYNAMIC_ARRAY, DYNAMIC_ENUM, DYNAMIC_MAP,
-        EA3_WIRE_GRAPH_PRIM_MATH_VARIANT, EA3_WIRE_GRAPH_VARIANT, EA3WireVariant, builtin_alias,
+        BrdbDynamicArray, BrdbDynamicMap, BrdbEnum, BrdbInterned, BrdbSchema, BrdbSchemaEnum,
+        BrdbSchemaStruct, BrdbSchemaStructProperty, BrdbStruct, BrdbValue, DYNAMIC_ARRAY,
+        DYNAMIC_ENUM, DYNAMIC_MAP, EA3_WIRE_GRAPH_PRIM_MATH_VARIANT, EA3_WIRE_GRAPH_VARIANT,
+        EA3WireVariant, builtin_alias, handle_struct,
     },
 };
 
@@ -134,8 +134,11 @@ pub fn read_type(
                 read_type(schema, alias, buf)?
             } else if other == DYNAMIC_ENUM {
                 read_dynamic_enum(schema, buf)?
-            } else if other == BRICK_HANDLE || other == COMPONENT_HANDLE {
-                return Err(BrdbSchemaError::UnsupportedType(other.to_owned()));
+            } else if let Some(payload) = handle_struct(other) {
+                if schema.get_struct(payload).is_none() {
+                    return Err(BrdbSchemaError::UnsupportedType(other.to_owned()));
+                }
+                read_type(schema, payload, buf)?
             } else if let Some(id) = id {
                 return Err(BrdbSchemaError::UnknownSchemaType(
                     schema

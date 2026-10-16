@@ -8,8 +8,8 @@ use crate::{
     errors::BrdbSchemaError,
     schema::{
         BrdbDynamicArray, BrdbDynamicEnum, BrdbDynamicMap, BrdbSchema, BrdbSchemaFormat,
-        BrdbSchemaGlobalData, BrdbValue, EA3WireVariant, SavedBrickRef, SavedComponentRef,
-        WireValue, as_brdb::AsBrdbValue, read::read_type, write,
+        BrdbSchemaGlobalData, BrdbValue, BrickRefArray, ComponentRefArray, EA3WireVariant,
+        SavedBrickRef, SavedComponentRef, WireValue, as_brdb::AsBrdbValue, read::read_type, write,
     },
     wrapper::ChunkIndex,
 };
@@ -194,6 +194,7 @@ types {
     f64,
     Bool,
     brick_handle,
+    component_handle,
 }
 ";
 
@@ -285,7 +286,7 @@ fn dynamic_type_references_are_validated() {
     let err = read_type(&schema, "dynamic_array", &mut [0x09u8, 0x90].as_slice()).unwrap_err();
     assert!(matches!(
         err,
-        BrdbSchemaError::InvalidTypeIndex { index: 9, len: 6 }
+        BrdbSchemaError::InvalidTypeIndex { index: 9, len: 7 }
     ));
     // Writing a type that is not in the table fails.
     let mut buf = Vec::new();
@@ -299,7 +300,7 @@ fn dynamic_type_references_are_validated() {
 }
 
 #[test]
-fn handle_types_are_unsupported_but_empty_containers_round_trip() {
+fn handle_arrays_hold_inline_refs() {
     let schema = Arc::new(parsed(DYNAMIC_SCHEMA));
     // An empty array of brick handles: type index 5, no elements.
     let empty = decode(&schema, "dynamic_array", &[0x05, 0x90]);
@@ -308,14 +309,52 @@ fn handle_types_are_unsupported_but_empty_containers_round_trip() {
         BrdbValue::DynamicArray(BrdbDynamicArray::empty("brick_handle"))
     );
     assert_eq!(encode(&schema, "dynamic_array", &empty), [0x05, 0x90]);
-    // A populated one cannot be decoded: the element encoding is unknown.
-    let err = read_type(
-        &schema,
-        "dynamic_array",
-        &mut [0x05u8, 0x91, 0x00].as_slice(),
-    )
-    .unwrap_err();
-    assert!(format!("{err}").contains("brick_handle"));
+
+    // Two elements of a game-saved array of arrays: each is a bare
+    // BRSavedComponentRef (grid 0, chunk 0,0,0, brick 297/298, type 15).
+    let saved = [
+        0x06, 0x92, 0x00, 0x00, 0x00, 0x00, 0xcd, 0x01, 0x29, 0x0f, 0x00, 0x00, 0x00, 0x00, 0xcd,
+        0x01, 0x2a, 0x0f,
+    ];
+    let refs: Vec<SavedComponentRef> = (297..299)
+        .map(|brick_index_in_chunk| SavedComponentRef {
+            brick: SavedBrickRef {
+                grid_persistent_index: 0,
+                chunk_index: ChunkIndex { x: 0, y: 0, z: 0 },
+                brick_index_in_chunk,
+            },
+            component_type_index: 15,
+        })
+        .collect();
+    let value = decode(&schema, "dynamic_array", &saved);
+    let BrdbValue::DynamicArray(array) = &value else {
+        panic!("expected a dynamic array, got {value:?}");
+    };
+    assert_eq!(array.element_type, "component_handle");
+    let decoded: Vec<SavedComponentRef> =
+        array.values.iter().map(|v| v.try_into().unwrap()).collect();
+    assert_eq!(decoded, refs);
+    assert_eq!(encode(&schema, "dynamic_array", &value), saved);
+    assert_eq!(
+        encode(&schema, "dynamic_array", &ComponentRefArray(refs.clone())),
+        saved
+    );
+
+    // A brick handle is the BRSavedBrickRef part of the same layout.
+    let bricks = BrickRefArray(refs.iter().map(|r| r.brick).collect());
+    let bytes = encode(&schema, "dynamic_array", &bricks);
+    assert_eq!(
+        bytes,
+        [
+            0x05, 0x92, 0x00, 0x00, 0x00, 0x00, 0xcd, 0x01, 0x29, 0x00, 0x00, 0x00, 0x00, 0xcd,
+            0x01, 0x2a
+        ]
+    );
+    let BrdbValue::DynamicArray(array) = decode(&schema, "dynamic_array", &bytes) else {
+        panic!("expected a dynamic array");
+    };
+    let decoded: Vec<SavedBrickRef> = array.values.iter().map(|v| v.try_into().unwrap()).collect();
+    assert_eq!(decoded, bricks.0);
 }
 
 #[test]
