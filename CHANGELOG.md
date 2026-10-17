@@ -17,8 +17,11 @@ All notable changes to the `brdb` crate are recorded here. The format follows
 ### Fixed
 
 - `brick_handle` and `component_handle` values are now read and written, so
-  saves with populated component arrays decode. Refs are stored as given;
-  write them relative to the array, as the game does.
+  saves with populated component arrays decode. Refs are stored as given.
+  To reach a brick in another chunk, write the absolute form: the grid's
+  persistent index (1 for the main grid), the brick's own chunk, and its
+  index in that chunk. Grid 0 with chunk (0,0,0), which the game writes,
+  only reaches the array's own chunk.
 
 ## 1.0.0 - 2026-10-15
 
