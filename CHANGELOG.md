@@ -4,6 +4,16 @@ All notable changes to the `brdb` crate are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the crate follows
 [Semantic Versioning](https://semver.org/) from 1.0.0 on.
 
+## 1.0.2 - 2026-10-17
+
+### Changed
+
+- Component data refreshed from the current game build: the new
+  `Exec_ArrayVar_Join` gate, `Brick` and `Character` outputs on the zone
+  `BrickChanged` / `BrickRemoved` events (now backed by
+  `BrickComponentData_Internal_BrickZoneEvent`), and the matching
+  `_max` schema, catalog and brick size entries.
+
 ## 1.0.1 - 2026-10-15
 
 ### Added
