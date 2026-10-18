@@ -241,7 +241,7 @@ impl LogicGate {
                 "struct BCSComponentVertex_Expr_MathBlend { Blend: f64, bClampAlpha: bool, InputA: WireValue, InputB: WireValue }"
             }
             Self::STRUCT_EDGE_DETECTOR_STR => {
-                "struct BCSComponentVertex_Expr_EdgeDetector { Input: f64, bPulseOnRisingEdge: bool, bPulseOnFallingEdge: bool }"
+                "struct BCSComponentVertex_Expr_EdgeDetector { Input: f64, InputLast: f64, bSeeded: bool }"
             }
             n => unimplemented!("unimplemented struct {n}"),
         };
@@ -287,15 +287,16 @@ impl LogicGate {
             "InputB" | "bInputB" => (Some(1), None),
             "Blend" => (Some(2), None),
             "bClampAlpha" => (Some(3), None),
-            "bPulseOnRisingEdge" => (None, Some(0)),
-            "bPulseOnFallingEdge" => (None, Some(1)),
+            // The edge detector's last input, written equal to its input so a loaded
+            // gate does not fire an edge.
+            "InputLast" => (Some(0), None),
             _ => (None, None),
         }
     }
 
     pub fn num_inputs(&self) -> usize {
         match self {
-            Self::BoolNot | Self::BitNot | Self::Ceil | Self::Floor => 1,
+            Self::BoolNot | Self::BitNot | Self::Ceil | Self::Floor | Self::EdgeDetector => 1,
             _ => 2,
         }
     }
@@ -331,14 +332,9 @@ impl LogicGate {
             ],
         }
     }
+    /// Stored output values. No current gate stores its outputs, so this is empty.
     pub fn default_outputs(&self) -> Vec<Box<dyn AsBrdbValue>> {
-        match self {
-            Self::EdgeDetector => vec![
-                Box::new(false), // Default rising edge pulse
-                Box::new(false), // Default falling edge pulse
-            ],
-            _ => vec![],
-        }
+        vec![]
     }
 
     pub fn input_of(&self, brick_id: usize) -> WirePort {
@@ -554,6 +550,9 @@ impl AsBrdbValue for LogicGateComponent {
                     prop_name.to_string(),
                 ))?
                 .as_ref()),
+            // The edge detector is written already seeded with its current input,
+            // as the game saves a gate that has settled.
+            _ if prop_name == "bSeeded" => Ok(&true),
             _ => Err(crate::errors::BrdbSchemaError::MissingStructField(
                 struct_name.get_or_else(schema, || "Unknown struct".to_owned()),
                 prop_name.to_string(),

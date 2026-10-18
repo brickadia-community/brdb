@@ -214,6 +214,17 @@ enum EBRTextTypeface {
     EBRTextTypeface::BoldItalic = 3,
     EBRTextTypeface::EBRTextTypeface_MAX = 4,
 }
+enum ECallableAbortReason {
+    ECallableAbortReason::None = 0,
+    ECallableAbortReason::InvalidPlan = 1,
+    ECallableAbortReason::InvalidCollection = 2,
+    ECallableAbortReason::Overflow = 3,
+    ECallableAbortReason::CollectionModified = 4,
+    ECallableAbortReason::Recursion = 5,
+    ECallableAbortReason::WorkLimitExceeded = 6,
+    ECallableAbortReason::NestingLimitExceeded = 7,
+    ECallableAbortReason::ECallableAbortReason_MAX = 8,
+}
 enum ECallableInputSource {
     ECallableInputSource::DefinitionDefault = 0,
     ECallableInputSource::Override = 1,
@@ -291,15 +302,16 @@ struct BCSComponentVertex_Exec_Character_AddInventoryEntity {
 struct BCSComponentVertex_Exec_Character_AddInventoryItem {
     Item: class,
 }
-struct BCSComponentVertex_Exec_Character_GetAim {
-    bLocalAim: bool,
-}
 struct BCSComponentVertex_Exec_Character_GetAmmo {
     Resource: object,
+    Amount: i64,
 }
 struct BCSComponentVertex_Exec_Character_GetCurrentInventorySlot {
+    Slot: i64,
 }
 struct BCSComponentVertex_Exec_Character_GetDamage {
+    Damage: f64,
+    DamageLimit: f64,
 }
 struct BCSComponentVertex_Exec_Character_GetFromController {
 }
@@ -309,6 +321,7 @@ struct BCSComponentVertex_Exec_Character_GetInventoryEntry {
 struct BCSComponentVertex_Exec_Character_GetWeaponChamberAmmo {
     Slot: i64,
     Resource: object,
+    Amount: i64,
 }
 struct BCSComponentVertex_Exec_Character_GrantAmmo {
     Resource: object,
@@ -366,6 +379,7 @@ struct BCSComponentVertex_Exec_Entity_GetCustomProperty {
     bFound: bool,
 }
 struct BCSComponentVertex_Exec_Entity_GetSpeed {
+    Speed: f64,
 }
 struct BCSComponentVertex_Exec_Entity_GetTag {
     Tag: str,
@@ -373,6 +387,7 @@ struct BCSComponentVertex_Exec_Entity_GetTag {
 struct BCSComponentVertex_Exec_Entity_GetTeam {
 }
 struct BCSComponentVertex_Exec_Entity_IsFrozen {
+    bFrozen: bool,
 }
 struct BCSComponentVertex_Exec_Entity_PlayAudioAt {
     AudioDescriptor: object,
@@ -401,6 +416,8 @@ struct BCSComponentVertex_Exec_Entity_SetTeam {
 struct BCSComponentVertex_Exec_Entity_SetVisible {
     bVisible: bool,
 }
+struct BCSComponentVertex_Exec_Entity_SetVisibleTo {
+}
 struct BCSComponentVertex_Exec_FindPlayer {
     Query: str,
 }
@@ -412,9 +429,11 @@ struct BCSComponentVertex_Exec_Gamemode_BroadcastStatusMessage {
     bFlashIfUnchanged: bool,
 }
 struct BCSComponentVertex_Exec_Gamemode_GetCurrentRound {
+    RoundNumber: i64,
 }
 struct BCSComponentVertex_Exec_Gamemode_GetLeaderboardValue {
     Key: str,
+    Value: i64,
 }
 struct BCSComponentVertex_Exec_Gamemode_GetTeam {
 }
@@ -423,8 +442,10 @@ struct BCSComponentVertex_Exec_Gamemode_GetTeamByName {
 }
 struct BCSComponentVertex_Exec_Gamemode_GetTeamLeaderboardValue {
     Key: str,
+    Value: i64,
 }
 struct BCSComponentVertex_Exec_Gamemode_GetTeamName {
+    Name: str,
 }
 struct BCSComponentVertex_Exec_Gamemode_LeaderboardValue {
     Key: str,
@@ -446,12 +467,11 @@ struct BCSComponentVertex_Exec_Gamemode_TeamLeaderboardValue {
 struct BCSComponentVertex_Exec_Gamemode_TeamWins {
 }
 struct BCSComponentVertex_Exec_GetEnvironmentProperty {
+    Value: WireValue,
     Environment: str,
     PropertyName: str,
 }
 struct BCSComponentVertex_Exec_GetInputs {
-}
-struct BCSComponentVertex_Exec_GetOwnTransform {
 }
 struct BCSComponentVertex_Exec_PlayClientAudio {
     AudioDescriptor: object,
@@ -461,20 +481,26 @@ struct BCSComponentVertex_Exec_PlayClientAudio {
 struct BCSComponentVertex_Exec_PlayerState_ForceRespawn {
 }
 struct BCSComponentVertex_Exec_PlayerState_GetDisplayName {
+    DisplayName: str,
 }
 struct BCSComponentVertex_Exec_PlayerState_GetFromEntity {
 }
 struct BCSComponentVertex_Exec_PlayerState_GetUserId {
+    UserId: str,
 }
 struct BCSComponentVertex_Exec_PlayerState_GetUserName {
+    UserName: str,
 }
 struct BCSComponentVertex_Exec_PlayerState_HasPermission {
     PermissionName: str,
+    bHasPermission: bool,
 }
 struct BCSComponentVertex_Exec_PlayerState_HasRole {
     RoleName: str,
+    bHasRole: bool,
 }
 struct BCSComponentVertex_Exec_PlayerState_IsTrustedByBrickOwner {
+    bIsTrusted: bool,
 }
 struct BCSComponentVertex_Exec_PlayerState_SetCanRespawn {
     bCanRespawn: bool,
@@ -494,6 +520,7 @@ struct BCSComponentVertex_Exec_PlayerState_ShowStatusMessage {
     Message: str,
 }
 struct BCSComponentVertex_Exec_PlayerState_ShowTextInputBox {
+    Text: str,
     Title: str,
     Message: str,
 }
@@ -512,6 +539,7 @@ struct BCSComponentVertex_Exec_PrintToConsole {
 struct BCSComponentVertex_Exec_Random {
     Min: WireValue,
     Max: WireValue,
+    Output: WireValue,
 }
 struct BCSComponentVertex_Exec_SendCustomEvent {
     EventName: str,
@@ -550,10 +578,13 @@ struct BCSComponentVertex_Expr_BoolBool_Bool {
 }
 struct BCSComponentVertex_Expr_ChangeDetector {
     Input: WireValue,
-    bPulseOnChange: bool,
+    InputLast: WireValue,
+    bSeeded: bool,
 }
 struct BCSComponentVertex_Expr_ChangeDetectorExec {
     Input: WireValue,
+    InputLast: WireValue,
+    bSeeded: bool,
 }
 struct BCSComponentVertex_Expr_Compare {
     InputA: WireValue,
@@ -561,22 +592,22 @@ struct BCSComponentVertex_Expr_Compare {
 }
 struct BCSComponentVertex_Expr_Convert {
     Input: WireValue,
-    Output: WireValue,
     TargetType: WireValue,
 }
 struct BCSComponentVertex_Expr_DeltaTime {
 }
 struct BCSComponentVertex_Expr_EdgeDetector {
     Input: f64,
-    bPulseOnRisingEdge: bool,
-    bPulseOnFallingEdge: bool,
+    InputLast: f64,
+    bSeeded: bool,
 }
 struct BCSComponentVertex_Expr_EdgeDetectorExec {
     Input: f64,
+    InputLast: f64,
+    bSeeded: bool,
 }
 struct BCSComponentVertex_Expr_EnumToInteger {
     Input: WireValue,
-    Output: WireValue,
 }
 struct BCSComponentVertex_Expr_Float_Float {
     Input: f64,
@@ -600,7 +631,6 @@ struct BCSComponentVertex_Expr_IntegerToEnum {
     Input: i64,
     bWrap: bool,
     TargetType: dynamic_enum,
-    Output: WireValue,
 }
 struct BCSComponentVertex_Expr_IntInt_Int {
     InputA: i64,
@@ -796,6 +826,18 @@ struct BCSComponentVertex_FunctionCall {
     Output6: WireValue,
     Output7: WireValue,
     InputSources: ECallableInputSource[],
+    bAborted: bool,
+    AbortReason: ECallableAbortReason,
+    IterationsExecuted: i64,
+}
+struct BRCallableRunState {
+    Ordinal: i64,
+    Count: i64,
+    Index: i64,
+    Step: i64,
+    IterationsExecuted: i64,
+    SavedMapCursor: i32,
+    bActive: bool,
 }
 struct BrickComponentData_ArrayVar {
     Value: dynamic_array,
@@ -911,6 +953,8 @@ struct BrickComponentData_Event_Gamemode_ControllerTeamBase {
 struct BrickComponentData_Event_Gamemode_RoundBase {
     RoundNumber: i32,
 }
+struct BrickComponentData_Event_Loaded {
+}
 struct BrickComponentData_Event_WholeGridInteracted {
     bAllowNearbyInteraction: bool,
     bHiddenInteraction: bool,
@@ -956,18 +1000,6 @@ struct BrickComponentData_Internal_InputSplitter_V2 {
 }
 struct BrickComponentData_Internal_Microchip {
 }
-struct BrickComponentData_Internal_Microchip_CountFor {
-    Count: i64,
-    FirstIndex: i64,
-    Step: i64,
-    bRunAcrossTicks: bool,
-}
-struct BrickComponentData_Internal_Microchip_ForEachArray {
-    bRunAcrossTicks: bool,
-}
-struct BrickComponentData_Internal_Microchip_ForEachMap {
-    bRunAcrossTicks: bool,
-}
 struct BrickComponentData_Internal_Microchip_FunctionDefinition {
 }
 struct BrickComponentData_Internal_MicrochipInput {
@@ -1007,6 +1039,7 @@ struct BrickComponentData_MotorSlider {
     bEnabled: bool,
     Speed: f32,
     Power: f32,
+    CurrentPosition: f32,
     bPositionsArePercentages: bool,
     bReversed: bool,
     Damping: f32,
@@ -1052,6 +1085,8 @@ struct BrickComponentData_ProjectileSpawner {
     SpeedMultiplier: f32,
     ScaleMultiplier: f32,
 }
+struct BrickComponentData_ReadBrick {
+}
 struct BrickComponentData_Rerouter {
 }
 struct BrickComponentData_RigidBearing {
@@ -1078,6 +1113,7 @@ struct BrickComponentData_Servo {
     Power: f32,
     ActiveDamping: f32,
     ForceLimit: f32,
+    bStopped: bool,
     bLimitAngle: bool,
     LimitAngle: f32,
     CurrentAngle: f32,
@@ -1091,11 +1127,14 @@ struct BrickComponentData_ServoSlider {
     Power: f32,
     TopSpeed: f32,
     Exponent: f32,
+    bStopped: bool,
+    CurrentPosition: f32,
     bPositionsArePercentages: bool,
     bReversed: bool,
     Damping: f32,
 }
 struct BrickComponentData_Slider {
+    CurrentPosition: f32,
     bPositionsArePercentages: bool,
     bReversed: bool,
     Damping: f32,
@@ -1253,6 +1292,11 @@ struct BCSComponentVertex_Exec_Character_AddInventoryBrick {
 struct BCSComponentVertex_Exec_Character_AddInventoryEntry {
     Entry: BRInventoryEntryConfig,
 }
+struct BCSComponentVertex_Exec_Character_GetAim {
+    Origin: Vector,
+    Direction: Vector,
+    bLocalAim: bool,
+}
 struct BCSComponentVertex_Exec_Character_SetInventoryBrick {
     Slot: i64,
     BrickAsset: object,
@@ -1320,6 +1364,10 @@ struct BCSComponentVertex_Exec_Entity_SetVelocity {
 struct BCSComponentVertex_Exec_Entity_Teleport {
     Destination: BrickComponentWirePortControl_TeleportDestination,
 }
+struct BCSComponentVertex_Exec_GetOwnTransform {
+    Location: Vector,
+    Rotation: Rotator,
+}
 struct BCSComponentVertex_Exec_PlayerState_DisplayText {
     Text: str,
     Font: object,
@@ -1368,45 +1416,6 @@ struct BCSComponentVertex_Exec_SpawnExplosionAt {
     WorldPosition: Vector,
     ScaleMultiplier: f64,
     DamageMultiplier: f64,
-}
-struct BCSComponentVertex_Exec_Sweep {
-    Origin: Vector,
-    Direction: Vector,
-    Distance: f64,
-    Radius: f64,
-    bRelative: bool,
-    bIgnoreOwningGrid: bool,
-    CollisionChannel: EBRSweepCollisionChannel,
-    bDetectBricks: bool,
-    bDetectPlayers1: bool,
-    bDetectPlayers2: bool,
-    bDetectPlayers3: bool,
-    bDetectPlayers4: bool,
-    bOnlyHitPlayerBodyParts: bool,
-    bDetectPhysics: bool,
-    bDetectMap: bool,
-    HitLocation: Vector,
-    HitNormal: Vector,
-    HitDistance: f64,
-}
-struct BCSComponentVertex_Exec_SweepSimple {
-    Direction: EBrickDirection,
-    Distance: f64,
-    Radius: f64,
-    SpreadConeAngle: f64,
-    bSpreadBiasedTowardsCenter: bool,
-    CollisionChannel: EBRSweepCollisionChannel,
-    bDetectBricks: bool,
-    bDetectPlayers1: bool,
-    bDetectPlayers2: bool,
-    bDetectPlayers3: bool,
-    bDetectPlayers4: bool,
-    bOnlyHitPlayerBodyParts: bool,
-    bDetectPhysics: bool,
-    bDetectMap: bool,
-    HitLocation: Vector,
-    HitNormal: Vector,
-    HitDistance: f64,
 }
 struct BCSComponentVertex_Expr_ColorBlend {
     ColorA: LinearColor,
@@ -1580,6 +1589,33 @@ struct BrickComponentData_Internal_AttachedZone {
     TagFilter: str,
     ZoneWindForce: f64,
 }
+struct BrickComponentData_Internal_Microchip_CountFor {
+    Count: i64,
+    FirstIndex: i64,
+    Step: i64,
+    bAborted: bool,
+    AbortReason: ECallableAbortReason,
+    IterationsExecuted: i64,
+    bRunAcrossTicks: bool,
+    bRunning: bool,
+    RunState: BRCallableRunState,
+}
+struct BrickComponentData_Internal_Microchip_ForEachArray {
+    bAborted: bool,
+    AbortReason: ECallableAbortReason,
+    IterationsExecuted: i64,
+    bRunAcrossTicks: bool,
+    bRunning: bool,
+    RunState: BRCallableRunState,
+}
+struct BrickComponentData_Internal_Microchip_ForEachMap {
+    bAborted: bool,
+    AbortReason: ECallableAbortReason,
+    IterationsExecuted: i64,
+    bRunAcrossTicks: bool,
+    bRunning: bool,
+    RunState: BRCallableRunState,
+}
 struct BrickComponentData_Joint_Wheel {
     Control_DriveAndSteer: BrickComponentWireControl_DriveAndSteer,
     bDiscoverable: bool,
@@ -1683,7 +1719,6 @@ struct BrickComponentData_QueueTicks {
     DataOut8: WireValue,
 }
 struct BrickComponentData_Seat_V2 {
-    bIsOccupied: bool,
     ExitOffset: IntVector,
     bRollCameraInThirdPerson: bool,
     CameraOrigin: EBrickSeatCameraOrigin,
@@ -1856,10 +1891,6 @@ struct BRSavedComponentChunkSoA {
     MicrochipBrickIndices: u32[],
     MicrochipBrickGridReferences: u32[],
 }
-struct BCSComponentVertex_Exec_BrickComponent {
-    Brick: BRSavedBrickRef,
-    ComponentType: object,
-}
 struct BCSComponentVertex_Exec_BrickComponentBase {
     Brick: BRSavedBrickRef,
     ComponentType: object,
@@ -1890,6 +1921,7 @@ struct BCSComponentVertex_Exec_Character_SetInventoryItemAdv {
     MeshColors: Color[],
 }
 struct BCSComponentVertex_Exec_GetBrickProperty {
+    Value: WireValue,
     Brick: BRSavedBrickRef,
     Property: EBRBrickProperty,
 }
@@ -1897,6 +1929,49 @@ struct BCSComponentVertex_Exec_SetBrickProperty {
     Value: WireValue,
     Brick: BRSavedBrickRef,
     Property: EBRBrickProperty,
+}
+struct BCSComponentVertex_Exec_Sweep {
+    Origin: Vector,
+    Direction: Vector,
+    Distance: f64,
+    Radius: f64,
+    bRelative: bool,
+    bIgnoreOwningGrid: bool,
+    CollisionChannel: EBRSweepCollisionChannel,
+    bDetectBricks: bool,
+    bDetectPlayers1: bool,
+    bDetectPlayers2: bool,
+    bDetectPlayers3: bool,
+    bDetectPlayers4: bool,
+    bOnlyHitPlayerBodyParts: bool,
+    bDetectPhysics: bool,
+    bDetectMap: bool,
+    HitLocation: Vector,
+    HitNormal: Vector,
+    HitDistance: f64,
+    HitBrick: BRSavedBrickRef,
+    HitColor: LinearColor,
+}
+struct BCSComponentVertex_Exec_SweepSimple {
+    Direction: EBrickDirection,
+    Distance: f64,
+    Radius: f64,
+    SpreadConeAngle: f64,
+    bSpreadBiasedTowardsCenter: bool,
+    CollisionChannel: EBRSweepCollisionChannel,
+    bDetectBricks: bool,
+    bDetectPlayers1: bool,
+    bDetectPlayers2: bool,
+    bDetectPlayers3: bool,
+    bDetectPlayers4: bool,
+    bOnlyHitPlayerBodyParts: bool,
+    bDetectPhysics: bool,
+    bDetectMap: bool,
+    HitLocation: Vector,
+    HitNormal: Vector,
+    HitDistance: f64,
+    HitBrick: BRSavedBrickRef,
+    HitColor: LinearColor,
 }
 struct BrickComponentData_ItemSpawn {
     PickupClass: class,
@@ -2074,6 +2149,11 @@ struct BCSComponentVertex_Exec_ArrayVar_Swap {
     bOutOfBounds: bool,
     ArrayVarRef: BRSavedComponentRef,
 }
+struct BCSComponentVertex_Exec_BrickComponent {
+    Component: BRSavedComponentRef,
+    Brick: BRSavedBrickRef,
+    ComponentType: object,
+}
 struct BCSComponentVertex_Exec_Character_SetInventoryEntry {
     Slot: i64,
     Entry: BRInventoryEntryConfig,
@@ -2087,6 +2167,7 @@ struct BCSComponentVertex_Exec_Gamemode_FillArrayFromTeamMembers {
     ArrayVarRef: BRSavedComponentRef,
 }
 struct BCSComponentVertex_Exec_GetComponentProperty {
+    Value: WireValue,
     Component: BRSavedComponentRef,
     PropertyName: str,
     ComponentType: object,

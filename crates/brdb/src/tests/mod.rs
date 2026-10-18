@@ -744,6 +744,73 @@ fn test_write_then_read_round_trip() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// The edge detector is written the way the game saves a settled one: its last
+/// input equal to its input and already seeded, with its outputs left to wires.
+#[test]
+fn test_write_edge_detector() -> Result<(), Box<dyn std::error::Error>> {
+    use assets::components::{LogicGate, Rerouter};
+    use std::collections::HashMap;
+
+    let mut world = World::new();
+    world.register_all_components();
+    let (edge, edge_id) = Brick {
+        position: (0, 0, 1).into(),
+        asset: LogicGate::EdgeDetector.brick(),
+        ..Default::default()
+    }
+    .with_component(
+        LogicGate::EdgeDetector.component_with_overrides(HashMap::from([(
+            "Input".into(),
+            Box::new(1.0f64) as Box<dyn AsBrdbValue>,
+        )])),
+    )
+    .with_id_split();
+    let (rising, rising_id) = Brick {
+        position: (15, 0, 1).into(),
+        asset: assets::bricks::B_REROUTE,
+        ..Default::default()
+    }
+    .with_component(Rerouter)
+    .with_id_split();
+    let (falling, falling_id) = Brick {
+        position: (30, 0, 1).into(),
+        asset: assets::bricks::B_REROUTE,
+        ..Default::default()
+    }
+    .with_component(Rerouter)
+    .with_id_split();
+    world.add_bricks([edge, rising, falling]);
+    world.add_wire_connection(
+        LogicGate::EdgeDetector.rising_edge_of(edge_id),
+        Rerouter::input_of(rising_id),
+    );
+    world.add_wire_connection(
+        LogicGate::EdgeDetector.falling_edge_of(edge_id),
+        Rerouter::input_of(falling_id),
+    );
+
+    let reader = crate::Brz::read_slice(&world.to_brz_vec()?)?.into_reader();
+    let mut found = 0;
+    for chunk in reader.brick_chunk_index(1)? {
+        if chunk.num_components == 0 {
+            continue;
+        }
+        let (_soa, components) = reader.component_chunk_soa(1, chunk.index)?;
+        for c in components
+            .iter()
+            .filter(|c| c.get_name() == "BCSComponentVertex_Expr_EdgeDetector")
+        {
+            assert_eq!(c.prop("Input")?.as_brdb_f64()?, 1.0);
+            assert_eq!(c.prop("InputLast")?.as_brdb_f64()?, 1.0);
+            assert!(c.prop("bSeeded")?.as_brdb_bool()?);
+            assert!(!c.contains_key("bPulseOnRisingEdge"));
+            found += 1;
+        }
+    }
+    assert_eq!(found, 1);
+    Ok(())
+}
+
 /// Component struct data is where the plan cache does the most work: whole
 /// struct defaults are precomputed and replayed for a component with nothing
 /// set, and per-field defaults fill the gaps for a partially set one. Both must

@@ -4,6 +4,29 @@ All notable changes to the `brdb` crate are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the crate follows
 [Semantic Versioning](https://semver.org/) from 1.0.0 on.
 
+## 1.0.3 - 2026-10-17
+
+### Changed
+
+- Component data refreshed from the current game build: the new
+  `Event_Loaded` and `Exec_Entity_SetVisibleTo` gates, the `ReadBrick`
+  component, a `VisibleTo` input on `Component_TextDisplay`, and the matching
+  `_max` schema, catalog and brick size entries.
+- The `_max` schema follows the game's new vertex layouts. Change and edge
+  detectors store `InputLast` and `bSeeded` and no longer store their outputs,
+  and `Expr_Convert`, `Expr_EnumToInteger` and `Expr_IntegerToEnum` drop their
+  stored `Output`. Callable vertices gain `bAborted`, `AbortReason` and
+  `IterationsExecuted`.
+
+### Fixed
+
+- `LogicGate::EdgeDetector` writes the current vertex layout: `InputLast` set
+  to its input and `bSeeded` true, as the game saves a settled gate, so a
+  loaded save fires no edge. It no longer writes the removed
+  `bPulseOnRisingEdge` / `bPulseOnFallingEdge` fields, which are wire ports
+  only (`rising_edge_of` / `falling_edge_of` are unchanged). `default_outputs()`
+  is now empty for every gate.
+
 ## 1.0.2 - 2026-10-17
 
 ### Changed

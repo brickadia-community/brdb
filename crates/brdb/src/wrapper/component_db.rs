@@ -27,6 +27,7 @@ pub static COMPONENT_TYPE_STRUCT_PAIRS: &[(&str, &str)] = &[
     ("BrickComponentType_Event_Gamemode_ControllerLeftTeam", "BrickComponentData_Event_Gamemode_ControllerTeamBase"),
     ("BrickComponentType_Event_Gamemode_RoundEnd", "BrickComponentData_Event_Gamemode_RoundBase"),
     ("BrickComponentType_Event_Gamemode_RoundStart", "BrickComponentData_Event_Gamemode_RoundBase"),
+    ("BrickComponentType_Event_Loaded", "BrickComponentData_Event_Loaded"),
     ("BrickComponentType_Event_WholeGridInteracted", "BrickComponentData_Event_WholeGridInteracted"),
     ("BrickComponentType_Event_WholeGridTargeted", "BrickComponentData_Event_WholeGridTargeted"),
     ("BrickComponentType_Exec_AddComponent", "BCSComponentVertex_Exec_BrickComponent"),
@@ -113,6 +114,7 @@ pub static COMPONENT_TYPE_STRUCT_PAIRS: &[(&str, &str)] = &[
     ("BrickComponentType_Exec_Entity_SetTeam", "BCSComponentVertex_Exec_Entity_SetTeam"),
     ("BrickComponentType_Exec_Entity_SetVelocity", "BCSComponentVertex_Exec_Entity_SetVelocity"),
     ("BrickComponentType_Exec_Entity_SetVisible", "BCSComponentVertex_Exec_Entity_SetVisible"),
+    ("BrickComponentType_Exec_Entity_SetVisibleTo", "BCSComponentVertex_Exec_Entity_SetVisibleTo"),
     ("BrickComponentType_Exec_Entity_Teleport", "BCSComponentVertex_Exec_Entity_Teleport"),
     ("BrickComponentType_Exec_FindPlayer", "BCSComponentVertex_Exec_FindPlayer"),
     ("BrickComponentType_Exec_Gamemode_BroadcastChatMessage", "BCSComponentVertex_Exec_Gamemode_BroadcastChatMessage"),
@@ -342,6 +344,7 @@ pub static COMPONENT_TYPE_STRUCT_PAIRS: &[(&str, &str)] = &[
     ("BrickComponentType_ProjectileReference", "BrickComponentData_ProjectileReference"),
     ("BrickComponentType_QueueSeconds", "BrickComponentData_QueueSeconds"),
     ("BrickComponentType_QueueTicks", "BrickComponentData_QueueTicks"),
+    ("BrickComponentType_ReadBrick", "BrickComponentData_ReadBrick"),
     ("BrickComponentType_Stopwatch", "BrickComponentData_Stopwatch"),
     ("BrickComponentType_Tween", "BrickComponentData_Tween"),
     ("BrickComponentType_Var", "BrickComponentData_Var"),
@@ -952,6 +955,7 @@ pub static WIRE_PORT_NAMES: &[&str] = &[
     "Vector.X",
     "Vector.Y",
     "Vector.Z",
+    "VisibleTo",
     "VolumeMultiplier",
     "W",
     "WaterAbsorption",
@@ -1286,6 +1290,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bCond", Box::new(false)),
         ]),
         ("BCSComponentVertex_Exec_BrickComponent", vec![
+            ("Component", Box::new(NestedStructDefault(vec![("Brick", Box::new(NestedStructDefault(vec![("GridPersistentIndex", Box::new(0u32) as Box<dyn AsBrdbValue>), ("ChunkIndex", Box::new(NestedStructDefault(vec![("X", Box::new(0i16) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i16)), ("Z", Box::new(0i16))]))), ("BrickIndexInChunk", Box::new(4294967295u32))])) as Box<dyn AsBrdbValue>), ("ComponentTypeIndex", Box::new(0u16))]))),
             ("Brick", Box::new(NestedStructDefault(vec![("GridPersistentIndex", Box::new(0u32) as Box<dyn AsBrdbValue>), ("ChunkIndex", Box::new(NestedStructDefault(vec![("X", Box::new(0i16) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i16)), ("Z", Box::new(0i16))]))), ("BrickIndexInChunk", Box::new(4294967295u32))]))),
         ]),
         ("BCSComponentVertex_Exec_BrickComponentBase", vec![
@@ -1304,13 +1309,26 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bOverrideColors", Box::new(false)),
         ]),
         ("BCSComponentVertex_Exec_Character_GetAim", vec![
+            ("Origin", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("Direction", Box::new(NestedStructDefault(vec![("X", Box::new(1.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("bLocalAim", Box::new(false)),
+        ]),
+        ("BCSComponentVertex_Exec_Character_GetAmmo", vec![
+            ("Amount", Box::new(0i64)),
+        ]),
+        ("BCSComponentVertex_Exec_Character_GetCurrentInventorySlot", vec![
+            ("Slot", Box::new(-1i64)),
+        ]),
+        ("BCSComponentVertex_Exec_Character_GetDamage", vec![
+            ("Damage", Box::new(0.0f64)),
+            ("DamageLimit", Box::new(0.0f64)),
         ]),
         ("BCSComponentVertex_Exec_Character_GetInventoryEntry", vec![
             ("Slot", Box::new(0i64)),
         ]),
         ("BCSComponentVertex_Exec_Character_GetWeaponChamberAmmo", vec![
             ("Slot", Box::new(0i64)),
+            ("Amount", Box::new(0i64)),
         ]),
         ("BCSComponentVertex_Exec_Character_GrantAmmo", vec![
             ("Amount", Box::new(1i64)),
@@ -1397,6 +1415,9 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BCSComponentVertex_Exec_Entity_GetRotation", vec![
             ("Rotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
         ]),
+        ("BCSComponentVertex_Exec_Entity_GetSpeed", vec![
+            ("Speed", Box::new(0.0f64)),
+        ]),
         ("BCSComponentVertex_Exec_Entity_GetTag", vec![
             ("Tag", Box::new(String::from(""))),
         ]),
@@ -1407,6 +1428,9 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BCSComponentVertex_Exec_Entity_GetVelocityAtPoint", vec![
             ("Point", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("LinearVelocity", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+        ]),
+        ("BCSComponentVertex_Exec_Entity_IsFrozen", vec![
+            ("bFrozen", Box::new(false)),
         ]),
         ("BCSComponentVertex_Exec_Entity_PlayAudioAt", vec![
             ("VolumeMultiplier", Box::new(1.0f64)),
@@ -1472,14 +1496,22 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BCSComponentVertex_Exec_Gamemode_FillArrayFromTeamMembers", vec![
             ("ArrayVarRef", Box::new(NestedStructDefault(vec![("Brick", Box::new(NestedStructDefault(vec![("GridPersistentIndex", Box::new(0u32) as Box<dyn AsBrdbValue>), ("ChunkIndex", Box::new(NestedStructDefault(vec![("X", Box::new(0i16) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i16)), ("Z", Box::new(0i16))]))), ("BrickIndexInChunk", Box::new(4294967295u32))])) as Box<dyn AsBrdbValue>), ("ComponentTypeIndex", Box::new(0u16))]))),
         ]),
+        ("BCSComponentVertex_Exec_Gamemode_GetCurrentRound", vec![
+            ("RoundNumber", Box::new(0i64)),
+        ]),
         ("BCSComponentVertex_Exec_Gamemode_GetLeaderboardValue", vec![
             ("Key", Box::new(String::from("Score"))),
+            ("Value", Box::new(0i64)),
         ]),
         ("BCSComponentVertex_Exec_Gamemode_GetTeamByName", vec![
             ("TeamName", Box::new(String::from(""))),
         ]),
         ("BCSComponentVertex_Exec_Gamemode_GetTeamLeaderboardValue", vec![
             ("Key", Box::new(String::from("Score"))),
+            ("Value", Box::new(0i64)),
+        ]),
+        ("BCSComponentVertex_Exec_Gamemode_GetTeamName", vec![
+            ("Name", Box::new(String::from(""))),
         ]),
         ("BCSComponentVertex_Exec_Gamemode_LeaderboardValue", vec![
             ("Key", Box::new(String::from("Score"))),
@@ -1499,16 +1531,23 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Value", Box::new(0i64)),
         ]),
         ("BCSComponentVertex_Exec_GetBrickProperty", vec![
+            ("Value", Box::new(WireValue::Number(0.0))),
             ("Brick", Box::new(NestedStructDefault(vec![("GridPersistentIndex", Box::new(0u32) as Box<dyn AsBrdbValue>), ("ChunkIndex", Box::new(NestedStructDefault(vec![("X", Box::new(0i16) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i16)), ("Z", Box::new(0i16))]))), ("BrickIndexInChunk", Box::new(4294967295u32))]))),
             ("Property", Box::new(1u8)),
         ]),
         ("BCSComponentVertex_Exec_GetComponentProperty", vec![
+            ("Value", Box::new(WireValue::Number(0.0))),
             ("Component", Box::new(NestedStructDefault(vec![("Brick", Box::new(NestedStructDefault(vec![("GridPersistentIndex", Box::new(0u32) as Box<dyn AsBrdbValue>), ("ChunkIndex", Box::new(NestedStructDefault(vec![("X", Box::new(0i16) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i16)), ("Z", Box::new(0i16))]))), ("BrickIndexInChunk", Box::new(4294967295u32))])) as Box<dyn AsBrdbValue>), ("ComponentTypeIndex", Box::new(0u16))]))),
             ("PropertyName", Box::new(String::from("None"))),
         ]),
         ("BCSComponentVertex_Exec_GetEnvironmentProperty", vec![
+            ("Value", Box::new(WireValue::Number(0.0))),
             ("Environment", Box::new(String::from("None"))),
             ("PropertyName", Box::new(String::from("None"))),
+        ]),
+        ("BCSComponentVertex_Exec_GetOwnTransform", vec![
+            ("Location", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
+            ("Rotation", Box::new(NestedStructDefault(vec![("Pitch", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Yaw", Box::new(0.0f64)), ("Roll", Box::new(0.0f64))]))),
         ]),
         ("BCSComponentVertex_Exec_MapVar_Clear", vec![
             ("MapVarRef", Box::new(NestedStructDefault(vec![("Brick", Box::new(NestedStructDefault(vec![("GridPersistentIndex", Box::new(0u32) as Box<dyn AsBrdbValue>), ("ChunkIndex", Box::new(NestedStructDefault(vec![("X", Box::new(0i16) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i16)), ("Z", Box::new(0i16))]))), ("BrickIndexInChunk", Box::new(4294967295u32))])) as Box<dyn AsBrdbValue>), ("ComponentTypeIndex", Box::new(0u16))]))),
@@ -1585,11 +1624,25 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Lifetime", Box::new(5.0f64)),
             ("TextId", Box::new(0i64)),
         ]),
+        ("BCSComponentVertex_Exec_PlayerState_GetDisplayName", vec![
+            ("DisplayName", Box::new(String::from(""))),
+        ]),
+        ("BCSComponentVertex_Exec_PlayerState_GetUserId", vec![
+            ("UserId", Box::new(String::from(""))),
+        ]),
+        ("BCSComponentVertex_Exec_PlayerState_GetUserName", vec![
+            ("UserName", Box::new(String::from(""))),
+        ]),
         ("BCSComponentVertex_Exec_PlayerState_HasPermission", vec![
             ("PermissionName", Box::new(String::from("BR.Permission.AlwaysSave"))),
+            ("bHasPermission", Box::new(false)),
         ]),
         ("BCSComponentVertex_Exec_PlayerState_HasRole", vec![
             ("RoleName", Box::new(String::from(""))),
+            ("bHasRole", Box::new(false)),
+        ]),
+        ("BCSComponentVertex_Exec_PlayerState_IsTrustedByBrickOwner", vec![
+            ("bIsTrusted", Box::new(false)),
         ]),
         ("BCSComponentVertex_Exec_PlayerState_SetCanRespawn", vec![
             ("bCanRespawn", Box::new(true)),
@@ -1609,6 +1662,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Message", Box::new(String::from(""))),
         ]),
         ("BCSComponentVertex_Exec_PlayerState_ShowTextInputBox", vec![
+            ("Text", Box::new(String::from(""))),
             ("Title", Box::new(String::from(""))),
             ("Message", Box::new(String::from(""))),
         ]),
@@ -1630,6 +1684,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ("BCSComponentVertex_Exec_Random", vec![
             ("Min", Box::new(WireValue::Number(0.0))),
             ("Max", Box::new(WireValue::Number(1.0))),
+            ("Output", Box::new(WireValue::Number(0.0))),
         ]),
         ("BCSComponentVertex_Exec_SendCustomEvent", vec![
             ("EventName", Box::new(String::from(""))),
@@ -1686,6 +1741,8 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("HitLocation", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("HitNormal", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("HitDistance", Box::new(0.0f64)),
+            ("HitBrick", Box::new(NestedStructDefault(vec![("GridPersistentIndex", Box::new(0u32) as Box<dyn AsBrdbValue>), ("ChunkIndex", Box::new(NestedStructDefault(vec![("X", Box::new(0i16) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i16)), ("Z", Box::new(0i16))]))), ("BrickIndexInChunk", Box::new(4294967295u32))]))),
+            ("HitColor", Box::new(NestedStructDefault(vec![("R", Box::new(0.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(0.0f32)), ("B", Box::new(0.0f32)), ("A", Box::new(0.0f32))]))),
         ]),
         ("BCSComponentVertex_Exec_SweepSimple", vec![
             ("Direction", Box::new(4u8)),
@@ -1705,6 +1762,8 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("HitLocation", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("HitNormal", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64))]))),
             ("HitDistance", Box::new(0.0f64)),
+            ("HitBrick", Box::new(NestedStructDefault(vec![("GridPersistentIndex", Box::new(0u32) as Box<dyn AsBrdbValue>), ("ChunkIndex", Box::new(NestedStructDefault(vec![("X", Box::new(0i16) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i16)), ("Z", Box::new(0i16))]))), ("BrickIndexInChunk", Box::new(4294967295u32))]))),
+            ("HitColor", Box::new(NestedStructDefault(vec![("R", Box::new(0.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(0.0f32)), ("B", Box::new(0.0f32)), ("A", Box::new(0.0f32))]))),
         ]),
         ("BCSComponentVertex_Exec_Toggle", vec![
             ("Value", Box::new(false)),
@@ -1746,10 +1805,13 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BCSComponentVertex_Expr_ChangeDetector", vec![
             ("Input", Box::new(WireValue::Number(0.0))),
-            ("bPulseOnChange", Box::new(false)),
+            ("InputLast", Box::new(WireValue::Number(0.0))),
+            ("bSeeded", Box::new(true)),
         ]),
         ("BCSComponentVertex_Expr_ChangeDetectorExec", vec![
             ("Input", Box::new(WireValue::Number(0.0))),
+            ("InputLast", Box::new(WireValue::Number(0.0))),
+            ("bSeeded", Box::new(true)),
         ]),
         ("BCSComponentVertex_Expr_ColorBlend", vec![
             ("ColorA", Box::new(NestedStructDefault(vec![("R", Box::new(0.0f32) as Box<dyn AsBrdbValue>), ("G", Box::new(0.0f32)), ("B", Box::new(0.0f32)), ("A", Box::new(1.0f32))]))),
@@ -1775,7 +1837,6 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BCSComponentVertex_Expr_Convert", vec![
             ("Input", Box::new(WireValue::Number(0.0))),
-            ("Output", Box::new(WireValue::Number(0.0))),
             ("TargetType", Box::new(WireValue::Number(0.0))),
         ]),
         ("BCSComponentVertex_Expr_DirectionToRotation", vec![
@@ -1783,15 +1844,16 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
         ]),
         ("BCSComponentVertex_Expr_EdgeDetector", vec![
             ("Input", Box::new(0.0f64)),
-            ("bPulseOnRisingEdge", Box::new(false)),
-            ("bPulseOnFallingEdge", Box::new(false)),
+            ("InputLast", Box::new(0.0f64)),
+            ("bSeeded", Box::new(true)),
         ]),
         ("BCSComponentVertex_Expr_EdgeDetectorExec", vec![
             ("Input", Box::new(0.0f64)),
+            ("InputLast", Box::new(0.0f64)),
+            ("bSeeded", Box::new(true)),
         ]),
         ("BCSComponentVertex_Expr_EnumToInteger", vec![
             ("Input", Box::new(WireValue::Enum(BrdbDynamicEnum::new("EBrickDirection", 0)))),
-            ("Output", Box::new(WireValue::Int(0))),
         ]),
         ("BCSComponentVertex_Expr_Float_Float", vec![
             ("Input", Box::new(0.0f64)),
@@ -1815,7 +1877,6 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Input", Box::new(0i64)),
             ("bWrap", Box::new(false)),
             ("TargetType", Box::new(BrdbDynamicEnum::new("EBrickDirection", 0))),
-            ("Output", Box::new(WireValue::Enum(BrdbDynamicEnum::new("EBrickDirection", 0)))),
         ]),
         ("BCSComponentVertex_Expr_InvertRotation", vec![
             ("Input", Box::new(NestedStructDefault(vec![("X", Box::new(0.0f64) as Box<dyn AsBrdbValue>), ("Y", Box::new(0.0f64)), ("Z", Box::new(0.0f64)), ("W", Box::new(1.0f64))]))),
@@ -2071,6 +2132,9 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Output5", Box::new(WireValue::Number(0.0))),
             ("Output6", Box::new(WireValue::Number(0.0))),
             ("Output7", Box::new(WireValue::Number(0.0))),
+            ("bAborted", Box::new(false)),
+            ("AbortReason", Box::new(0u8)),
+            ("IterationsExecuted", Box::new(0i64)),
         ]),
         ("BrickComponentData_AerodynamicSurface", vec![
             ("bEnabled", Box::new(true)),
@@ -2315,13 +2379,28 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Count", Box::new(1i64)),
             ("FirstIndex", Box::new(0i64)),
             ("Step", Box::new(1i64)),
+            ("bAborted", Box::new(false)),
+            ("AbortReason", Box::new(0u8)),
+            ("IterationsExecuted", Box::new(0i64)),
             ("bRunAcrossTicks", Box::new(false)),
+            ("bRunning", Box::new(false)),
+            ("RunState", Box::new(NestedStructDefault(vec![("Ordinal", Box::new(0i64) as Box<dyn AsBrdbValue>), ("Count", Box::new(0i64)), ("Index", Box::new(0i64)), ("Step", Box::new(0i64)), ("IterationsExecuted", Box::new(0i64)), ("SavedMapCursor", Box::new(0i32)), ("bActive", Box::new(false))]))),
         ]),
         ("BrickComponentData_Internal_Microchip_ForEachArray", vec![
+            ("bAborted", Box::new(false)),
+            ("AbortReason", Box::new(0u8)),
+            ("IterationsExecuted", Box::new(0i64)),
             ("bRunAcrossTicks", Box::new(false)),
+            ("bRunning", Box::new(false)),
+            ("RunState", Box::new(NestedStructDefault(vec![("Ordinal", Box::new(0i64) as Box<dyn AsBrdbValue>), ("Count", Box::new(0i64)), ("Index", Box::new(0i64)), ("Step", Box::new(0i64)), ("IterationsExecuted", Box::new(0i64)), ("SavedMapCursor", Box::new(0i32)), ("bActive", Box::new(false))]))),
         ]),
         ("BrickComponentData_Internal_Microchip_ForEachMap", vec![
+            ("bAborted", Box::new(false)),
+            ("AbortReason", Box::new(0u8)),
+            ("IterationsExecuted", Box::new(0i64)),
             ("bRunAcrossTicks", Box::new(false)),
+            ("bRunning", Box::new(false)),
+            ("RunState", Box::new(NestedStructDefault(vec![("Ordinal", Box::new(0i64) as Box<dyn AsBrdbValue>), ("Count", Box::new(0i64)), ("Index", Box::new(0i64)), ("Step", Box::new(0i64)), ("IterationsExecuted", Box::new(0i64)), ("SavedMapCursor", Box::new(0i32)), ("bActive", Box::new(false))]))),
         ]),
         ("BrickComponentData_ItemSpawn", vec![
             ("bPickupEnabled", Box::new(true)),
@@ -2346,7 +2425,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("PickupSpinSpeed", Box::new(0.2f32)),
             ("PickupBobSpeed", Box::new(0.1f32)),
             ("PickupBobHeight", Box::new(4.0f32)),
-            ("PickupAnimationPhase", Box::new(0.48680073f32)),
+            ("PickupAnimationPhase", Box::new(0.56913966f32)),
         ]),
         ("BrickComponentData_Joint_Wheel", vec![
             ("bDiscoverable", Box::new(true)),
@@ -2407,6 +2486,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("bEnabled", Box::new(true)),
             ("Speed", Box::new(60.0f32)),
             ("Power", Box::new(10.0f32)),
+            ("CurrentPosition", Box::new(0.0f32)),
             ("bPositionsArePercentages", Box::new(false)),
             ("bReversed", Box::new(false)),
             ("Damping", Box::new(1.0f32)),
@@ -2512,7 +2592,6 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("TopSpeed", Box::new(0.0f32)),
         ]),
         ("BrickComponentData_Seat_V2", vec![
-            ("bIsOccupied", Box::new(false)),
             ("ExitOffset", Box::new(NestedStructDefault(vec![("X", Box::new(0i32) as Box<dyn AsBrdbValue>), ("Y", Box::new(0i32)), ("Z", Box::new(0i32))]))),
             ("bRollCameraInThirdPerson", Box::new(false)),
             ("CameraOrigin", Box::new(0u8)),
@@ -2537,6 +2616,7 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Power", Box::new(100.0f32)),
             ("ActiveDamping", Box::new(30.0f32)),
             ("ForceLimit", Box::new(0.0f32)),
+            ("bStopped", Box::new(false)),
             ("bLimitAngle", Box::new(false)),
             ("LimitAngle", Box::new(0.0f32)),
             ("CurrentAngle", Box::new(0.0f32)),
@@ -2550,11 +2630,14 @@ pub static STRUCT_DEFAULTS: LazyLock<Vec<(&'static str, Vec<(&'static str, Box<d
             ("Power", Box::new(100.0f32)),
             ("TopSpeed", Box::new(0.0f32)),
             ("Exponent", Box::new(2.0f32)),
+            ("bStopped", Box::new(false)),
+            ("CurrentPosition", Box::new(0.0f32)),
             ("bPositionsArePercentages", Box::new(false)),
             ("bReversed", Box::new(false)),
             ("Damping", Box::new(1.0f32)),
         ]),
         ("BrickComponentData_Slider", vec![
+            ("CurrentPosition", Box::new(0.0f32)),
             ("bPositionsArePercentages", Box::new(false)),
             ("bReversed", Box::new(false)),
             ("Damping", Box::new(1.0f32)),

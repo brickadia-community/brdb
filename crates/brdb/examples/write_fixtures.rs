@@ -537,17 +537,13 @@ fn components_latest_world() -> World {
     // 5: Unset array variable: the default empty container.
     let empty_array = gate(80, "B_1x1_Gate_Variable_Array")
         .with_component(assets::LiteralComponent::new("BrickComponentType_ArrayVar"));
-    // 6: Integer to enum: a dynamic enum field and an enum WireValue.
+    // 6: Integer to enum: a dynamic enum field.
     let to_enum = gate(100, "B_1x1_Gate_Expr_IntegerToEnum").with_component(
         assets::LiteralComponent::new("BrickComponentType_Expr_IntegerToEnum").with_data([
             ("Input", Box::new(2i64) as Box<dyn AsBrdbValue>),
             (
                 "TargetType",
                 Box::new(BrdbDynamicEnum::new("EBrickAxis", 0)),
-            ),
-            (
-                "Output",
-                Box::new(WireValue::Enum(BrdbDynamicEnum::new("EBrickAxis", 2))),
             ),
         ]),
     );
