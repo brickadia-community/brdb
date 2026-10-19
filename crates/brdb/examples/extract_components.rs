@@ -201,7 +201,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     w!("/// fully-placed, fully-wired \"zoo\" save (mirrors brs-js's COMPONENTS).");
     w!("#[derive(Debug, Clone, Copy, PartialEq, Eq)]");
     w!("pub struct ComponentInfo {{");
-    w!("    /// e.g. \"BrickComponentType_WireGraph_Exec_Branch\".");
+    w!("    /// e.g. \"BrickComponentType_Exec_Branch\".");
     w!("    pub name: &'static str,");
     w!("    /// Host brick asset name(s) that carry this component.");
     w!("    pub bricks: &'static [&'static str],");

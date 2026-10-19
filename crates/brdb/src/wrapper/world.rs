@@ -288,9 +288,8 @@ impl World {
 
     /// Embed a prefab archive, content-addressed the way the game does:
     /// `Prefabs/Uploads/<BLAKE3-uppercase-hex>.brz`. Returns that path — the
-    /// exact string to store in a `Prefab` component property
-    /// (`bundle_path_ref`), e.g. on `BrickComponentType_PrefabSpawn` or
-    /// `BrickComponentType_WireGraph_Exec_PrefabSpawner`.
+    /// exact string to store in a `Prefab` component property, e.g. on
+    /// `BrickComponentType_PrefabSpawn` or `BrickComponentType_Exec_PrefabSpawner`.
     pub fn add_prefab(&mut self, brz_bytes: impl Into<Vec<u8>>) -> String {
         let bytes = brz_bytes.into();
         let hash = blake3::hash(&bytes).to_hex().to_string().to_uppercase();

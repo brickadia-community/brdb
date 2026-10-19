@@ -1,8 +1,10 @@
 # Structure of Arrays (SoA)
 
-BRDB stores brick, component, and entity data using a Structure of Arrays layout. Rather than encoding each element as a self-contained object in an array of structs, related properties are split into parallel arrays (one array per field, all the same length). This layout enables efficient iteration over a single property, cache-friendly sequential access, and selective field loading when only a subset of properties is needed.
+BRDB stores brick, component, wire, and entity data using a Structure of Arrays layout. Rather than encoding each element as a self-contained object in an array of structs, related properties are split into parallel arrays (one array per field, all the same length). This layout enables efficient iteration over a single property, cache-friendly sequential access, and selective field loading when only a subset of properties is needed.
 
-Each chunk type has its own SoA struct that is serialized via msgpack using an embedded `.schema` file. Components and entities use a two-phase serialization: the SoA struct is written first, then per-element extra data structs are appended sequentially to the same buffer.
+Each chunk type has its own SoA struct that is serialized via msgpack using a `.schema` file stored beside it. Components and entities use a two-phase serialization: the SoA struct is written first, then per-element extra data structs are appended sequentially to the same buffer.
+
+The field lists below are the current game's layouts, as in the schemas bundled with brdb (`crates/brdb/schemas/`). Older saves can lack newer fields; a reader should treat a missing field as its default. Type notation: `T[]` is a msgpack array, `T[flat]` a [flat array](flat-arrays.md).
 
 ---
 
@@ -13,45 +15,46 @@ Stores all brick data for a spatial chunk.
 | Field | Type | Description |
 |---|---|---|
 | `ProceduralBrickStartingIndex` | `u32` | Number of basic (non-procedural) brick assets at save time. All asset indices at or above this value are procedural. |
-| `BrickSizeCounters` | `Array<BrickSizeCounter>` | Run-length counters grouping bricks by asset and size. See [Type Counter Pattern](#type-counter-pattern). |
-| `BrickSizes` | `FlatArray<BrickSize>` | Per-group brick dimensions. |
-| `BrickTypeIndices` | `FlatArray<u32>` | Per-brick index into the global asset list. |
-| `OwnerIndices` | `FlatArray<u32>` | Per-brick index into the owner table. |
-| `RelativePositions` | `FlatArray<RelativePosition>` | Per-brick position relative to chunk origin. |
-| `Orientations` | `FlatArray<u8>` | Per-brick orientation, encoded as a single byte. |
-| `CollisionFlags_Player` | `FlatArray<u8>` | BitFlags forplayer collision per brick. |
-| `CollisionFlags_Player1` | `FlatArray<u8>` | BitFlags forplayer1 collision per brick. |
-| `CollisionFlags_Player2` | `FlatArray<u8>` | BitFlags forplayer2 collision per brick. |
-| `CollisionFlags_Player3` | `FlatArray<u8>` | BitFlags forplayer3 collision per brick. |
-| `CollisionFlags_Weapon` | `FlatArray<u8>` | BitFlags forweapon collision per brick. |
-| `CollisionFlags_Interaction` | `FlatArray<u8>` | BitFlags forinteraction collision per brick. |
-| `CollisionFlags_Tool` | `FlatArray<u8>` | BitFlags fortool collision per brick. |
-| `CollisionFlags_Physics` | `FlatArray<u8>` | BitFlags forphysics collision per brick. |
-| `VisibilityFlags` | `FlatArray<u8>` | BitFlags forvisibility per brick. |
-| `MaterialIndices` | `FlatArray<u8>` | Per-brick index into the global material list. |
-| `ColorsAndAlphas` | `FlatArray<SavedBrickColor>` | Per-brick RGBA color. The `a` channel encodes material intensity, not transparency. |
+| `BrickSizeCounters` | `BRSavedBrickSizeCounter[]` | Run-length counters grouping bricks by asset and size. See [Type Counter Pattern](#type-counter-pattern). |
+| `BrickSizes` | `BRSavedBrickSize[]` | Per-group brick dimensions. |
+| `BrickTypeIndices` | `u32[]` | Per-brick index into the global asset list. |
+| `OwnerIndices` | `u32[]` | Per-brick index into the owner table. |
+| `OriginalOwnerIndices` | `u32[]` | Per-brick original owner, an index into the owner table. Missing in older saves; brdb mirrors `OwnerIndices` then. |
+| `RelativePositions` | `BRSavedRelativeBrickPosition[flat]` | Per-brick position relative to chunk origin. |
+| `Orientations` | `u8[flat]` | Per-brick orientation, encoded as a single byte. |
+| `CollisionFlags_Player` | `BRSavedBitFlags` | Player collision per brick. |
+| `CollisionFlags_Player1` | `BRSavedBitFlags` | Player1 collision per brick. |
+| `CollisionFlags_Player2` | `BRSavedBitFlags` | Player2 collision per brick. |
+| `CollisionFlags_Player3` | `BRSavedBitFlags` | Player3 collision per brick. |
+| `CollisionFlags_Weapon` | `BRSavedBitFlags` | Weapon collision per brick. |
+| `CollisionFlags_Interaction` | `BRSavedBitFlags` | Interaction collision per brick. |
+| `CollisionFlags_Physics` | `BRSavedBitFlags` | Physics collision per brick. |
+| `VisibilityFlags` | `BRSavedBitFlags` | Visibility per brick. |
+| `MaterialIndices` | `u8[flat]` | Per-brick index into the global material list. |
+| `ColorsAndAlphas` | `BRSavedBrickColor[flat]` | Per-brick RGBA color. The `A` channel encodes material intensity, not transparency. |
+| `bColorsAreLinear` | `bool` | Whether `ColorsAndAlphas` RGB is linear. Current saves store sRGB (`false`); older saves without the field store linear colors. |
 
 ### Sub-types
 
-**`BrickSizeCounter`** groups bricks sharing the same asset type and size:
+**`BRSavedBrickSizeCounter`** groups bricks sharing the same asset type and size:
 
 ```
 { AssetIndex: u32, NumSizes: u32 }
 ```
 
-**`BrickSize`** stores brick dimensions in centimeter-scale units:
+**`BRSavedBrickSize`** stores brick dimensions in centimeter-scale units:
 
 ```
 { X: u16, Y: u16, Z: u16 }
 ```
 
-**`RelativePosition`** stores position relative to chunk origin:
+**`BRSavedRelativeBrickPosition`** stores position relative to chunk origin:
 
 ```
 { X: i16, Y: i16, Z: i16 }
 ```
 
-**`SavedBrickColor`** is an RGBA color where `a` is material intensity (0-255), not opacity:
+**`BRSavedBrickColor`** is an RGBA color where `A` is material intensity (0-255), not opacity:
 
 ```
 { R: u8, G: u8, B: u8, A: u8 }
@@ -65,20 +68,22 @@ Stores all brick data for a spatial chunk.
 
 ## ComponentChunkSoA (`BRSavedComponentChunkSoA`)
 
-Stores all component data for a chunk. Components attach behavior to bricks. Joint-type components carry additional offset and rotation data.
+Stores all component data for a chunk. Components attach behavior to bricks. Joint-type components carry additional offset and rotation data, and microchip components reference the inner grid they host.
 
 | Field | Type | Description |
 |---|---|---|
-| `ComponentTypeCounters` | `Array<ComponentTypeCounter>` | Run-length counters grouping components by type. See [Type Counter Pattern](#type-counter-pattern). |
-| `ComponentBrickIndices` | `FlatArray<u32>` | Per-component index of the brick this component is attached to. |
-| `JointBrickIndices` | `FlatArray<u32>` | Per-joint index of the secondary brick involved in the joint. |
-| `JointEntityReferences` | `FlatArray<u32>` | Per-joint entity reference index. |
-| `JointInitialRelativeOffsets` | `FlatArray<Vector3f>` | Per-joint initial relative position offset. |
-| `JointInitialRelativeRotations` | `FlatArray<Quat4f>` | Per-joint initial relative rotation. |
+| `ComponentTypeCounters` | `BRSavedBrickComponentTypeCounter[]` | Run-length counters grouping components by type. See [Type Counter Pattern](#type-counter-pattern). |
+| `ComponentBrickIndices` | `u32[]` | Per-component index of the brick this component is attached to. |
+| `JointBrickIndices` | `u32[]` | Per-joint index of the secondary brick involved in the joint. |
+| `JointEntityReferences` | `u32[]` | Per-joint entity reference index. |
+| `JointInitialRelativeOffsets` | `Vector3f[flat]` | Per-joint initial relative position offset. |
+| `JointInitialRelativeRotations` | `Quat4f[flat]` | Per-joint initial relative rotation. |
+| `MicrochipBrickIndices` | `u32[]` | Bricks in this chunk that host a microchip (`Internal_Microchip`) component, as local brick indices. Missing in older saves. |
+| `MicrochipBrickGridReferences` | `u32[]` | Entity reference of each microchip's inner brick grid, parallel to `MicrochipBrickIndices`. Missing in older saves. |
 
 ### Sub-types
 
-**`ComponentTypeCounter`**:
+**`BRSavedBrickComponentTypeCounter`**:
 
 ```
 { TypeIndex: u32, NumInstances: u32 }
@@ -98,12 +103,42 @@ Stores all component data for a chunk. Components attach behavior to bricks. Joi
 
 ### Serialization note
 
-After the SoA msgpack block, per-component extra data structs are appended sequentially. Marker-only components (those with no associated schema struct) do not produce an extra data block.
+After the SoA msgpack block, per-component extra data structs are appended sequentially. Marker-only components (those with no associated schema struct) do not produce an extra data block. Data structs are named `BCSComponentVertex_*` (most wire-graph gates, for example `BrickComponentType_Expr_LogicalAND` -> `BCSComponentVertex_Expr_BoolBool_Bool`) or `BrickComponentData_*` (for example `BrickComponentType_ArrayVar` -> `BrickComponentData_ArrayVar`). Several component types can share one struct. See [entity-components.md](entity-components.md).
 
 ### Schema files
 
-- `BRSavedComponentChunkSoA.schema` (standard schema)
-- `BRSavedComponentChunkSoA_max.schema` (schema used when writing at maximum capacity)
+- `BRSavedComponentChunkSoA.schema`: the minimal schema, with only the SoA struct and its sub-types.
+- `BRSavedComponentChunkSoA_max.schema`: every component data struct of the current game build, with the `WireValue` variant and the `types` table. brdb writes a world's `ComponentsShared.schema` as the minimal schema plus the data structs (and everything they reference) of the component types the world uses, as the game does.
+
+---
+
+## WireChunkSoA (`BRSavedWireChunkSoA`)
+
+Stores the wires whose **target** is a brick in this chunk. A wire whose source is in the same grid and chunk is stored as a local wire; any other wire is a remote wire.
+
+| Field | Type | Description |
+|---|---|---|
+| `RemoteWireSources` | `BRSavedRemoteWirePortSource[]` | Source port of each remote wire. |
+| `LocalWireSources` | `BRSavedLocalWirePortSource[]` | Source port of each local wire. |
+| `RemoteWireTargets` | `BRSavedWirePortTarget[]` | Target port of each remote wire, parallel to `RemoteWireSources`. |
+| `LocalWireTargets` | `BRSavedWirePortTarget[]` | Target port of each local wire, parallel to `LocalWireSources`. |
+| `PendingPropagationFlags` | `BRSavedBitFlags` | Per-wire pending propagation flags. |
+
+### Sub-types
+
+```
+BRSavedLocalWirePortSource  { BrickIndexInChunk: u32, ComponentTypeIndex: u16, PortIndex: u16 }
+BRSavedWirePortTarget       { BrickIndexInChunk: u32, ComponentTypeIndex: u16, PortIndex: u16 }
+BRSavedRemoteWirePortSource { GridPersistentIndex: u32, ChunkIndex: BRSavedChunk3DIndex,
+                              BrickIndexInChunk: u32, ComponentTypeIndex: u16, PortIndex: u16 }
+BRSavedChunk3DIndex         { X: i16, Y: i16, Z: i16 }
+```
+
+`ComponentTypeIndex` indexes the global `ComponentTypeNames`, and `PortIndex` indexes the global `ComponentWirePortNames` (see [shared-schemas.md](shared-schemas.md)).
+
+### Schema file
+
+`BRSavedWireChunkSoA.schema` (embedded; loaded via `bricks_wires_schema()`)
 
 ---
 
@@ -113,28 +148,32 @@ Stores all entity data for a chunk. Entities are dynamic world objects with phys
 
 | Field | Type | Description |
 |---|---|---|
-| `TypeCounters` | `Array<EntityTypeCounter>` | Run-length counters grouping entities by type. See [Type Counter Pattern](#type-counter-pattern). |
-| `PersistentIndices` | `FlatArray<u32>` | Per-entity persistent ID used to correlate entities across saves. |
-| `OwnerIndices` | `FlatArray<u32>` | Per-entity index into the owner table. |
-| `Locations` | `FlatArray<Vector3f>` | Per-entity world position. |
-| `Rotations` | `FlatArray<Quat4f>` | Per-entity world rotation. |
-| `WeldParentFlags` | `FlatArray<u8>` | BitFlags forwhether each entity has a weld parent. |
-| `PhysicsLockedFlags` | `FlatArray<u8>` | BitFlags forwhether each entity is physics-locked (frozen). |
-| `PhysicsSleepingFlags` | `FlatArray<u8>` | BitFlags forwhether each entity is physics-sleeping. |
-| `WeldParentIndices` | `FlatArray<u32>` | Per-entity index of the weld parent entity (only valid when `WeldParentFlags` bit is set). |
-| `LinearVelocities` | `FlatArray<Vector3f>` | Per-entity linear velocity. |
-| `AngularVelocities` | `FlatArray<Vector3f>` | Per-entity angular velocity. |
-| `ColorsAndAlphas` | `Array<EntityColors>` | Per-entity color set containing exactly 8 `SavedBrickColor` values per entity, named `Color0` through `Color7`. |
+| `TypeCounters` | `BRSavedEntityTypeCounter[]` | Run-length counters grouping entities by type. See [Type Counter Pattern](#type-counter-pattern). |
+| `PersistentIndices` | `u32[]` | Per-entity persistent ID used to correlate entities across saves. |
+| `PrefabSpawnInstanceIndices` | `u32[]` | Per-entity index of the prefab spawn instance that created it (0 for none). Latest saves only. |
+| `OwnerIndices` | `u32[]` | Per-entity index into the owner table. |
+| `OriginalOwnerIndices` | `u32[]` | Per-entity original owner, an index into the owner table. Missing in older saves; brdb mirrors `OwnerIndices` then. |
+| `Locations` | `Vector3f[flat]` | Per-entity world position. |
+| `Rotations` | `Quat4f[flat]` | Per-entity world rotation. |
+| `PhysicsLockedFlags` | `BRSavedBitFlags` | Whether each entity is physics-locked (frozen). |
+| `PhysicsSleepingFlags` | `BRSavedBitFlags` | Whether each entity is physics-sleeping. |
+| `LinearVelocities` | `Vector3f[flat]` | Per-entity linear velocity. |
+| `AngularVelocities` | `Vector3f[flat]` | Per-entity angular velocity. |
+| `ColorsAndAlphas` | `BRSavedEntityColors[flat]` | Per-entity color set of exactly 8 `BRSavedBrickColor` values, `Color0` through `Color7`. |
+| `RemainingLifeSpans` | `f32[flat]` | Per-entity remaining lifespan in seconds (0 = no auto-despawn). Missing in older saves. |
+| `bColorsAreLinear` | `bool` | Whether `ColorsAndAlphas` RGB is linear, as for bricks. |
+
+EA3 saves instead have `WeldParentFlags` (`BRSavedBitFlags`) and `WeldParentIndices` (`u32[]`), and no `PrefabSpawnInstanceIndices`. Current game builds removed the weld fields.
 
 ### Sub-types
 
-**`EntityTypeCounter`**:
+**`BRSavedEntityTypeCounter`**:
 
 ```
 { TypeIndex: u32, NumEntities: u32 }
 ```
 
-**`EntityColors`** is a fixed tuple of 8 `SavedBrickColor` values:
+**`BRSavedEntityColors`** is a fixed tuple of 8 `BRSavedBrickColor` values:
 
 ```
 { Color0, Color1, Color2, Color3, Color4, Color5, Color6, Color7 }
@@ -146,7 +185,7 @@ After the SoA msgpack block, per-entity extra data structs are appended sequenti
 
 ### Schema file
 
-`BRSavedEntityChunkSoA.schema` (embedded; loaded via `entity_chunk_schema()`)
+`BRSavedEntityChunkSoA.schema` (embedded; loaded via `entities_chunks_schema()`)
 
 ---
 
@@ -159,22 +198,26 @@ When building a SoA:
 - If the last counter already refers to the same type, increment its count.
 - Otherwise, append a new counter with count 1.
 
-To read N elements of type T at offset O, walk the counter array accumulating counts until reaching the right group, then slice the corresponding flat arrays starting at O with length N.
+To read N elements of type T at offset O, walk the counter array accumulating counts until reaching the right group, then slice the corresponding arrays starting at O with length N.
 
 ---
 
 ## BitFlags
 
-Boolean per-element flags are packed as bit vectors. N flags are stored in `ceil(N / 8)` bytes. The serialized form is a `FlatArray<u8>`.
-
-To test bit `i`:
+Boolean per-element flags are packed as bit vectors in a `BRSavedBitFlags` struct:
 
 ```
-byte = array[i / 8]
+struct BRSavedBitFlags { Flags: u8[flat] }
+```
+
+N flags are stored in `ceil(N / 8)` bytes. To test bit `i`:
+
+```
+byte = Flags[i / 8]
 set  = (byte & (1 << (i & 7))) != 0
 ```
 
-`BrickChunkSoA` carries 9 BitFlags fields: the 8 collision channel flags (`CollisionFlags_Player` through `CollisionFlags_Physics`) and `VisibilityFlags`. `EntityChunkSoA` carries 3: `WeldParentFlags`, `PhysicsLockedFlags`, and `PhysicsSleepingFlags`.
+`BrickChunkSoA` carries 8 BitFlags fields: the 7 collision channel flags (`CollisionFlags_Player` through `CollisionFlags_Physics`) and `VisibilityFlags`. `EntityChunkSoA` carries 2: `PhysicsLockedFlags` and `PhysicsSleepingFlags`. `WireChunkSoA` carries `PendingPropagationFlags`.
 
 ---
 
@@ -182,12 +225,12 @@ set  = (byte & (1 << (i & 7))) != 0
 
 SoA data is serialized in two phases:
 
-1. **SoA phase**: The entire SoA struct is encoded as a msgpack map using the corresponding `.schema` definition, producing the primary buffer.
+1. **SoA phase**: The SoA struct is encoded with the corresponding `.schema` definition: its field values in schema order, with no struct header (see [overview.md](overview.md#structs)). This produces the primary buffer.
 2. **Extra data phase** (components and entities only): For each element that has an associated typed data struct, that struct is serialized and appended sequentially to the same buffer immediately after the SoA block.
 
-Bricks do not have an extra data phase; all brick data lives entirely in the SoA.
+Bricks and wires do not have an extra data phase; all their data lives in the SoA.
 
-An empty SoA (zero elements) is valid; all flat arrays will be empty and all counter arrays will be empty.
+An empty SoA (zero elements) is valid; all arrays and counter arrays will be empty.
 
 ---
 
@@ -198,16 +241,17 @@ Each SoA type is described by an embedded `.schema` file compiled into the binar
 | Schema file | SoA type | Constant |
 |---|---|---|
 | `BRSavedBrickChunkSoA.schema` | `BrickChunkSoA` | `BRICK_CHUNK_SOA` |
-| `BRSavedComponentChunkSoA.schema` | `ComponentChunkSoA` | `BRICK_COMPONENT_SOA` |
-| `BRSavedComponentChunkSoA_max.schema` | `ComponentChunkSoA` (max capacity) | (none) |
+| `BRSavedComponentChunkSoA.schema` | `ComponentChunkSoA` (minimal) | `BRICK_COMPONENT_SOA` |
+| `BRSavedComponentChunkSoA_max.schema` | `ComponentChunkSoA` (every data struct) | `BRICK_COMPONENT_SOA` |
+| `BRSavedWireChunkSoA.schema` | `WireChunkSoA` | `BRICK_WIRE_SOA` |
 | `BRSavedEntityChunkSoA.schema` | `EntityChunkSoA` | `ENTITY_CHUNK_SOA` |
 
 ---
 
 ## Quirks
 
-- **`SavedBrickColor.a` is material intensity, not opacity.** Despite the field name `ColorsAndAlphas`, the alpha channel encodes how strongly the material shader is applied (0 = no material effect, 255 = full material effect). Transparency is not stored here.
-- **Entity colors are always exactly 8.** `EntityColors` is a fixed-size tuple of 8 `SavedBrickColor` values. There is no variable-length encoding.
-- **`BrickSizeCounter` groups by asset AND size.** Two bricks with the same asset but different sizes produce separate counter entries. The counter does not group by type alone.
+- **`BRSavedBrickColor.A` is material intensity, not opacity.** Despite the field name `ColorsAndAlphas`, the alpha channel encodes how strongly the material shader is applied (0 = no material effect, 255 = full material effect). Transparency is not stored here.
+- **Entity colors are always exactly 8.** `BRSavedEntityColors` is a fixed-size tuple of 8 `BRSavedBrickColor` values. There is no variable-length encoding.
+- **`BRSavedBrickSizeCounter` groups by asset AND size.** Two bricks with the same asset but different sizes produce separate counter entries. The counter does not group by type alone.
 - **Marker-only components skip the extra data phase.** If a component type has no associated data schema struct, no bytes are appended for it during the extra data phase.
 - **An empty SoA is valid.** All arrays may have zero elements; consumers must handle this without error.

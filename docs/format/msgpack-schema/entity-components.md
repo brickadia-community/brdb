@@ -53,6 +53,8 @@ Component chunks embed `component_type_counters`. Each counter has `type_index: 
 
 `component_data_struct_names` is a `Vec` (not an `IndexSet`), so it is indexed by position directly.
 
+In current saves, struct names are `BCSComponentVertex_*` for most wire-graph gates (for example `BCSComponentVertex_Expr_BoolBool_Bool` for `BrickComponentType_Expr_LogicalAND`) and `BrickComponentData_*` for other components. Several component types can share one struct. Data structs can hold `WireValue` fields and dynamic containers (see [overview.md](overview.md#variants)); they are decoded with the same schema, and so the same format, as the SoA before them.
+
 ### Bricks and Wires
 
 Brick and wire chunk files contain only a SoA. There are no type counters and no extra structs after the SoA.

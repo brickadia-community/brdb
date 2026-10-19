@@ -13,10 +13,12 @@ The *contents* of the virtual filesystem — the individual `.mps`, `.schema`, a
 in their decompressed form — are a deterministic function of the world being saved:
 
 - **`.mps`** — MessagePack-Schema data written in fixed schema-field order, with fixed
-  smallest-representation rules for integers and floats (see [overview.md](msgpack-schema/overview.md)
-  and [soa.md](msgpack-schema/soa.md)).
-- **`.schema`** — always the 3-element form, with structs emitted in dependency (topological)
-  order and enums/variants/structs in a stable order.
+  smallest-representation rules for integers and floats (see [overview.md](msgpack-schema/overview.md#numbers)
+  and [soa.md](msgpack-schema/soa.md)). Flat array padding bytes are always zero.
+- **`.schema`** — the Latest map form, with empty sections left out, sections in the order
+  `enums`, `variants`, `structs`, `types`, structs emitted in dependency (topological) order,
+  and enums/variants/structs in a stable order. The `types` table keeps its order, since
+  dynamic containers index into it.
 - **`.json`** — compact, with keys in declaration order; `Bundle.json` uses fixed placeholder
   timestamps (`0001.01.01-00.00.00`) rather than wall-clock time.
 

@@ -21,13 +21,18 @@ The global data is stored in `World/0/GlobalData.{schema,mps}` and is loaded onc
 | `component_data_struct_names` | `Vec<String>` | yes | Struct name for each component type, parallel to `component_type_names`. Entries use the string `"None"` where a component has no data struct. |
 | `component_wire_port_names` | `IndexSet<String>` | yes | Registry of wire port names used by components. |
 | `external_asset_types` | `HashSet<String>` | **no** | Internal set of known external asset type strings, used only for type checking at runtime. Not written to disk. |
-| `external_asset_references` | `IndexSet<(String, String)>` | yes | Ordered registry of `(asset_type, asset_name)` pairs (serialized as `BRSavedPrimaryAssetId`). Referenced by u64 index. |
+| `external_asset_references` | `IndexSet<(String, String)>` | yes | Ordered registry of `(asset_type, asset_name)` pairs (serialized as `BRSavedPrimaryAssetId`). Referenced by integer index. |
+| `global_grid_entity_type_index` | `i32` | yes | Index into `entity_type_names` of the `BP_BrickGrid_Global_C` entity type, or -1 if the save has no global grid. Missing in older saves (read as -1). |
+| `prefab_spawn_instance_indices` | `Vec<u32>` | yes | Prefab spawn instance table. Latest saves only; empty for authored worlds. |
+| `prefab_spawn_instance_parent_indices` | `Vec<u32>` | yes | Parent of each prefab spawn instance, parallel to `prefab_spawn_instance_indices`. Latest saves only. |
 
 ---
 
 ## External Asset References
 
-External assets (sounds, particle effects, textures, etc.) are stored as a `u64` index into `external_asset_references`. The sentinel value `-1` (interpreted as `u64::MAX`) means null / `None`.
+External assets (sounds, particle effects, textures, etc.) are stored as a signed msgpack integer index into `external_asset_references`, in fields of type `class` and `object`. Any negative value (written as `-1`) means null / `None`. An index past the end of the list is an `UnknownAsset` error.
+
+`weak_object` fields are different in Latest saves: the integer is always written as `-1` and discarded on read, so the reference loads as null. EA3 saves store a real index there (see [older-versions.md](older-versions.md#ea3-format)).
 
 **Reading** (index -> asset):
 ```
@@ -88,4 +93,4 @@ The offset exists because basic and procedural brick type IDs share the same int
 
 - **Legacy `entity_data_class_names` fallback.** Older worlds (from around Steam Next Fest) did not serialize `EntityDataClassNames`. On read, if the key is absent from the msgpack struct, the reader falls back to `lookup_entity_struct_name(entity_type)` for each entry in `entity_type_names` to derive the class names. Unknown types map to `"Unknown"`.
 
-- **Asset index bounds checking.** Accessor methods (`basic_brick_asset_by_index`, `procedural_brick_asset_by_index`, `material_asset_by_index`) return `BrdbSchemaError::UnknownAsset` if the index is out of range. Callers must validate indices before use. The u64 sentinel `-1` is never passed to these methods; it is handled at the call site as a null check before indexing.
+- **Asset index bounds checking.** Accessor methods (`basic_brick_asset_by_index`, `procedural_brick_asset_by_index`, `material_asset_by_index`) return `BrdbSchemaError::UnknownAsset` if the index is out of range. Callers must validate indices before use. The null sentinel `-1` is never passed to these methods; it is handled at the call site as a null check before indexing.

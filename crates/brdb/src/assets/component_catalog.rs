@@ -7,7 +7,7 @@
 /// fully-placed, fully-wired "zoo" save (mirrors brs-js's COMPONENTS).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ComponentInfo {
-    /// e.g. "BrickComponentType_WireGraph_Exec_Branch".
+    /// e.g. "BrickComponentType_Exec_Branch".
     pub name: &'static str,
     /// Host brick asset name(s) that carry this component.
     pub bricks: &'static [&'static str],

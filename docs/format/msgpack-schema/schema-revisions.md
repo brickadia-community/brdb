@@ -44,6 +44,13 @@ Data and schema files sit side by side, e.g. `World/0/Bricks/ChunksShared.schema
 3. Parse that schema blob and decode the chunk with it — including any per-instance
    component/entity structs appended after the SoA, which use the same revision-selected schema.
 
+The selected schema also decides the chunk's **format**. A schema read from the map container
+is Latest and one read from the array container is EA3 (see
+[older-versions.md](older-versions.md#ea3-format)), and the format changes how some values decode:
+`weak_object`, `wire_graph_variant` selector 3, and flat array struct layout. A `.brdb` with
+older revisions can hold EA3 chunks next to Latest ones, so the format must be taken from each
+chunk's own schema, never from the world as a whole.
+
 Parent folders are treated as stable across revisions; only the leaf `.schema` file is resolved
 at the revision. Timestamps are Unix epoch **seconds**.
 
@@ -66,8 +73,8 @@ category is always decoded with that category's schema, revision-selected as abo
 | Entity chunk index | `World/0/Entities/ChunkIndex.schema` | `BRSavedEntityChunkIndexSoA` |
 
 A chunk and its inline per-instance structs always resolve to the **same** schema version, so a
-`BRSavedComponentChunkSoA` never disagrees with the `BrickComponentData_*` structs appended
-after it.
+`BRSavedComponentChunkSoA` never disagrees with the `BrickComponentData_*` /
+`BCSComponentVertex_*` structs appended after it.
 
 ---
 
@@ -75,7 +82,8 @@ after it.
 
 `World/0/GlobalData.{schema,mps}` is decoded with the **current** schema, not a
 revision-selected one. Older saves may omit some fields (`EntityDataClassNames`,
-`GlobalGridEntityTypeIndex`); these are handled by presence checks rather than by schema
+`GlobalGridEntityTypeIndex`, and the Latest-only `PrefabSpawnInstanceIndices` /
+`PrefabSpawnInstanceParentIndices`); these are handled by presence checks rather than by schema
 versioning.
 
 ---
@@ -90,10 +98,11 @@ selection is a no-op — the sibling schema is always the one used.
 
 ## Implications for writers
 
-A writer never performs the interval lookup: it emits exactly one current schema per category
-(always the 3-element form, structs in dependency order — see [overview.md](overview.md)). Only
-reading a multi-revision `.brdb` requires revision selection; a `.brz` reader and any writer can
-ignore it.
+A writer never performs the interval lookup: it emits exactly one current schema per category,
+with structs in dependency order (see [overview.md](overview.md#schema-files)). brdb's `World`
+writes every schema in the Latest map form by default (`World::schema_format`), as the game
+does. Only reading a multi-revision `.brdb` requires revision selection; a `.brz` reader and any
+writer can ignore it.
 
 ---
 

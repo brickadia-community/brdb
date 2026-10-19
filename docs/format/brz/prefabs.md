@@ -63,16 +63,22 @@ Example, observed in a real spawner prefab: the referenced `1x1f brick.brz`
 (BLAKE3 `74E5…AE3C`) is embedded unmodified at
 `Prefabs/Uploads/74E546B5A2E4688A5F887B103DBF97F0FB410431943399A4177E50049D12AE3C.brz`.
 
-## Component references (`bundle_path_ref`)
+## Component references (`Prefab` path)
 
 Prefab-spawning component data structs reference the embedded file through a
-`Prefab` property of schema type `bundle_path_ref` — serialized as a plain
-string holding the **root-relative path, no leading slash**:
+`Prefab` property, a plain string holding the **root-relative path, no leading
+slash**:
 
 ```
-BrickComponentData_PrefabSpawn                    { Prefab: bundle_path_ref, ... }
-BrickComponentData_WireGraph_Exec_PrefabSpawner   { Prefab: bundle_path_ref, ... }
+BrickComponentData_PrefabSpawn          { Prefab: str, SpawnOffset: Vector, ... }
+BCSComponentVertex_Exec_PrefabSpawner   { Prefab: str, SpawnOffset: Vector, ... }
 ```
+
+`BCSComponentVertex_Exec_PrefabSpawner` is the data struct of the
+`BrickComponentType_Exec_PrefabSpawner` gate. EA3 saves name the gate
+`BrickComponentType_WireGraph_Exec_PrefabSpawner` with data struct
+`BrickComponentData_WireGraph_Exec_PrefabSpawner`, and declare `Prefab` as
+`bundle_path_ref`, a legacy alias of `str` with the same encoding.
 
 e.g. `"Prefabs/Uploads/74E5…AE3C.brz"`.
 
@@ -88,7 +94,7 @@ let path = outer.add_prefab_world(&inner_world)?; // or add_prefab(bytes)
 outer.bricks.push(
     Brick { asset: BrickType::str("B_1x1_Gate_Exec_PrefabSpawner"), ..Default::default() }
         .with_component(
-            LiteralComponent::new("BrickComponentType_WireGraph_Exec_PrefabSpawner")
+            LiteralComponent::new("BrickComponentType_Exec_PrefabSpawner")
                 .with_data([("Prefab", Box::new(path) as Box<dyn AsBrdbValue>)]),
         ),
 );

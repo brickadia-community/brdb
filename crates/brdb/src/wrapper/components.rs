@@ -312,7 +312,7 @@ pub trait BoxedComponent: Send + Sync {
 }
 
 pub trait BrdbComponent: AsBrdbValue + BoxedComponent + Send + Sync {
-    /// The component type name (e.g. `"BrickComponentType_WireGraph_Expr_Add"`).
+    /// The component type name (e.g. `"BrickComponentType_Expr_LogicalAND"`).
     /// All other metadata (struct name, schema, wire ports, external assets) is
     /// resolved from the `ComponentLibrary` on `World`.
     fn component_type(&self) -> Option<BString> {

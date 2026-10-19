@@ -53,12 +53,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     }
     .with_component(
-        assets::LiteralComponent::new("BrickComponentType_WireGraph_Exec_PrefabSpawner").with_data(
-            [(
-                "Prefab",
-                Box::new(prefab_path.clone()) as Box<dyn AsBrdbValue>,
-            )],
-        ),
+        assets::LiteralComponent::new("BrickComponentType_Exec_PrefabSpawner").with_data([(
+            "Prefab",
+            Box::new(prefab_path.clone()) as Box<dyn AsBrdbValue>,
+        )]),
     )
     .with_id_split();
 
@@ -68,11 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // press fires the spawn.
     world.add_wire_connection(
         WirePort::new(button_id, "Component_Button", "bHeld"),
-        WirePort::new(
-            spawner_id,
-            "BrickComponentType_WireGraph_Exec_PrefabSpawner",
-            "Exec",
-        ),
+        WirePort::new(spawner_id, "BrickComponentType_Exec_PrefabSpawner", "Exec"),
     );
 
     // 3. Write it out.
